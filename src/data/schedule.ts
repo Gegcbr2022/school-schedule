@@ -92,10 +92,17 @@ export type GenderGroup = (typeof GENDER_GROUPS)[number]
  */
 export type Room = string
 
-/** Варіант уроку для конкретної групи. */
+/**
+ * Варіант уроку.
+ *
+ * `classGroup` і `language` — поділ класу: хто в якій групі, той те й слухає.
+ * `week` — предмет чергується по тижнях, слухає весь клас: цього тижня одне,
+ * наступного інше.
+ */
 export type Variant =
   | { by: 'classGroup'; group: ClassGroup; subject: SubjectCode; room?: Room }
   | { by: 'language'; group: LanguageGroup; subject: SubjectCode; room?: Room }
+  | { by: 'week'; group: WeekParity; subject: SubjectCode; room?: Room }
 
 /**
  * Урок, який слухає весь клас, але фізично сидить у різних кабінетах.
@@ -207,11 +214,13 @@ export const WEEK: Day[] = [
           { by: 'classGroup', group: '2', subject: 'ум', room: '18' },
         ],
       },
+      // Не поділ класу, а чергування по тижнях: слухають усі,
+      // просто цього тижня географія, наступного — інформатика.
       {
         n: 2,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'г', room: '1' },
-          { by: 'classGroup', group: '2', subject: 'і', room: '19' },
+          { by: 'week', group: 1, subject: 'г', room: '1' },
+          { by: 'week', group: 2, subject: 'і', room: '19' },
         ],
       },
       {

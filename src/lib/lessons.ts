@@ -3,7 +3,7 @@
  * і рахує, що відбувається просто зараз.
  */
 
-import type { Day, DayId, Lesson, LessonNumber, WeekParity } from '../data/schedule'
+import type { Day, DayId, Lesson, LessonNumber, Variant, WeekParity } from '../data/schedule'
 import { BELLS, ENGLISH_GROUPS, GENDER_GROUPS, SUBJECTS, WEEK } from '../data/schedule'
 import type { Prefs } from './prefs'
 import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_TAG } from './prefs'
@@ -40,11 +40,20 @@ function hasVariants(lesson: Lesson): lesson is VariantLesson {
   return 'variants' in lesson
 }
 
-/** Чи є цей урок у мене, з урахуванням групи. */
-function myVariant(lesson: VariantLesson, prefs: Prefs) {
-  return lesson.variants.find((v) =>
-    v.by === 'classGroup' ? v.group === prefs.classGroup : v.group === prefs.language,
-  )
+/** Який саме варіант уроку дістається цьому учневі цього тижня. */
+function myVariant(lesson: VariantLesson, prefs: Prefs, week: WeekParity) {
+  return lesson.variants.find((v) => {
+    if (v.by === 'classGroup') return v.group === prefs.classGroup
+    if (v.by === 'language') return v.group === prefs.language
+    return v.group === week
+  })
+}
+
+/** Підпис варіанта в повному розкладі: чия це група або котрий тиждень. */
+function variantTag(variant: Variant): string {
+  if (variant.by === 'classGroup') return CLASS_GROUP_LABEL[variant.group]
+  if (variant.by === 'language') return LANGUAGE_TAG[variant.group]
+  return `${variant.group} тиждень`
 }
 
 /**
@@ -110,7 +119,7 @@ export function buildDay(
         ...bell,
         items: lesson.variants.map((v) => ({
           subject: SUBJECTS[v.subject],
-          who: v.by === 'classGroup' ? CLASS_GROUP_LABEL[v.group] : LANGUAGE_TAG[v.group],
+          who: variantTag(v),
           room: v.room,
         })),
         note: weekNote,
@@ -118,7 +127,7 @@ export function buildDay(
       continue
     }
 
-    const mine = myVariant(lesson, prefs)
+    const mine = myVariant(lesson, prefs, week)
     // Немає варіанта для моєї групи — значить, цього уроку в мене просто немає.
     if (!mine) continue
 
@@ -128,10 +137,12 @@ export function buildDay(
       items: [
         {
           subject: SUBJECTS[mine.subject],
+          // Мовну групу й тиждень підписувати нема потреби — це й так видно.
           who: mine.by === 'classGroup' ? CLASS_GROUP_LABEL[mine.group] : undefined,
           room: mine.room,
         },
       ],
+      note: mine.by === 'week' ? `Чергується по тижнях · ${week} тиждень` : undefined,
     })
   }
 
@@ -147,7 +158,7 @@ export function offWeekNote(day: Day, prefs: Prefs, week: WeekParity): string | 
     if (lesson.onlyWeek === undefined || lesson.onlyWeek === week) continue
 
     const subject = hasVariants(lesson)
-      ? myVariant(lesson, prefs)?.subject
+      ? myVariant(lesson, prefs, week)?.subject
       : lesson.subject
     if (!subject) continue
 

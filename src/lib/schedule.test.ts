@@ -116,6 +116,42 @@ describe('групи', () => {
   })
 })
 
+describe('середа, 2 урок — чергується по тижнях', () => {
+  const wed = dayById('wed')
+  const second = (p: Prefs, w: 1 | 2) => buildDay(wed, p, 'my', w).find((l) => l.n === 2)
+
+  it('перший тиждень — географія, другий — інформатика', () => {
+    expect(second(G1, 1)?.items[0].subject).toBe(SUBJECTS.г)
+    expect(second(G1, 2)?.items[0].subject).toBe(SUBJECTS.і)
+  })
+
+  it('однаково для обох навчальних груп — це не поділ класу', () => {
+    expect(second(G1, 1)?.items[0].subject).toBe(second(G2, 1)?.items[0].subject)
+    expect(second(G1, 2)?.items[0].subject).toBe(second(G2, 2)?.items[0].subject)
+  })
+
+  it('кабінет свій у кожного тижня', () => {
+    expect(second(G1, 1)?.items[0].room).toBe('1')
+    expect(second(G1, 2)?.items[0].room).toBe('19')
+  })
+
+  it('урок є завжди — на відміну від хімії', () => {
+    expect(second(G1, 1)).toBeDefined()
+    expect(second(G1, 2)).toBeDefined()
+  })
+
+  it('підписаний, щоб не плутати з поділом на групи', () => {
+    expect(second(G1, 1)?.note).toContain('тижн')
+    expect(second(G1, 1)?.items[0].who).toBeUndefined()
+  })
+
+  it('у повному розкладі видно обидва тижні', () => {
+    const full = buildDay(wed, G1, 'full', 1).find((l) => l.n === 2)
+    expect(full?.items.map((i) => i.who)).toEqual(['1 тиждень', '2 тиждень'])
+    expect(subjects([full!])[0]).toBe(`${SUBJECTS.г} / ${SUBJECTS.і}`)
+  })
+})
+
 describe('хімія через тиждень', () => {
   const wed = dayById('wed')
 
