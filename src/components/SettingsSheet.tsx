@@ -1,14 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import type { Dim } from '../data/schedule'
 import {
   CLASS_GROUPS,
   ENGLISH_GROUPS,
-  ENGLISH_TEACHERS,
   GENDER_GROUPS,
+  GENDER_LABEL,
+  GROUP_LABEL,
   LANGUAGE_GROUPS,
-  UKRAINIAN_TEACHERS,
+  LANGUAGE_LABEL,
+  TEACHERS,
 } from '../data/schedule'
+import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Theme } from '../lib/prefs'
-import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_LABEL } from '../lib/prefs'
 import { CloseIcon } from './Icons'
 
 type Props = {
@@ -74,19 +77,12 @@ const THEME_OPTIONS: Option<Theme>[] = [
 
 const CLASS_OPTIONS: Option<Prefs['classGroup']>[] = CLASS_GROUPS.map((g) => ({
   value: g,
-  label: CLASS_GROUP_LABEL[g],
-  sub: UKRAINIAN_TEACHERS[g],
+  label: GROUP_LABEL[g],
 }))
 
 const LANGUAGE_OPTIONS: Option<Prefs['language']>[] = LANGUAGE_GROUPS.map((g) => ({
   value: g,
   label: LANGUAGE_LABEL[g],
-}))
-
-const ENGLISH_OPTIONS: Option<Prefs['english']>[] = ENGLISH_GROUPS.map((g) => ({
-  value: g,
-  label: g,
-  sub: ENGLISH_TEACHERS[g],
 }))
 
 const GENDER_OPTIONS: Option<string>[] = [
@@ -131,6 +127,19 @@ export function SettingsSheet({
     }
   }, [onboarding, onClose])
 
+  const cls = classById(draft.classId)
+  // Питаємо лише про ті поділи, які в цьому класі справді є.
+  const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
+
+  // Підгрупи англійської підписуємо вчителем, якщо він відомий.
+  const englishOptions: Option<Prefs['english']>[] = ENGLISH_GROUPS.map((g) => {
+    const code = cls?.days
+      .flat()
+      .flatMap((l) => l.c)
+      .find((c) => c.g === g)?.t
+    return { value: g, label: g.toUpperCase(), sub: code ? (TEACHERS[code] ?? code) : undefined }
+  })
+
   return (
     <div
       className="sheet-backdrop"
@@ -148,7 +157,7 @@ export function SettingsSheet({
       >
         <div className="sheet__head">
           <h2 className="sheet__title" id={headingId}>
-            {onboarding ? 'Ваші групи' : 'Налаштування'}
+            {onboarding ? 'Ваш клас' : 'Налаштування'}
           </h2>
           {!onboarding && (
             <button type="button" className="iconbtn" onClick={onClose} aria-label="Закрити">
@@ -159,45 +168,79 @@ export function SettingsSheet({
 
         <p className="sheet__intro">
           {onboarding
-            ? 'Деякі уроки різні для різних груп. Оберіть свої — і розклад покаже саме ваші предмети. Змінити можна будь-коли.'
+            ? 'Оберіть свій клас — і побачите саме свій розклад. Змінити можна будь-коли.'
             : 'Налаштування зберігаються лише на цьому пристрої.'}
         </p>
 
-        <Radios
-          name="classGroup"
-          legend="Навчальна група"
-          options={CLASS_OPTIONS}
-          value={draft.classGroup}
-          onChange={(classGroup) => update({ classGroup })}
-          hint="Під номером — вчитель української мови. Ця сама група ділить інформатику, технології, країнознавство та хімію."
-        />
+        <fieldset className="field">
+          <legend className="field__label">Клас</legend>
+          {classesByGrade().map(({ grade, classes }) => (
+            <div className="grade" key={grade}>
+              <span className="grade__label">{grade}</span>
+              <div className="grade__classes">
+                {classes.map((item) => (
+                  <label className="option option--tight" key={item.id}>
+                    <input
+                      type="radio"
+                      className="visually-hidden"
+                      name="classId"
+                      value={item.id}
+                      aria-label={`Клас ${item.name}`}
+                      checked={draft.classId === item.id}
+                      onChange={() => update({ classId: item.id })}
+                    />
+                    <span>{item.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          {cls?.homeroom && <p className="field__hint">Класний керівник: {cls.homeroom}</p>}
+        </fieldset>
 
-        <Radios
-          name="language"
-          legend="Друга іноземна"
-          options={LANGUAGE_OPTIONS}
-          value={draft.language}
-          onChange={(language) => update({ language })}
-        />
+        {dims.has('classGroup') && (
+          <Radios
+            name="classGroup"
+            legend="Навчальна група"
+            options={CLASS_OPTIONS}
+            value={draft.classGroup}
+            onChange={(classGroup) => update({ classGroup })}
+            hint="Ділить клас на спарених уроках — українській, інформатиці, технологіях."
+          />
+        )}
 
-        <Radios
-          name="english"
-          legend="Англійська підгрупа"
-          options={ENGLISH_OPTIONS}
-          value={draft.english}
-          onChange={(english) => update({ english })}
-        />
+        {dims.has('language') && (
+          <Radios
+            name="language"
+            legend="Друга іноземна"
+            options={LANGUAGE_OPTIONS}
+            value={draft.language}
+            onChange={(language) => update({ language })}
+          />
+        )}
 
-        <Radios
-          name="gender"
-          legend="Фізкультура"
-          options={GENDER_OPTIONS}
-          value={draft.gender ?? 'none'}
-          onChange={(value) =>
-            update({ gender: value === 'none' ? null : (value as Prefs['gender']) })
-          }
-          hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
-        />
+        {dims.has('english') && (
+          <Radios
+            name="english"
+            legend="Англійська підгрупа"
+            options={englishOptions}
+            value={draft.english}
+            onChange={(english) => update({ english })}
+          />
+        )}
+
+        {dims.has('gender') && (
+          <Radios
+            name="gender"
+            legend="Фізкультура"
+            options={GENDER_OPTIONS}
+            value={draft.gender ?? 'none'}
+            onChange={(value) =>
+              update({ gender: value === 'none' ? null : (value as Prefs['gender']) })
+            }
+            hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
+          />
+        )}
 
         {!onboarding && (
           <Radios

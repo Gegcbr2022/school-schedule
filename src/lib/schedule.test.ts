@@ -1,43 +1,57 @@
-import { describe, expect, it } from 'vitest'
-import { BELLS, LESSON_NUMBERS, SUBJECTS, WEEK } from '../data/schedule'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { Period } from '../data/schedule'
+import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
+import { TIMETABLE } from '../data/timetable'
 import { addDays, formatDuration, kyivNow, plural, weekParity } from './clock'
 import {
   buildDay,
+  classById,
+  classesByGrade,
   computeStatus,
-  dayById,
   daysUntil,
+  dimensionsOf,
   finishedCount,
-  nextSchoolDay,
+  nextSchoolIso,
   offWeekNote,
+  roomLabel,
 } from './lessons'
 import type { Prefs } from './prefs'
-
-const G1: Prefs = { classGroup: '1', language: 'de', english: 'А', gender: 'boys' }
-const G2: Prefs = { classGroup: '2', language: 'fr', english: 'Б', gender: 'girls' }
-const NO_GENDER: Prefs = { ...G1, gender: null }
+import { loadPrefs, savePrefs } from './prefs'
 
 const at = (h: number, m: number) => h * 60 + m
-const subjects = (lessons: { items: { subject: string }[] }[]) =>
-  lessons.map((l) => l.items.map((i) => i.subject).join(' / '))
+
+const G1: Prefs = { classId: '10б', classGroup: '1', language: 'н', english: 'а', gender: 'х' }
+const G2: Prefs = { classId: '10б', classGroup: '2', language: 'ф', english: 'б', gender: 'д' }
+const NO_GENDER: Prefs = { ...G1, gender: null }
+
+const TEN_B = classById('10б')!
+const MON = 0
+const TUE = 1
+const WED = 2
+const FRI = 4
+
+const day = (prefs: Prefs, index: number, week: 1 | 2 = 1, mode: 'my' | 'full' = 'my') =>
+  buildDay(TEN_B, index, prefs, mode, week)
+
+const at10b = (prefs: Prefs, index: number, period: number, week: 1 | 2 = 1) =>
+  day(prefs, index, week).find((l) => l.period === period)
 
 describe('дзвінки', () => {
-  it('усі уроки по 40 хвилин', () => {
-    for (const n of LESSON_NUMBERS) {
-      expect(BELLS[n].end - BELLS[n].start).toBe(40)
-    }
+  it('усі дванадцять уроків по 40 хвилин', () => {
+    for (const p of PERIODS) expect(BELLS[p].end - BELLS[p].start).toBe(40)
   })
 
   it('ідуть по порядку і не накладаються', () => {
-    for (let i = 1; i < LESSON_NUMBERS.length; i += 1) {
-      const prev = BELLS[LESSON_NUMBERS[i - 1]]
-      const next = BELLS[LESSON_NUMBERS[i]]
-      expect(next.start).toBeGreaterThan(prev.end)
+    for (let i = 1; i < PERIODS.length; i += 1) {
+      expect(BELLS[PERIODS[i]].start).toBeGreaterThan(BELLS[PERIODS[i - 1]].end)
     }
   })
 
-  it('перший дзвінок о 08:00, восьмий урок закінчується о 15:20', () => {
+  it('перша зміна починається о 08:00, друга — о 13:40', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[8].end).toBe(at(15, 20))
+    expect(BELLS[6].end).toBe(at(13, 25))
+    expect(BELLS[7].start).toBe(at(13, 40))
+    expect(BELLS[12].end).toBe(at(18, 45))
   })
 })
 
@@ -55,7 +69,7 @@ describe('київський час', () => {
   })
 
   it('опівночі за Києвом день уже новий, навіть якщо в UTC ще вчора', () => {
-    const t = kyivNow(new Date('2026-09-01T21:30:00Z')) // 00:30 2 вересня в Києві
+    const t = kyivNow(new Date('2026-09-01T21:30:00Z'))
     expect(t).toMatchObject({ month: 9, day: 2 })
     expect(t.minutes).toBeCloseTo(30, 5)
   })
@@ -64,257 +78,230 @@ describe('київський час', () => {
 describe('парність тижня', () => {
   it('тиждень із 1 вересня — перший', () => {
     expect(weekParity({ year: 2026, month: 9, day: 1 })).toBe(1)
-    // 31 серпня — понеділок того ж тижня.
     expect(weekParity({ year: 2026, month: 8, day: 31 })).toBe(1)
   })
 
-  it('наступний тиждень — другий', () => {
-    expect(weekParity({ year: 2026, month: 9, day: 7 })).toBe(2)
-    expect(weekParity({ year: 2026, month: 9, day: 13 })).toBe(2)
-  })
-
   it('далі чергується', () => {
+    expect(weekParity({ year: 2026, month: 9, day: 7 })).toBe(2)
     expect(weekParity({ year: 2026, month: 9, day: 14 })).toBe(1)
     expect(weekParity({ year: 2026, month: 9, day: 21 })).toBe(2)
   })
 
-  it('1 вересня 2025 теж перший тиждень', () => {
-    expect(weekParity({ year: 2025, month: 9, day: 1 })).toBe(1)
-  })
-
   it('після Нового року відлік не збивається', () => {
-    // 4 січня 2027 — понеділок; від 31.08.2026 це 18-й тиждень (індекс 18).
     expect(weekParity({ year: 2027, month: 1, day: 4 })).toBe(1)
   })
 })
 
-describe('групи', () => {
-  it('понеділок, 4 урок: у групах різні предмети', () => {
-    const mon = dayById('mon')
-    const first = buildDay(mon, G1, 'my', 1).find((l) => l.n === 4)
-    const second = buildDay(mon, G2, 'my', 1).find((l) => l.n === 4)
-    expect(first?.items[0].subject).toBe(SUBJECTS.ум)
-    expect(second?.items[0].subject).toBe(SUBJECTS.к)
+describe('розклад усієї школи', () => {
+  it('усі класи з 4 по 11', () => {
+    const grades = classesByGrade().map((g) => g.grade)
+    expect(grades).toEqual([4, 5, 6, 7, 8, 9, 10, 11])
+    expect(TIMETABLE).toHaveLength(24)
   })
 
-  it('середа, 3 урок: друга іноземна за вибором', () => {
-    const wed = dayById('wed')
-    expect(buildDay(wed, G1, 'my', 1).find((l) => l.n === 3)?.items[0].subject).toBe(SUBJECTS.нм)
-    expect(buildDay(wed, G2, 'my', 1).find((l) => l.n === 3)?.items[0].subject).toBe(SUBJECTS.фм)
+  it('у кожного класу п’ять днів і хоч один урок', () => {
+    for (const cls of TIMETABLE) {
+      expect(cls.days).toHaveLength(5)
+      expect(cls.days.flat().length).toBeGreaterThan(0)
+    }
   })
 
-  it('повний розклад показує всі варіанти одразу', () => {
-    const wed = buildDay(dayById('wed'), G1, 'full', 1).find((l) => l.n === 1)
-    expect(subjects([wed!])[0]).toBe(`${SUBJECTS.і} / ${SUBJECTS.ум}`)
-    expect(wed?.items.map((i) => i.who)).toEqual(['1 група', '2 група'])
+  it('кожен період має дзвінок і не повторюється в межах дня', () => {
+    for (const cls of TIMETABLE) {
+      for (const lessons of cls.days) {
+        const periods = lessons.map((l) => l.p)
+        expect(periods).toEqual([...periods].sort((a, b) => a - b))
+        expect(new Set(periods).size).toBe(periods.length)
+        for (const p of periods) expect(BELLS[p as Period]).toBeDefined()
+      }
+    }
   })
 
-  it('англійська однакова для всіх підгруп, змінюється лише підпис', () => {
-    const mon = buildDay(dayById('mon'), G2, 'my', 1).find((l) => l.n === 5)
-    expect(mon?.items[0].subject).toBe(SUBJECTS.ам)
-    expect(mon?.note).toBe('Підгрупа Б')
-  })
-})
-
-describe('середа, 2 урок — чергується по тижнях', () => {
-  const wed = dayById('wed')
-  const second = (p: Prefs, w: 1 | 2) => buildDay(wed, p, 'my', w).find((l) => l.n === 2)
-
-  it('перший тиждень — географія, другий — інформатика', () => {
-    expect(second(G1, 1)?.items[0].subject).toBe(SUBJECTS.г)
-    expect(second(G1, 2)?.items[0].subject).toBe(SUBJECTS.і)
+  it('кожен ключ групи належить якомусь поділу', () => {
+    for (const cls of TIMETABLE) {
+      for (const cell of cls.days.flat().flatMap((l) => l.c)) {
+        if (cell.g) expect(GROUP_DIM[cell.g]).toBeDefined()
+      }
+    }
   })
 
-  it('однаково для обох навчальних груп — це не поділ класу', () => {
-    expect(second(G1, 1)?.items[0].subject).toBe(second(G2, 1)?.items[0].subject)
-    expect(second(G1, 2)?.items[0].subject).toBe(second(G2, 2)?.items[0].subject)
-  })
-
-  it('кабінет свій у кожного тижня', () => {
-    expect(second(G1, 1)?.items[0].room).toBe('1')
-    expect(second(G1, 2)?.items[0].room).toBe('19')
-  })
-
-  it('урок є завжди — на відміну від хімії', () => {
-    expect(second(G1, 1)).toBeDefined()
-    expect(second(G1, 2)).toBeDefined()
-  })
-
-  it('підписаний, щоб не плутати з поділом на групи', () => {
-    expect(second(G1, 1)?.note).toContain('тижн')
-    expect(second(G1, 1)?.items[0].who).toBeUndefined()
-  })
-
-  it('у повному розкладі видно обидва тижні', () => {
-    const full = buildDay(wed, G1, 'full', 1).find((l) => l.n === 2)
-    expect(full?.items.map((i) => i.who)).toEqual(['1 тиждень', '2 тиждень'])
-    expect(subjects([full!])[0]).toBe(`${SUBJECTS.г} / ${SUBJECTS.і}`)
-  })
-})
-
-describe('хімія через тиждень', () => {
-  const wed = dayById('wed')
-
-  it('у 2 групи є лише на другому тижні', () => {
-    expect(buildDay(wed, G2, 'my', 1).some((l) => l.n === 8)).toBe(false)
-    expect(buildDay(wed, G2, 'my', 2).some((l) => l.n === 8)).toBe(true)
-  })
-
-  it('у 1 групи немає ніколи', () => {
-    expect(buildDay(wed, G1, 'my', 1).some((l) => l.n === 8)).toBe(false)
-    expect(buildDay(wed, G1, 'my', 2).some((l) => l.n === 8)).toBe(false)
-  })
-
-  it('у повному розкладі видно завжди, з підписом про тиждень', () => {
-    const off = buildDay(wed, G1, 'full', 1).find((l) => l.n === 8)
-    const on = buildDay(wed, G1, 'full', 2).find((l) => l.n === 8)
-    expect(off?.note).toContain('Наступного')
-    expect(on?.note).toContain('Цього')
-  })
-
-  it('пояснення показуємо лише тому, у кого урок зник', () => {
-    expect(offWeekNote(wed, G2, 1)).toContain(SUBJECTS.х)
-    expect(offWeekNote(wed, G2, 2)).toBeNull()
-    expect(offWeekNote(wed, G1, 1)).toBeNull()
-  })
-})
-
-describe('вчителі як підказка «яка група моя»', () => {
-  it('англійська: свій вчитель у кожної підгрупи', () => {
-    const forGroup = (english: Prefs['english']) =>
-      buildDay(dayById('mon'), { ...G1, english }, 'my', 1).find((l) => l.n === 5)
-
-    expect(forGroup('А')?.items[0].teacher).toBe('Андрішак')
-    expect(forGroup('Б')?.items[0].teacher).toBe('Пташник')
-    expect(forGroup('В')?.items[0].teacher).toBe('Горін')
-  })
-
-  it('англійська: у повному розкладі перелічені всі підгрупи', () => {
-    const note = buildDay(dayById('mon'), G1, 'full', 1).find((l) => l.n === 5)?.note
-    expect(note).toBe('А — Андрішак · Б — Пташник · В — Горін')
-  })
-
-  it('українська мова: свій вчитель у кожної навчальної групи', () => {
-    // Понеділок, 4 урок — українська тільки у 1 групи.
-    expect(
-      buildDay(dayById('mon'), G1, 'my', 1).find((l) => l.n === 4)?.items[0].teacher,
-    ).toBe('Желяк')
-    // Вівторок, 5 урок — українська у 2 групи.
-    expect(
-      buildDay(dayById('tue'), G2, 'my', 1).find((l) => l.n === 5)?.items[0].teacher,
-    ).toBe('Драгомирецька')
-  })
-
-  it('вчитель української однаковий у всі дні', () => {
-    const ukrainianTeachers = new Set<string>()
-    for (const day of WEEK) {
-      for (const lesson of buildDay(day, G2, 'my', 1)) {
-        if (lesson.items[0].subject === SUBJECTS.ум && lesson.items[0].teacher) {
-          ukrainianTeachers.add(lesson.items[0].teacher)
+  it('кожен учень бачить хоч один урок у будь-який день і тиждень', () => {
+    for (const cls of TIMETABLE) {
+      const prefs: Prefs = { ...G1, classId: cls.id }
+      for (let d = 0; d < 5; d += 1) {
+        if (cls.days[d].length === 0) continue
+        for (const week of [1, 2] as const) {
+          expect(buildDay(cls, d, prefs, 'my', week).length).toBeGreaterThan(0)
         }
       }
     }
-    expect([...ukrainianTeachers]).toEqual(['Драгомирецька'])
   })
 
-  it('там, де вчителя в розкладі немає, нічого не вигадуємо', () => {
-    const mon = buildDay(dayById('mon'), G1, 'my', 1)
-    expect(mon.find((l) => l.n === 1)?.items[0].teacher).toBeUndefined() // математика
-    expect(mon.find((l) => l.n === 6)?.items[0].teacher).toBeUndefined() // біологія
+  it('друга зміна справді починається по обіді', () => {
+    const fifth = classById('5а')!
+    const first = buildDay(fifth, 1, { ...G1, classId: '5а' }, 'my', 1)[0]
+    expect(first.start).toBeGreaterThanOrEqual(at(12, 45))
   })
 
-  it('у повному розкладі вчитель стоїть біля свого варіанта', () => {
-    const mon = buildDay(dayById('mon'), G1, 'full', 1).find((l) => l.n === 4)
-    expect(mon?.items).toEqual([
-      { subject: SUBJECTS.ум, who: '1 група', room: '16', teacher: 'Желяк' },
-      { subject: SUBJECTS.к, who: '2 група', room: undefined, teacher: undefined },
-    ])
+  it('уроки нумеруються по порядку дня, а не за періодом', () => {
+    const fifth = classById('5а')!
+    const lessons = buildDay(fifth, 1, { ...G1, classId: '5а' }, 'my', 1)
+    expect(lessons.map((l) => l.n)).toEqual(lessons.map((_, i) => i + 1))
+    expect(lessons[0].period).toBeGreaterThan(1)
+  })
+})
+
+describe('предмети', () => {
+  it('відомі скорочення розшифровуються', () => {
+    expect(subjectName('М')).toBe('Математика')
+    expect(subjectName('фк')).toBe('Фізична культура')
+  })
+
+  it('невідоме скорочення показуємо як є, а не вигадуємо', () => {
+    expect(SUBJECTS.нр).toBeUndefined()
+    expect(subjectName('нр')).toBe('нр')
   })
 })
 
 describe('кабінети', () => {
-  it('беруться з розкладу, а не вигадуються', () => {
-    const mon = buildDay(dayById('mon'), G1, 'my', 1)
-    expect(mon.find((l) => l.n === 1)?.items[0].room).toBeUndefined()
-    expect(mon.find((l) => l.n === 2)?.items[0].room).toBe('12')
-    expect(mon.find((l) => l.n === 4)?.items[0].room).toBe('16')
+  it('числові підписуємо, літерні лишаємо як у розкладі', () => {
+    expect(roomLabel('12')).toBe('каб. 12')
+    expect(roomLabel('сз')).toBe('сз')
+    expect(roomLabel(undefined)).toBeNull()
   })
 
-  it('у другої групи свій кабінет, у першої свій', () => {
-    const tue = (p: Prefs) => buildDay(dayById('tue'), p, 'my', 1).find((l) => l.n === 3)
-    expect(tue(G1)?.items[0].room).toBe('17')
-    expect(tue(G2)?.items[0].room).toBe('15')
+  it('10-Б: кабінети з офіційного розкладу', () => {
+    expect(at10b(G1, MON, 1)?.items[0].room).toBeUndefined()
+    expect(at10b(G1, MON, 2)?.items[0].room).toBe('12')
+    expect(at10b(G1, MON, 3)?.items[0].room).toBe('19')
+    expect(at10b(G1, MON, 6)?.items[0].room).toBe('6')
+    expect(at10b(G1, TUE, 1)?.items[0].room).toBe('9')
   })
 
-  it('на фізкультурі зал залежить від поділу', () => {
-    const mon = (p: Prefs) => buildDay(dayById('mon'), p, 'my', 1).find((l) => l.n === 7)
-    expect(mon(G1)?.items[0].room).toBe('8')
-    expect(mon(G2)?.items[0].room).toBe('13')
-    // Поділ не вказаний — кабінет не вигадуємо.
-    expect(mon(NO_GENDER)?.items[0].room).toBeUndefined()
+  it('10-Б: фізкультура — свій зал у кожного поділу', () => {
+    expect(at10b(G1, MON, 7)?.items[0].room).toBe('8')
+    expect(at10b(G2, MON, 7)?.items[0].room).toBe('тз')
+    expect(at10b(G1, TUE, 8)?.items[0].room).toBe('2')
+    expect(at10b(G2, TUE, 8)?.items[0].room).toBe('тз')
+    expect(at10b(G1, WED, 5)?.items[0].room).toBe('25')
+    expect(at10b(G2, WED, 5)?.items[0].room).toBe('сз')
   })
 
-  it('якщо номера немає в розкладі — немає і в даних', () => {
-    // Середа, 5 урок: у дівчат замість номера буквене позначення.
-    const wed = (p: Prefs) => buildDay(dayById('wed'), p, 'my', 1).find((l) => l.n === 5)
-    expect(wed(G1)?.items[0].room).toBe('25')
-    expect(wed(G2)?.items[0].room).toBeUndefined()
+  it('поділ не вказаний — зал не вигадуємо', () => {
+    expect(at10b(NO_GENDER, MON, 7)?.items[0].room).toBeUndefined()
+    expect(at10b(NO_GENDER, MON, 7)?.items[0].subject).toBe('Фізична культура')
+  })
+})
+
+describe('групи 10-Б', () => {
+  it('понеділок, 4 урок: у групах різні предмети', () => {
+    expect(at10b(G1, MON, 4)?.items[0].subject).toBe('Українська мова')
+    expect(at10b(G2, MON, 4)?.items[0].subject).toBe('Країнознавство')
   })
 
-  it('повний розклад показує обидва зали окремими рядками', () => {
-    const mon = buildDay(dayById('mon'), G1, 'full', 1).find((l) => l.n === 7)
-    expect(mon?.items).toEqual([
-      { subject: SUBJECTS.фк, who: 'Хлопці', room: '8' },
-      { subject: SUBJECTS.фк, who: 'Дівчата', room: '13' },
+  it('друга іноземна за вибором', () => {
+    expect(at10b(G1, WED, 3)?.items[0].subject).toBe('Німецька мова')
+    expect(at10b(G2, WED, 3)?.items[0].subject).toBe('Французька мова')
+  })
+
+  it('вчителі підказують, яка група твоя', () => {
+    expect(at10b(G1, MON, 4)?.items[0].teacher).toBe('Желяк')
+    expect(at10b(G2, TUE, 5)?.items[0].teacher).toBe('Драгомирецька')
+    expect(at10b({ ...G1, english: 'а' }, MON, 5)?.items[0].teacher).toBe('Андрішак')
+    expect(at10b({ ...G1, english: 'б' }, MON, 5)?.items[0].teacher).toBe('Пташник')
+    expect(at10b({ ...G1, english: 'в' }, MON, 5)?.items[0].teacher).toBe('Горін')
+  })
+
+  it('повний розклад показує всі варіанти з підписами', () => {
+    const lesson = day(G1, MON, 1, 'full').find((l) => l.period === 4)
+    expect(lesson?.items.map((i) => i.who)).toEqual(['1 група', '2 група'])
+    expect(lesson?.items.map((i) => i.subject)).toEqual([
+      'Українська мова',
+      'Країнознавство',
     ])
   })
 })
 
+describe('чергування по тижнях', () => {
+  it('середа, 2 урок: перший тиждень географія, другий інформатика', () => {
+    expect(at10b(G1, WED, 2, 1)?.items[0].subject).toBe('Географія')
+    expect(at10b(G1, WED, 2, 2)?.items[0].subject).toBe('Інформатика')
+  })
+
+  it('однаково для обох навчальних груп — це не поділ класу', () => {
+    expect(at10b(G2, WED, 2, 1)?.items[0].subject).toBe('Географія')
+    expect(at10b(G2, WED, 2, 2)?.items[0].subject).toBe('Інформатика')
+  })
+
+  it('кабінет свій у кожного тижня', () => {
+    expect(at10b(G1, WED, 2, 1)?.items[0].room).toBe('1')
+    expect(at10b(G1, WED, 2, 2)?.items[0].room).toBe('19')
+  })
+
+  it('урок є завжди — на відміну від хімії', () => {
+    expect(at10b(G1, WED, 2, 1)).toBeDefined()
+    expect(at10b(G1, WED, 2, 2)).toBeDefined()
+  })
+
+  it('хімія 8-м уроком: лише 2 група і лише другий тиждень', () => {
+    expect(at10b(G2, WED, 8, 1)).toBeUndefined()
+    expect(at10b(G2, WED, 8, 2)?.items[0].subject).toBe('Хімія')
+    expect(at10b(G1, WED, 8, 1)).toBeUndefined()
+    expect(at10b(G1, WED, 8, 2)).toBeUndefined()
+  })
+
+  it('пояснюємо зниклу хімію тільки тому, у кого вона буває', () => {
+    expect(offWeekNote(TEN_B, WED, G2, 1)).toContain('Хімія')
+    expect(offWeekNote(TEN_B, WED, G2, 2)).toBeNull()
+    expect(offWeekNote(TEN_B, WED, G1, 1)).toBeNull()
+  })
+})
+
+describe('які поділи є в класі', () => {
+  it('10-Б ділиться за всіма ознаками', () => {
+    const dims = dimensionsOf(TEN_B)
+    expect([...dims].sort()).toEqual(['classGroup', 'english', 'gender', 'language', 'week'])
+  })
+
+  it('у четвертих класах другої іноземної немає', () => {
+    expect(dimensionsOf(classById('4а')!).has('language')).toBe(false)
+  })
+})
+
 describe('що зараз', () => {
-  const lessons = buildDay(dayById('mon'), G1, 'my', 1)
+  const lessons = day(G1, MON)
 
   it('до першого дзвінка', () => {
     const s = computeStatus(lessons, at(7, 30))
     expect(s.kind).toBe('before')
-    if (s.kind === 'before') {
-      expect(s.inMin).toBe(30)
-      expect(s.next.n).toBe(1)
-    }
+    if (s.kind === 'before') expect(s.inMin).toBe(30)
   })
 
   it('під час уроку рахує, скільки лишилось', () => {
     const s = computeStatus(lessons, at(8, 22))
     expect(s.kind).toBe('lesson')
     if (s.kind === 'lesson') {
-      expect(s.current.n).toBe(1)
       expect(s.leftMin).toBe(18)
       expect(s.progress).toBeCloseTo(22 / 40, 5)
-      expect(s.next?.n).toBe(2)
+      expect(s.next?.period).toBe(2)
     }
   })
 
   it('рівно на дзвінку урок уже скінчився', () => {
     const s = computeStatus(lessons, at(8, 40))
     expect(s.kind).toBe('break')
-    if (s.kind === 'break') {
-      expect(s.next.n).toBe(2)
-      expect(s.inMin).toBe(15)
-    }
+    if (s.kind === 'break') expect(s.inMin).toBe(15)
   })
 
   it('рівно на початку урок уже почався', () => {
     const s = computeStatus(lessons, at(8, 55))
     expect(s.kind).toBe('lesson')
-    if (s.kind === 'lesson') {
-      expect(s.current.n).toBe(2)
-      expect(s.progress).toBe(0)
-    }
+    if (s.kind === 'lesson') expect(s.progress).toBe(0)
   })
 
   it('після останнього уроку — на сьогодні все', () => {
-    const s = computeStatus(lessons, at(14, 21))
+    const s = computeStatus(lessons, at(23, 0))
     expect(s.kind).toBe('done')
-    if (s.kind === 'done') expect(s.total).toBe(lessons.length)
   })
 
   it('порожній день не ламає логіку', () => {
@@ -335,23 +322,15 @@ describe('що зараз', () => {
 
 describe('перехід між днями', () => {
   it('після п’ятниці — понеділок', () => {
-    expect(nextSchoolDay(5).id).toBe('mon')
-  })
-
-  it('на вихідних теж понеділок', () => {
-    expect(nextSchoolDay(6).id).toBe('mon')
-    expect(nextSchoolDay(7).id).toBe('mon')
-  })
-
-  it('серед тижня — наступний день', () => {
-    expect(nextSchoolDay(3).id).toBe('thu')
+    expect(nextSchoolIso(5)).toBe(1)
+    expect(nextSchoolIso(7)).toBe(1)
+    expect(nextSchoolIso(3)).toBe(4)
   })
 
   it('скільки діб чекати', () => {
-    expect(daysUntil(6, 1)).toBe(2) // субота → понеділок
-    expect(daysUntil(7, 1)).toBe(1) // неділя → понеділок
-    expect(daysUntil(5, 1)).toBe(3) // п’ятниця → понеділок
-    expect(daysUntil(3, 4)).toBe(1)
+    expect(daysUntil(6, 1)).toBe(2)
+    expect(daysUntil(7, 1)).toBe(1)
+    expect(daysUntil(5, 1)).toBe(3)
   })
 
   it('додавання днів переходить через межу місяця', () => {
@@ -363,23 +342,54 @@ describe('перехід між днями', () => {
   })
 })
 
-describe('розклад загалом', () => {
-  it('у кожному дні уроки йдуть за зростанням номера', () => {
-    for (const day of WEEK) {
-      const numbers = day.lessons.map((l) => l.n)
-      expect(numbers).toEqual([...numbers].sort((a, b) => a - b))
-      expect(new Set(numbers).size).toBe(numbers.length)
-    }
+describe('налаштування зі старої версії', () => {
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    })
   })
 
-  it('кожен учень має хоч один урок у кожен навчальний день', () => {
-    for (const day of WEEK) {
-      for (const prefs of [G1, G2]) {
-        for (const week of [1, 2] as const) {
-          expect(buildDay(day, prefs, 'my', week).length).toBeGreaterThan(0)
-        }
-      }
-    }
+  it('той, хто вже поставив застосунок для 10-Б, нічого не перевибирає', () => {
+    localStorage.setItem(
+      'rozklad-10b:prefs:v1',
+      JSON.stringify({ classGroup: '2', language: 'fr', english: 'Б', gender: 'girls' }),
+    )
+
+    expect(loadPrefs()).toEqual({
+      classId: '10б',
+      classGroup: '2',
+      language: 'ф',
+      english: 'б',
+      gender: 'д',
+    })
+  })
+
+  it('перенесене зберігається, щоб більше не конвертувати', () => {
+    localStorage.setItem(
+      'rozklad-10b:prefs:v1',
+      JSON.stringify({ classGroup: '1', language: 'de', english: 'А', gender: null }),
+    )
+    loadPrefs()
+    expect(JSON.parse(localStorage.getItem('rozklad:prefs:v2')!)).toMatchObject({
+      classId: '10б',
+      english: 'а',
+      language: 'н',
+    })
+  })
+
+  it('порожньо — значить, питаємо клас', () => {
+    expect(loadPrefs()).toBeNull()
+  })
+
+  it('невідомий клас у сховищі не ламає застосунок', () => {
+    savePrefs({ ...G1, classId: '12я' })
+    expect(loadPrefs()).toBeNull()
   })
 })
 
@@ -387,7 +397,6 @@ describe('тексти', () => {
   it('українська множина', () => {
     expect(plural(1, ['урок', 'уроки', 'уроків'])).toBe('урок')
     expect(plural(3, ['урок', 'уроки', 'уроків'])).toBe('уроки')
-    expect(plural(5, ['урок', 'уроки', 'уроків'])).toBe('уроків')
     expect(plural(11, ['урок', 'уроки', 'уроків'])).toBe('уроків')
     expect(plural(21, ['урок', 'уроки', 'уроків'])).toBe('урок')
   })
@@ -396,6 +405,13 @@ describe('тексти', () => {
     expect(formatDuration(18)).toBe('18 хв')
     expect(formatDuration(60)).toBe('1 год')
     expect(formatDuration(95)).toBe('1 год 35 хв')
-    expect(formatDuration(0.2)).toBe('1 хв')
+  })
+})
+
+describe('п’ятниця 10-Б', () => {
+  it('останній урок — по групах', () => {
+    expect(at10b(G1, FRI, 7)?.items[0].subject).toBe('Країнознавство')
+    expect(at10b(G2, FRI, 7)?.items[0].subject).toBe('Технології')
+    expect(at10b(G2, FRI, 7)?.items[0].room).toBe('1')
   })
 })

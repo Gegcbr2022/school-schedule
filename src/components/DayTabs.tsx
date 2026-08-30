@@ -1,30 +1,30 @@
-import type { DayId } from '../data/schedule'
-import { WEEK } from '../data/schedule'
 import { DAY_NAME } from '../lib/clock'
+import { DAY_SHORT } from '../lib/lessons'
 
 type Props = {
-  /** Який день зараз показано. */
-  active: DayId
+  /** Індекс дня, який зараз показано (0 = понеділок). */
+  active: number
   /** ISO-номер сьогоднішнього дня (6/7 — вихідні, тоді крапки не буде). */
   todayIso: number
-  onSelect: (id: DayId) => void
+  onSelect: (index: number) => void
 }
 
 export function DayTabs({ active, todayIso, onSelect }: Props) {
   return (
     <div className="daybar" role="group" aria-label="Дні тижня">
-      {WEEK.map((day) => {
-        const isToday = day.iso === todayIso
+      {DAY_SHORT.map((short, index) => {
+        const iso = index + 1
+        const isToday = iso === todayIso
         return (
           <button
-            key={day.id}
+            key={short}
             type="button"
             className="daytab"
-            aria-pressed={day.id === active}
-            aria-label={isToday ? `${DAY_NAME[day.iso]}, сьогодні` : DAY_NAME[day.iso]}
-            onClick={() => onSelect(day.id)}
+            aria-pressed={index === active}
+            aria-label={isToday ? `${DAY_NAME[iso]}, сьогодні` : DAY_NAME[iso]}
+            onClick={() => onSelect(index)}
           >
-            {day.short}
+            {short}
             {isToday && <span className="daytab__today" aria-hidden="true" />}
           </button>
         )

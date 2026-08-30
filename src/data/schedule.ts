@@ -1,39 +1,26 @@
 /**
- * Розклад уроків 10-Б · Ліцей №11 Івано-Франківської міської ради
+ * Довідники розкладу: дзвінки, предмети, вчителі, групи.
  *
- * ЄДИНЕ МІСЦЕ, ДЕ ТРЕБА РЕДАГУВАТИ РОЗКЛАД.
- *
- * - Час уроків живе тільки в `BELLS` (не дублюється в кожному уроці).
- * - Назви предметів — тільки в `SUBJECTS` (ключ = скорочення з паперового розкладу).
- * - Тиждень — у `WEEK`: для кожного дня масив уроків.
- *
- * Урок буває двох видів:
- *   { n: 1, subject: 'м' }         — цілий клас разом
- *   { n: 4, variants: [...] }      — клас поділений на групи
- *
- * Якщо для якоїсь групи уроку немає — просто не додавайте для неї варіант
- * (напр. хімія в середу 8-м уроком стоїть лише у 2 групи).
- *
- * Урок «через тиждень» позначається `onlyWeek: 1 | 2` — номер тижня
- * рахується від того, у якому починається навчальний рік (див. `weekParity`).
+ * Самі уроки лежать у `timetable.ts` — він згенерований з офіційного PDF.
+ * Тут — усе, що правиться руками.
  */
 
 /* ── Дзвінки ─────────────────────────────────────────────────────────── */
 
-export const LESSON_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8] as const
-export type LessonNumber = (typeof LESSON_NUMBERS)[number]
+export const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const
+export type Period = (typeof PERIODS)[number]
 
-/** Початок і кінець уроку у хвилинах від півночі (за київським часом). */
+/** Початок і кінець уроку у хвилинах від київської півночі. */
 export type Bell = { start: number; end: number }
 
 const at = (h: number, m: number): number => h * 60 + m
 
 /**
- * Розклад дзвінків для 2–11 класів (з офіційного розкладу ліцею).
- * Уроки 1–6 — перша колонка, уроки 7–8 продовжуються з другої колонки.
- * Усі уроки по 40 хвилин.
+ * Розклад дзвінків ліцею для 2–11 класів. Усі уроки по 40 хвилин.
+ * Періоди 1–6 — перша зміна, 7–12 — друга (у самому ліцеї їх нумерують
+ * знову з першого, але наскрізна нумерація однозначна).
  */
-export const BELLS: Record<LessonNumber, Bell> = {
+export const BELLS: Record<Period, Bell> = {
   1: { start: at(8, 0), end: at(8, 40) },
   2: { start: at(8, 55), end: at(9, 35) },
   3: { start: at(9, 55), end: at(10, 35) },
@@ -42,13 +29,20 @@ export const BELLS: Record<LessonNumber, Bell> = {
   6: { start: at(12, 45), end: at(13, 25) },
   7: { start: at(13, 40), end: at(14, 20) },
   8: { start: at(14, 40), end: at(15, 20) },
+  9: { start: at(15, 40), end: at(16, 20) },
+  10: { start: at(16, 30), end: at(17, 10) },
+  11: { start: at(17, 20), end: at(18, 0) },
+  12: { start: at(18, 5), end: at(18, 45) },
 }
 
 /* ── Предмети ────────────────────────────────────────────────────────── */
 
-/** Скорочення з паперового розкладу → повна назва, яку бачить користувач. */
-export const SUBJECTS = {
-  м: 'Математика',
+/**
+ * Скорочення з паперового розкладу → повна назва.
+ * Скорочення, якого тут немає, показуємо як є — вигадувати назву не можна.
+ */
+export const SUBJECTS: Record<string, string> = {
+  М: 'Математика',
   ф: 'Фізика',
   і: 'Інформатика',
   ум: 'Українська мова',
@@ -64,247 +58,122 @@ export const SUBJECTS = {
   го: 'Громадянська освіта',
   т: 'Технології',
   к: 'Країнознавство',
-} as const
+}
 
-export type SubjectCode = keyof typeof SUBJECTS
+/** Повна назва предмета або саме скорочення, якщо розшифровки ще немає. */
+export function subjectName(code: string): string {
+  return SUBJECTS[code] ?? code
+}
+
+/* ── Вчителі ─────────────────────────────────────────────────────────── */
+
+/**
+ * У розкладі стоять дволітерні коди. Розшифровуємо лише ті, які точно
+ * відомі; решту показуємо кодом — так само, як на папері.
+ */
+export const TEACHERS: Record<string, string> = {
+  НА: 'Андрішак',
+  ГП: 'Пташник',
+  АГ: 'Горін',
+  ГЖ: 'Желяк',
+  ОД: 'Драгомирецька',
+}
+
+export function teacherName(code: string | undefined): string | undefined {
+  if (!code) return undefined
+  return TEACHERS[code] ?? code
+}
 
 /* ── Групи ───────────────────────────────────────────────────────────── */
 
-/** Поділ класу навпіл — визначає, який саме предмет у вас на спареному уроці. */
-export const CLASS_GROUPS = ['1', '2'] as const
-export type ClassGroup = (typeof CLASS_GROUPS)[number]
-
-/** Друга іноземна мова. */
-export const LANGUAGE_GROUPS = ['de', 'fr'] as const
-export type LanguageGroup = (typeof LANGUAGE_GROUPS)[number]
-
-/** Підгрупа англійської. Предмет однаковий, змінюється лише склад групи. */
-export const ENGLISH_GROUPS = ['А', 'Б', 'В'] as const
-export type EnglishGroup = (typeof ENGLISH_GROUPS)[number]
-
-/** Поділ на фізкультурі. На назву предмета не впливає. */
-export const GENDER_GROUPS = ['boys', 'girls'] as const
-export type GenderGroup = (typeof GENDER_GROUPS)[number]
-
 /**
- * Вчителі — тільки там, де вони допомагають упізнати свою групу.
- * Це не довідник учителів, а підказка «яка з груп моя».
+ * Ознака, за якою ділиться клас.
+ * `week` — не поділ, а чергування предмета по тижнях.
  */
-export const ENGLISH_TEACHERS: Record<EnglishGroup, string> = {
-  А: 'Андрішак',
-  Б: 'Пташник',
-  В: 'Горін',
+export type Dim = 'classGroup' | 'english' | 'language' | 'gender' | 'week'
+
+export type ClassGroup = '1' | '2'
+export type EnglishGroup = 'а' | 'б' | 'в'
+export type LanguageGroup = 'н' | 'ф'
+export type GenderGroup = 'х' | 'д'
+
+export const CLASS_GROUPS: ClassGroup[] = ['1', '2']
+export const ENGLISH_GROUPS: EnglishGroup[] = ['а', 'б', 'в']
+export const LANGUAGE_GROUPS: LanguageGroup[] = ['н', 'ф']
+export const GENDER_GROUPS: GenderGroup[] = ['х', 'д']
+
+/** Ключ групи у даних → до якого поділу він належить. */
+export const GROUP_DIM: Record<string, Dim> = {
+  '1': 'classGroup',
+  '2': 'classGroup',
+  а: 'english',
+  б: 'english',
+  в: 'english',
+  н: 'language',
+  ф: 'language',
+  х: 'gender',
+  д: 'gender',
+  т1: 'week',
+  т2: 'week',
 }
 
-export const UKRAINIAN_TEACHERS: Record<ClassGroup, string> = {
-  '1': 'Желяк',
-  '2': 'Драгомирецька',
+/** Як підписати групу в повному розкладі. */
+export const GROUP_LABEL: Record<string, string> = {
+  '1': '1 група',
+  '2': '2 група',
+  а: 'група а',
+  б: 'група б',
+  в: 'група в',
+  н: 'німецька',
+  ф: 'французька',
+  х: 'Хлопці',
+  д: 'Дівчата',
+  т1: '1 тиждень',
+  т2: '2 тиждень',
 }
 
-/**
- * Номер кабінету так, як він стоїть у паперовому розкладі.
- * Якщо номера там немає — поля просто немає, вигадувати нічого не треба.
- */
-export type Room = string
+export const LANGUAGE_LABEL: Record<LanguageGroup, string> = {
+  н: 'Німецька',
+  ф: 'Французька',
+}
 
-/**
- * Варіант уроку.
- *
- * `classGroup` і `language` — поділ класу: хто в якій групі, той те й слухає.
- * `week` — предмет чергується по тижнях, слухає весь клас: цього тижня одне,
- * наступного інше.
- */
-type VariantBase = { subject: SubjectCode; room?: Room; teacher?: string }
+export const GENDER_LABEL: Record<GenderGroup, string> = {
+  х: 'Хлопці',
+  д: 'Дівчата',
+}
 
-export type Variant =
-  | (VariantBase & { by: 'classGroup'; group: ClassGroup })
-  | (VariantBase & { by: 'language'; group: LanguageGroup })
-  | (VariantBase & { by: 'week'; group: WeekParity })
+/* ── Форма даних ─────────────────────────────────────────────────────── */
 
-/**
- * Урок, який слухає весь клас, але фізично сидить у різних кабінетах.
- * Предмет один для всіх — це лише позначка, кого з ким ділять.
- */
-export type WholeClassSplit = 'english' | 'gender'
-
-/**
- * Тиждень «чисельника» (1) чи «знаменника» (2).
- * Відлік — від тижня, у якому починається навчальний рік (1 вересня):
- * той тиждень завжди перший.
- */
+/** Парність навчального тижня; перший — той, у якому починається рік. */
 export type WeekParity = 1 | 2
 
-/** Спільні поля будь-якого уроку. */
-type LessonBase = {
-  n: LessonNumber
-  /** Урок буває лише на тижнях цієї парності (через тиждень). */
-  onlyWeek?: WeekParity
+export type Cell = {
+  /** Предмет (ключ у SUBJECTS). */
+  s: string
+  /** Кабінет, як у розкладі. Немає — значить, у розкладі його немає. */
+  r?: string
+  /** Код учителя. */
+  t?: string
+  /** Кому саме цей варіант (ключ у GROUP_DIM). */
+  g?: string
+  /** Урок буває лише на тижнях цієї парності. */
+  w?: WeekParity
 }
 
-export type Lesson =
-  | (LessonBase & {
-      subject: SubjectCode
-      split?: WholeClassSplit
-      room?: Room
-      /**
-       * Фізкультура йде одночасно в різних залах, тож кабінет залежить
-       * від поділу. Групу, для якої в розкладі номера немає, просто
-       * не вказуємо.
-       */
-      roomByGender?: Partial<Record<GenderGroup, Room>>
-    })
-  | (LessonBase & { variants: Variant[] })
-
-export type DayId = 'mon' | 'tue' | 'wed' | 'thu' | 'fri'
-
-export type Day = {
-  id: DayId
-  /** Номер дня за ISO: 1 = понеділок … 7 = неділя. */
-  iso: 1 | 2 | 3 | 4 | 5
-  short: string
-  full: string
-  lessons: Lesson[]
+export type Lesson = {
+  /** Номер періоду за розкладом дзвінків. */
+  p: Period
+  c: Cell[]
 }
 
-/* ── Тиждень ─────────────────────────────────────────────────────────── */
+export type ClassTimetable = {
+  /** Як у PDF: «10б». */
+  id: string
+  /** Як показуємо: «10-Б». */
+  name: string
+  homeroom?: string
+  /** П'ять днів, Пн…Пт. */
+  days: Lesson[][]
+}
 
-export const WEEK: Day[] = [
-  {
-    id: 'mon',
-    iso: 1,
-    short: 'Пн',
-    full: 'Понеділок',
-    lessons: [
-      { n: 1, subject: 'м' },
-      { n: 2, subject: 'м', room: '12' },
-      { n: 3, subject: 'і', room: '19' },
-      {
-        n: 4,
-        variants: [
-          { by: 'classGroup', group: '1', subject: 'ум', room: '16', teacher: UKRAINIAN_TEACHERS['1'] },
-          { by: 'classGroup', group: '2', subject: 'к' },
-        ],
-      },
-      { n: 5, subject: 'ам', split: 'english' },
-      { n: 6, subject: 'б', room: '6' },
-      { n: 7, subject: 'фк', split: 'gender', roomByGender: { boys: '8', girls: '13' } },
-    ],
-  },
-  {
-    id: 'tue',
-    iso: 2,
-    short: 'Вт',
-    full: 'Вівторок',
-    lessons: [
-      { n: 1, subject: 'ф', room: '9' },
-      { n: 2, subject: 'ул' },
-      {
-        n: 3,
-        variants: [
-          { by: 'classGroup', group: '1', subject: 'ум', room: '17', teacher: UKRAINIAN_TEACHERS['1'] },
-          { by: 'classGroup', group: '2', subject: 'і', room: '15' },
-        ],
-      },
-      { n: 4, subject: 'ам', split: 'english' },
-      {
-        n: 5,
-        variants: [
-          { by: 'classGroup', group: '1', subject: 'т', room: '14' },
-          { by: 'classGroup', group: '2', subject: 'ум', room: '18', teacher: UKRAINIAN_TEACHERS['2'] },
-        ],
-      },
-      { n: 6, subject: 'м', room: '12' },
-      { n: 7, subject: 'го' },
-      { n: 8, subject: 'фк', split: 'gender', roomByGender: { boys: '2', girls: '13' } },
-    ],
-  },
-  {
-    id: 'wed',
-    iso: 3,
-    short: 'Ср',
-    full: 'Середа',
-    lessons: [
-      {
-        n: 1,
-        variants: [
-          { by: 'classGroup', group: '1', subject: 'і', room: '25' },
-          { by: 'classGroup', group: '2', subject: 'ум', room: '18', teacher: UKRAINIAN_TEACHERS['2'] },
-        ],
-      },
-      // Не поділ класу, а чергування по тижнях: слухають усі,
-      // просто цього тижня географія, наступного — інформатика.
-      {
-        n: 2,
-        variants: [
-          { by: 'week', group: 1, subject: 'г', room: '1' },
-          { by: 'week', group: 2, subject: 'і', room: '19' },
-        ],
-      },
-      {
-        n: 3,
-        variants: [
-          { by: 'language', group: 'de', subject: 'нм' },
-          { by: 'language', group: 'fr', subject: 'фм' },
-        ],
-      },
-      { n: 4, subject: 'м', room: '12' },
-      // У дівчат у розкладі замість номера стоїть буквене позначення — не номер кабінету.
-      { n: 5, subject: 'фк', split: 'gender', roomByGender: { boys: '25' } },
-      { n: 6, subject: 'б', room: '6' },
-      {
-        n: 7,
-        variants: [
-          { by: 'language', group: 'de', subject: 'нм' },
-          { by: 'language', group: 'fr', subject: 'фм', room: '7' },
-        ],
-      },
-      // Хімія стоїть тільки у 2 групи — і лише через тиждень.
-      // Тиждень, у якому починається навчальний рік, — перший, хімії в ньому немає.
-      { n: 8, onlyWeek: 2, variants: [{ by: 'classGroup', group: '2', subject: 'х' }] },
-    ],
-  },
-  {
-    id: 'thu',
-    iso: 4,
-    short: 'Чт',
-    full: 'Четвер',
-    lessons: [
-      { n: 1, subject: 'г', room: '1' },
-      { n: 2, subject: 'зл' },
-      { n: 3, subject: 'ф', room: '9' },
-      { n: 4, subject: 'х' },
-      { n: 5, subject: 'ам', split: 'english' },
-      { n: 6, subject: 'ул' },
-    ],
-  },
-  {
-    id: 'fri',
-    iso: 5,
-    short: 'Пт',
-    full: 'Пʼятниця',
-    lessons: [
-      { n: 1, subject: 'і', room: '19' },
-      { n: 2, subject: 'ам', split: 'english' },
-      {
-        n: 3,
-        variants: [
-          { by: 'language', group: 'de', subject: 'нм' },
-          { by: 'language', group: 'fr', subject: 'фм', room: '7' },
-        ],
-      },
-      { n: 4, subject: 'ф', room: '9' },
-      { n: 5, subject: 'ам', split: 'english' },
-      { n: 6, subject: 'го', room: '19' },
-      {
-        n: 7,
-        variants: [
-          { by: 'classGroup', group: '1', subject: 'к' },
-          { by: 'classGroup', group: '2', subject: 'т', room: '1' },
-        ],
-      },
-    ],
-  },
-]
-
-export const CLASS_NAME = '10-Б'
 export const SCHOOL_NAME = 'Ліцей №11 Івано-Франківської міської ради'

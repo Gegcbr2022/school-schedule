@@ -1,0 +1,276 @@
+/**
+ * Імпорт офіційного розкладу ліцею (PDF з aSc Розклад) у src/data/timetable.ts.
+ *
+ *   npm i -D pdfjs-dist
+ *   node scripts/import-timetable.mjs "шлях/до/Розклад класи.pdf"
+ *
+ * Верстка комірки в aSc:
+ *   предмет      — по центру, великим кеглем
+ *   кабінет      — знизу ліворуч, дрібним
+ *   вчитель      — знизу праворуч, дрібним
+ *   назва групи  — рядком вище предмета, дрібним
+ *
+ * Ручні уточнення, яких у PDF не видно, живуть в OVERRIDES —
+ * повторний імпорт їх не загубить.
+ */
+
+import { readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
+
+const SRC = process.argv[2]
+if (!SRC) {
+  console.error('Вкажіть шлях до PDF: node scripts/import-timetable.mjs <файл.pdf>')
+  process.exit(1)
+}
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const OUT = join(ROOT, 'src', 'data', 'timetable.ts')
+
+/** Беремо класи з цієї паралелі й старші. */
+const FROM_GRADE = 4
+
+const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
+const HALF_COLUMN = 73.75
+/** Заголовок дня надрукований від лівого краю тексту; центр колонки правіше. */
+const HEADER_TO_CENTRE = 10
+
+/** Підпис групи в PDF → короткий ключ у даних. */
+const GROUP_KEY = {
+  '1 група': '1',
+  '2 група': '2',
+  Хлопці: 'х',
+  Дівчата: 'д',
+  а: 'а',
+  б: 'б',
+  в: 'в',
+  н: 'н',
+  ф: 'ф',
+}
+
+const GROUP_LABELS = new Set(Object.keys(GROUP_KEY))
+
+/** Ключ: `клас Дн період`. */
+const OVERRIDES = {
+  // Хімія стоїть лише у 2 групи і лише на другому тижні — у PDF це видно
+  // тільки як половина комірки без підпису.
+  '10б Ср8': (cells) => cells.map((c) => ({ ...c, g: '2', w: 2 })),
+}
+
+/** «5а», «11б» — це інший клас, з яким урок спільний, а не вчитель. */
+const isClass = (t) => /^\d{1,2}[а-д]$/.test(t)
+/** Кабінет — число або малими літерами («сз», «тз»). */
+const isRoom = (t) => !isClass(t) && (/^\d{1,3}$/.test(t) || /^[а-яіїєґ]{1,3}$/.test(t))
+/** Вчитель — дво- чи трилітерний код великими. */
+const isTeacher = (t) => /^[А-ЯІЇЄҐ]{2,3}$/.test(t)
+
+/* ── 1. Текст із координатами ─────────────────────────────────────────── */
+
+async function readPages() {
+  const data = new Uint8Array(await readFile(SRC))
+  const doc = await pdfjs.getDocument({ data, useSystemFonts: true }).promise
+
+  const pages = []
+  for (let p = 1; p <= doc.numPages; p += 1) {
+    const page = await doc.getPage(p)
+    const vp = page.getViewport({ scale: 1 })
+    const content = await page.getTextContent()
+    pages.push({
+      page: p,
+      items: content.items
+        .filter((i) => i.str && i.str.trim())
+        .map((i) => ({
+          s: i.str.trim(),
+          x: Math.round(i.transform[4] * 10) / 10,
+          y: Math.round((vp.height - i.transform[5]) * 10) / 10,
+          w: Math.round(i.width * 10) / 10,
+          h: Math.round(i.height * 10) / 10,
+        })),
+    })
+  }
+  return pages
+}
+
+/* ── 2. Розбір таблиці ────────────────────────────────────────────────── */
+
+/** Групує елементи в рядки за координатою y. */
+function rowsOf(items, eps = 3) {
+  const rows = []
+  for (const it of [...items].sort((a, b) => a.y - b.y)) {
+    const row = rows.find((r) => Math.abs(r.y - it.y) <= eps)
+    if (row) {
+      row.items.push(it)
+      row.y = (row.y * (row.items.length - 1) + it.y) / row.items.length
+    } else {
+      rows.push({ y: it.y, items: [it] })
+    }
+  }
+  for (const r of rows) r.items.sort((a, b) => a.x - b.x)
+  return rows
+}
+
+function parsePage(page) {
+  const cls = page.items.find((i) => i.y < 50 && i.h > 20)?.s?.trim()
+  const homeroom = page.items
+    .find((i) => i.s.includes('керівник'))
+    ?.s.replace(/^Кл\. керівник:\s*:?\s*/, '')
+    .trim()
+
+  const headers = DAYS.map((d) => page.items.find((i) => i.s === d && i.h > 12))
+  if (headers.some((h) => !h)) throw new Error(`${cls}: не знайшов заголовки днів`)
+
+  const columns = headers.map((h) => {
+    const centre = h.x + HEADER_TO_CENTRE
+    return { left: centre - HALF_COLUMN, right: centre + HALF_COLUMN, centre }
+  })
+
+  // Смуги уроків: якір — підпис часу ліворуч.
+  const times = page.items
+    .filter((i) => i.x < 60 && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(i.s))
+    .sort((a, b) => a.y - b.y)
+
+  const days = DAYS.map(() => [])
+
+  times.forEach((time, index) => {
+    // Смуга починається одразу під попереднім рядком «кабінет/вчитель»,
+    // інакше рядок із назвами груп лишається за її межами.
+    const top = index === 0 ? time.y - 34 : times[index - 1].y + 3
+    const band = page.items.filter((i) => i.y > top && i.y <= time.y + 2 && i.x >= 60)
+    if (band.length === 0) return
+
+    const rows = rowsOf(band)
+    const subjectRow = rows.find((r) => r.items.some((i) => i.h > 6))
+    if (!subjectRow) return
+
+    const headerItems = rows.filter((r) => r.y < subjectRow.y - 2).flatMap((r) => r.items)
+    const metaItems = rows.filter((r) => r.y > subjectRow.y + 2).flatMap((r) => r.items)
+
+    columns.forEach((col, dayIndex) => {
+      const inCol = (i) => i.x >= col.left && i.x < col.right
+      const subjects = subjectRow.items.filter((i) => inCol(i) && i.h > 6)
+      if (subjects.length === 0) return
+
+      const labels = headerItems.filter((i) => inCol(i) && GROUP_LABELS.has(i.s))
+      const meta = metaItems.filter(inCol)
+
+      let parts = Math.max(subjects.length, labels.length, 1)
+      // Один предмет, зміщений від центру — комірка поділена, зайнята одна половина.
+      if (subjects.length === 1 && labels.length === 0) {
+        if (Math.abs(subjects[0].x + subjects[0].w / 2 - col.centre) > 18) parts = 2
+      }
+
+      const width = (col.right - col.left) / parts
+      const slotOf = (x) => Math.min(parts - 1, Math.max(0, Math.floor((x - col.left) / width)))
+
+      const cells = subjects.map((subject) => {
+        const slot = slotOf(subject.x + subject.w / 2)
+        const slotLeft = col.left + slot * width
+        const slotRight = slotLeft + width
+        const own = meta.filter((i) => i.x >= slotLeft && i.x < slotRight)
+        const label = labels.find((i) => i.x >= slotLeft && i.x < slotRight)
+
+        // Позиція каже, до якої комірки належить напис, а вигляд — що це таке.
+        return {
+          s: subject.s,
+          room: own.find((i) => isRoom(i.s))?.s,
+          t: own.find((i) => isTeacher(i.s))?.s,
+          g: label ? GROUP_KEY[label.s] : undefined,
+        }
+      })
+
+      days[dayIndex].push({ n: index + 1, cells })
+    })
+  })
+
+  return { cls, homeroom, days }
+}
+
+/**
+ * Комірка поділена, але підпису групи немає — це чергування по тижнях
+ * (перевірено на 10-Б, середа, 2 урок). Перша половина — перший тиждень.
+ */
+function markWeekAlternation(cells) {
+  if (cells.length !== 2 || cells.some((c) => c.g)) return cells
+  return cells.map((c, i) => ({ ...c, g: i === 0 ? 'т1' : 'т2' }))
+}
+
+/* ── 3. Генерація TypeScript ──────────────────────────────────────────── */
+
+const esc = (s) => `'${String(s).replace(/'/g, "\\'")}'`
+
+function cellLiteral(c) {
+  const parts = [`s: ${esc(c.s)}`]
+  if (c.room) parts.push(`r: ${esc(c.room)}`)
+  if (c.t) parts.push(`t: ${esc(c.t)}`)
+  if (c.g) parts.push(`g: ${esc(c.g)}`)
+  if (c.w) parts.push(`w: ${c.w}`)
+  return `{ ${parts.join(', ')} }`
+}
+
+const parsed = (await readPages())
+  .map(parsePage)
+  .filter((p) => parseInt(p.cls, 10) >= FROM_GRADE)
+  .sort((a, b) => parseInt(a.cls, 10) - parseInt(b.cls, 10) || a.cls.localeCompare(b.cls, 'uk'))
+
+const blocks = []
+const stats = { lessons: 0, cells: 0, unnamed: [] }
+
+for (const p of parsed) {
+  const dayBlocks = p.days.map((day, di) => {
+    const lines = day.map((lesson) => {
+      const key = `${p.cls} ${DAYS[di]}${lesson.n}`
+      const cells = OVERRIDES[key]
+        ? OVERRIDES[key](lesson.cells)
+        : markWeekAlternation(lesson.cells)
+
+      if (cells.length > 1 && cells.every((c) => !c.g)) stats.unnamed.push(key)
+      stats.lessons += 1
+      stats.cells += cells.length
+
+      return `      { p: ${lesson.n}, c: [${cells.map(cellLiteral).join(', ')}] },`
+    })
+    return `    [\n${lines.join('\n')}\n    ],`
+  })
+
+  blocks.push(
+    `  {\n` +
+      `    id: ${esc(p.cls)},\n` +
+      `    name: ${esc(p.cls.replace(/^(\d+)/, '$1-').toUpperCase())},\n` +
+      `    homeroom: ${esc(p.homeroom)},\n` +
+      `    days: [\n${dayBlocks.join('\n')}\n    ],\n` +
+      `  },`,
+  )
+}
+
+const header = `/**
+ * Розклад усієї школи, ${FROM_GRADE}–11 класи.
+ *
+ * ЗГЕНЕРОВАНО з офіційного PDF ліцею скриптом
+ * \`scripts/import-timetable.mjs\`. Правити руками можна, але при
+ * повторному імпорті правки треба перенести в OVERRIDES того скрипта.
+ *
+ * Поля комірки:
+ *   s — предмет (ключ у SUBJECTS)
+ *   r — кабінет, як він стоїть у розкладі; немає — значить, немає
+ *   t — код учителя, як у розкладі
+ *   g — кому цей варіант: '1'/'2' навчальна група, 'а'/'б'/'в' англійська,
+ *       'н'/'ф' друга іноземна, 'х'/'д' поділ на фізкультурі,
+ *       'т1'/'т2' чергування по тижнях
+ *   w — урок буває лише на тижнях цієї парності
+ *
+ * p — номер періоду за загальношкільним розкладом дзвінків (див. BELLS).
+ */
+
+import type { ClassTimetable } from './schedule'
+
+export const TIMETABLE: ClassTimetable[] = [
+`
+
+await writeFile(OUT, header + blocks.join('\n') + '\n]\n', 'utf8')
+
+console.log(
+  `класів: ${parsed.length} | уроків: ${stats.lessons} | комірок: ${stats.cells}`,
+)
+if (stats.unnamed.length) console.log('поділ без підпису групи:', stats.unnamed.join(', '))
+console.log('записано', OUT)

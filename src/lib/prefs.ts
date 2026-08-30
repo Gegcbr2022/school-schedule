@@ -10,25 +10,34 @@ import {
   GENDER_GROUPS,
   LANGUAGE_GROUPS,
 } from '../data/schedule'
+import { TIMETABLE } from '../data/timetable'
 
 /** Налаштування учня. Живуть тільки в localStorage цього пристрою. */
 export type Prefs = {
+  /** Ідентифікатор класу, як у `TIMETABLE`. */
+  classId: string
   classGroup: ClassGroup
   language: LanguageGroup
   english: EnglishGroup
-  /** Не впливає на назву предмета — лише на підпис у повному розкладі. */
+  /** Впливає лише на те, який зал показати на фізкультурі. */
   gender: GenderGroup | null
 }
 
 export type Theme = 'light' | 'dark' | 'system'
 
-const PREFS_KEY = 'rozklad-10b:prefs:v1'
+const PREFS_KEY = 'rozklad:prefs:v2'
+/** Ключ з часів, коли розклад був лише для 10-Б. Читаємо, щоб не перепитувати. */
+const LEGACY_PREFS_KEY = 'rozklad-10b:prefs:v1'
+/** Тему навмисно лишили під старим ключем — щоб вона пережила оновлення. */
 const THEME_KEY = 'rozklad-10b:theme:v1'
 
+export const DEFAULT_CLASS_ID = '10б'
+
 export const DEFAULT_PREFS: Prefs = {
+  classId: DEFAULT_CLASS_ID,
   classGroup: '1',
-  language: 'de',
-  english: 'А',
+  language: 'н',
+  english: 'а',
   gender: null,
 }
 
@@ -49,10 +58,51 @@ function writeRaw(key: string, value: string): void {
   }
 }
 
+function parseJson(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
 function oneOf<T extends string>(allowed: readonly T[], value: unknown): T | null {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value)
     ? (value as T)
     : null
+}
+
+function knownClass(value: unknown): string | null {
+  return typeof value === 'string' && TIMETABLE.some((c) => c.id === value) ? value : null
+}
+
+/**
+ * Налаштування з часів «тільки 10-Б». Позначення груп тоді були інші,
+ * тому переносимо їх, а не викидаємо: людина, яка вже поставила застосунок,
+ * не повинна нічого налаштовувати заново.
+ */
+function migrateLegacy(): Prefs | null {
+  const old = parseJson(readRaw(LEGACY_PREFS_KEY))
+  if (!old) return null
+
+  const classGroup = oneOf(CLASS_GROUPS, old.classGroup)
+  if (!classGroup) return null
+
+  const english = { А: 'а', Б: 'б', В: 'в' }[String(old.english)] as EnglishGroup | undefined
+  const language = { de: 'н', fr: 'ф' }[String(old.language)] as LanguageGroup | undefined
+  const gender = { boys: 'х', girls: 'д' }[String(old.gender)] as GenderGroup | undefined
+
+  return {
+    classId: DEFAULT_CLASS_ID,
+    classGroup,
+    english: english ?? DEFAULT_PREFS.english,
+    language: language ?? DEFAULT_PREFS.language,
+    gender: gender ?? null,
+  }
 }
 
 /**
@@ -60,29 +110,27 @@ function oneOf<T extends string>(allowed: readonly T[], value: unknown): T | nul
  * саме за цим ми розуміємо, що треба показати перше знайомство.
  */
 export function loadPrefs(): Prefs | null {
-  const raw = readRaw(PREFS_KEY)
-  if (!raw) return null
+  const stored = parseJson(readRaw(PREFS_KEY))
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return null
+  if (!stored) {
+    const migrated = migrateLegacy()
+    if (migrated) savePrefs(migrated)
+    return migrated
   }
-  if (typeof parsed !== 'object' || parsed === null) return null
 
-  const o = parsed as Record<string, unknown>
-  const classGroup = oneOf(CLASS_GROUPS, o.classGroup)
-  const language = oneOf(LANGUAGE_GROUPS, o.language)
-  const english = oneOf(ENGLISH_GROUPS, o.english)
-  // Усі три обов'язкові: якщо формат зіпсовано — питаємо заново.
-  if (!classGroup || !language || !english) return null
+  const classId = knownClass(stored.classId)
+  const classGroup = oneOf(CLASS_GROUPS, stored.classGroup)
+  const language = oneOf(LANGUAGE_GROUPS, stored.language)
+  const english = oneOf(ENGLISH_GROUPS, stored.english)
+  // Клас обов'язковий: без нього показувати нічого. Решта має запасний варіант.
+  if (!classId) return null
 
   return {
-    classGroup,
-    language,
-    english,
-    gender: oneOf(GENDER_GROUPS, o.gender),
+    classId,
+    classGroup: classGroup ?? DEFAULT_PREFS.classGroup,
+    language: language ?? DEFAULT_PREFS.language,
+    english: english ?? DEFAULT_PREFS.english,
+    gender: oneOf(GENDER_GROUPS, stored.gender),
   }
 }
 
@@ -93,6 +141,7 @@ export function savePrefs(prefs: Prefs): void {
 export function clearPrefs(): void {
   try {
     localStorage.removeItem(PREFS_KEY)
+    localStorage.removeItem(LEGACY_PREFS_KEY)
     localStorage.removeItem(THEME_KEY)
   } catch {
     /* нічого не вдієш */
@@ -105,27 +154,4 @@ export function loadTheme(): Theme {
 
 export function saveTheme(theme: Theme): void {
   writeRaw(THEME_KEY, theme)
-}
-
-/* ── Підписи для інтерфейсу ──────────────────────────────────────────── */
-
-export const CLASS_GROUP_LABEL: Record<ClassGroup, string> = {
-  '1': '1 група',
-  '2': '2 група',
-}
-
-export const LANGUAGE_LABEL: Record<LanguageGroup, string> = {
-  de: 'Німецька',
-  fr: 'Французька',
-}
-
-/** Позначка мовної групи так, як вона стоїть у паперовому розкладі. */
-export const LANGUAGE_TAG: Record<LanguageGroup, string> = {
-  de: 'група Н',
-  fr: 'група Ф',
-}
-
-export const GENDER_LABEL: Record<GenderGroup, string> = {
-  boys: 'Хлопці',
-  girls: 'Дівчата',
 }

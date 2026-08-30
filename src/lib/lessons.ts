@@ -3,17 +3,22 @@
  * і рахує, що відбувається просто зараз.
  */
 
-import type { Day, DayId, Lesson, LessonNumber, Variant, WeekParity } from '../data/schedule'
+import type {
+  Cell,
+  ClassTimetable,
+  Dim,
+  Lesson,
+  WeekParity,
+} from '../data/schedule'
 import {
   BELLS,
-  ENGLISH_GROUPS,
-  ENGLISH_TEACHERS,
-  GENDER_GROUPS,
-  SUBJECTS,
-  WEEK,
+  GROUP_DIM,
+  GROUP_LABEL,
+  subjectName,
+  teacherName,
 } from '../data/schedule'
+import { TIMETABLE } from '../data/timetable'
 import type { Prefs } from './prefs'
-import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_TAG } from './prefs'
 
 /**
  * Один предмет у картці уроку.
@@ -27,145 +32,154 @@ export type DisplayItem = {
   teacher?: string
 }
 
-/** «каб. 12». Порожній кабінет ніяк не підписуємо. */
-export function roomLabel(room: string | undefined): string | null {
-  return room ? `каб. ${room}` : null
-}
-
 export type DisplayLesson = {
-  n: LessonNumber
+  /** Порядковий номер уроку в цьому дні — саме так їх рахують учні. */
+  n: number
+  /** Номер періоду за загальношкільним розкладом дзвінків. */
+  period: number
   /** Хвилини від київської півночі. */
   start: number
   end: number
   items: DisplayItem[]
-  /** Дрібний підпис під предметом: «Підгрупа Б», «Хлопці · Дівчата». */
+  /** Дрібний підпис під предметом. */
   note?: string
 }
 
 export type ViewMode = 'my' | 'full'
 
-/** «А — Андрішак · Б — Пташник · В — Горін» — щоб було видно, де чия підгрупа. */
-const ENGLISH_SUBGROUPS_NOTE = ENGLISH_GROUPS.map(
-  (g) => `${g} — ${ENGLISH_TEACHERS[g]}`,
-).join(' · ')
-const GENDER_NOTE = `${GENDER_LABEL.boys} · ${GENDER_LABEL.girls}`
-
-type VariantLesson = Extract<Lesson, { variants: unknown }>
-
-function hasVariants(lesson: Lesson): lesson is VariantLesson {
-  return 'variants' in lesson
+/** «каб. 12» для номерів і просто «сз» для залів, позначених літерами. */
+export function roomLabel(room: string | undefined): string | null {
+  if (!room) return null
+  return /^\d+$/.test(room) ? `каб. ${room}` : room
 }
 
-/** Який саме варіант уроку дістається цьому учневі цього тижня. */
-function myVariant(lesson: VariantLesson, prefs: Prefs, week: WeekParity) {
-  return lesson.variants.find((v) => {
-    if (v.by === 'classGroup') return v.group === prefs.classGroup
-    if (v.by === 'language') return v.group === prefs.language
-    return v.group === week
-  })
+/* ── Класи ───────────────────────────────────────────────────────────── */
+
+export function classById(id: string): ClassTimetable | undefined {
+  return TIMETABLE.find((c) => c.id === id)
 }
 
-/** Підпис варіанта в повному розкладі: чия це група або котрий тиждень. */
-function variantTag(variant: Variant): string {
-  if (variant.by === 'classGroup') return CLASS_GROUP_LABEL[variant.group]
-  if (variant.by === 'language') return LANGUAGE_TAG[variant.group]
-  return `${variant.group} тиждень`
+/** За якими ознаками ділиться саме цей клас — щоб не питати зайвого. */
+export function dimensionsOf(cls: ClassTimetable): Set<Dim> {
+  const dims = new Set<Dim>()
+  for (const day of cls.days) {
+    for (const lesson of day) {
+      for (const cell of lesson.c) {
+        const dim = cell.g ? GROUP_DIM[cell.g] : undefined
+        if (dim) dims.add(dim)
+      }
+    }
+  }
+  return dims
+}
+
+/** Класи, згруповані за паралеллю: 4 → [4-А, 4-Б, 4-В]. */
+export function classesByGrade(): { grade: number; classes: ClassTimetable[] }[] {
+  const grades = new Map<number, ClassTimetable[]>()
+  for (const cls of TIMETABLE) {
+    const grade = parseInt(cls.id, 10)
+    const list = grades.get(grade)
+    if (list) list.push(cls)
+    else grades.set(grade, [cls])
+  }
+  return [...grades.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([grade, classes]) => ({ grade, classes }))
+}
+
+/* ── Розклад дня ─────────────────────────────────────────────────────── */
+
+/** Чи належить ця комірка саме мені. */
+function isMine(cell: Cell, prefs: Prefs, week: WeekParity): boolean {
+  if (!cell.g) return true
+  switch (GROUP_DIM[cell.g]) {
+    case 'classGroup':
+      return cell.g === prefs.classGroup
+    case 'english':
+      return cell.g === prefs.english
+    case 'language':
+      return cell.g === prefs.language
+    case 'week':
+      return cell.g === `т${week}`
+    case 'gender':
+      // Поділ не вказаний — беремо перший варіант, але без кабінету:
+      // предмет однаковий, а зал вгадувати не можна.
+      return prefs.gender ? cell.g === prefs.gender : cell.g === 'х'
+    default:
+      return true
+  }
+}
+
+function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode): DisplayItem {
+  const dim = cell.g ? GROUP_DIM[cell.g] : undefined
+  const unknownGender = dim === 'gender' && !prefs.gender
+
+  return {
+    subject: subjectName(cell.s),
+    // У «моєму» розкладі підписуємо лише навчальну групу — решта очевидна.
+    who:
+      mode === 'full'
+        ? cell.g && GROUP_LABEL[cell.g]
+        : dim === 'classGroup' && cell.g
+          ? GROUP_LABEL[cell.g]
+          : undefined,
+    room: unknownGender && mode === 'my' ? undefined : cell.r,
+    teacher: teacherName(cell.t),
+  }
+}
+
+/** Підпис під уроком: чому він такий, а не інший. */
+function noteOf(cells: Cell[], prefs: Prefs, mode: ViewMode, week: WeekParity): string | undefined {
+  const first = cells[0]
+  if (!first?.g) return undefined
+  const dim = GROUP_DIM[first.g]
+
+  if (dim === 'english') {
+    return mode === 'my' ? `Підгрупа ${prefs.english}` : undefined
+  }
+  if (dim === 'week' && mode === 'my') {
+    return `Чергується по тижнях · ${week} тиждень`
+  }
+  if (first.w) {
+    return `${first.w === week ? 'Цього' : 'Наступного'} тижня · ${first.w} тиждень`
+  }
+  return undefined
 }
 
 /**
  * Розклад дня очима учня.
  *
- * `my`   — тільки його предмети; урок, якого в його групи цього тижня немає,
- *          зникає зовсім.
- * `full` — розклад класу з усіма груповими варіантами; уроки «через тиждень»
- *          лишаються видимими з підписом.
+ * `my`   — тільки його предмети; уроку, якого в його групи цього тижня немає,
+ *          не видно зовсім.
+ * `full` — розклад класу з усіма варіантами.
  */
 export function buildDay(
-  day: Day,
+  cls: ClassTimetable,
+  dayIndex: number,
   prefs: Prefs,
   mode: ViewMode,
   week: WeekParity,
 ): DisplayLesson[] {
+  const day: Lesson[] = cls.days[dayIndex] ?? []
   const out: DisplayLesson[] = []
 
-  for (const lesson of day.lessons) {
-    const bell = BELLS[lesson.n]
-    const everyOtherWeek = lesson.onlyWeek !== undefined
-    const thisWeek = !everyOtherWeek || lesson.onlyWeek === week
+  for (const lesson of day) {
+    const bell = BELLS[lesson.p]
+    if (!bell) continue
 
-    // У «моєму» розкладі уроку іншого тижня просто немає.
-    if (mode === 'my' && !thisWeek) continue
+    const cells =
+      mode === 'full'
+        ? lesson.c
+        : lesson.c.filter((c) => (!c.w || c.w === week) && isMine(c, prefs, week))
 
-    const weekNote = everyOtherWeek
-      ? `${thisWeek ? 'Цього' : 'Наступного'} тижня · ${lesson.onlyWeek} тиждень`
-      : undefined
-
-    if (!hasVariants(lesson)) {
-      const subject = SUBJECTS[lesson.subject]
-      let note = weekNote
-      let items: DisplayItem[] = [{ subject, room: lesson.room }]
-
-      if (lesson.split === 'english') {
-        // Предмет однаковий для всіх підгруп — різниця лише у вчителеві.
-        if (mode === 'my') {
-          note = `Підгрупа ${prefs.english}`
-          items = [{ subject, teacher: ENGLISH_TEACHERS[prefs.english] }]
-        } else {
-          note = ENGLISH_SUBGROUPS_NOTE
-        }
-      } else if (lesson.split === 'gender') {
-        // Стать не змінює предмет — але змінює зал, тож кабінет свій у кожного.
-        const rooms = lesson.roomByGender
-        if (mode === 'full' && rooms) {
-          items = GENDER_GROUPS.map((g) => ({
-            subject,
-            who: GENDER_LABEL[g],
-            room: rooms[g],
-          }))
-        } else if (mode === 'full') {
-          note = GENDER_NOTE
-        } else {
-          // У «моєму» розкладі про поділ мовчимо: показуємо лише свій зал.
-          items = [{ subject, room: prefs.gender ? rooms?.[prefs.gender] : undefined }]
-        }
-      }
-
-      out.push({ n: lesson.n, ...bell, items, note })
-      continue
-    }
-
-    if (mode === 'full') {
-      out.push({
-        n: lesson.n,
-        ...bell,
-        items: lesson.variants.map((v) => ({
-          subject: SUBJECTS[v.subject],
-          who: variantTag(v),
-          room: v.room,
-          teacher: v.teacher,
-        })),
-        note: weekNote,
-      })
-      continue
-    }
-
-    const mine = myVariant(lesson, prefs, week)
-    // Немає варіанта для моєї групи — значить, цього уроку в мене просто немає.
-    if (!mine) continue
+    if (cells.length === 0) continue
 
     out.push({
-      n: lesson.n,
+      n: out.length + 1,
+      period: lesson.p,
       ...bell,
-      items: [
-        {
-          subject: SUBJECTS[mine.subject],
-          // Мовну групу й тиждень підписувати нема потреби — це й так видно.
-          who: mine.by === 'classGroup' ? CLASS_GROUP_LABEL[mine.group] : undefined,
-          room: mine.room,
-          teacher: mine.teacher,
-        },
-      ],
-      note: mine.by === 'week' ? `Чергується по тижнях · ${week} тиждень` : undefined,
+      items: cells.map((c) => itemOf(c, prefs, mode)),
+      note: noteOf(cells, prefs, mode, week),
     })
   }
 
@@ -176,16 +190,18 @@ export function buildDay(
  * Пояснення, чому урок «через тиждень» зник із мого розкладу.
  * Повертає `null`, якщо пояснювати нічого.
  */
-export function offWeekNote(day: Day, prefs: Prefs, week: WeekParity): string | null {
-  for (const lesson of day.lessons) {
-    if (lesson.onlyWeek === undefined || lesson.onlyWeek === week) continue
-
-    const subject = hasVariants(lesson)
-      ? myVariant(lesson, prefs, week)?.subject
-      : lesson.subject
-    if (!subject) continue
-
-    return `${SUBJECTS[subject]} ${lesson.n}-м уроком буває через тиждень — цього тижня немає.`
+export function offWeekNote(
+  cls: ClassTimetable,
+  dayIndex: number,
+  prefs: Prefs,
+  week: WeekParity,
+): string | null {
+  for (const lesson of cls.days[dayIndex] ?? []) {
+    for (const cell of lesson.c) {
+      if (!cell.w || cell.w === week) continue
+      if (!isMine(cell, prefs, week)) continue
+      return `${subjectName(cell.s)} буває через тиждень — цього тижня немає.`
+    }
   }
   return null
 }
@@ -249,19 +265,16 @@ export function finishedCount(lessons: DisplayLesson[], nowMin: number): number 
 
 /* ── Дні ─────────────────────────────────────────────────────────────── */
 
-export function dayByIso(iso: number): Day | undefined {
-  return WEEK.find((d) => d.iso === iso)
+export const DAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
+
+/** Індекс дня (0–4) за ISO-номером, або `null` для вихідних. */
+export function dayIndexOf(iso: number): number | null {
+  return iso >= 1 && iso <= 5 ? iso - 1 : null
 }
 
-export function dayById(id: DayId): Day {
-  const found = WEEK.find((d) => d.id === id)
-  if (!found) throw new Error(`Невідомий день: ${id}`)
-  return found
-}
-
-/** Найближчий навчальний день після `iso` (з переходом на наступний тиждень). */
-export function nextSchoolDay(iso: number): Day {
-  return WEEK.find((d) => d.iso > iso) ?? WEEK[0]
+/** Найближчий навчальний день після `iso`: повертає ISO-номер. */
+export function nextSchoolIso(iso: number): number {
+  return iso >= 5 ? 1 : iso + 1
 }
 
 /** Скільки діб від `fromIso` до найближчого `toIso`, з переходом через тиждень. */

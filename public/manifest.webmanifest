@@ -1,7 +1,7 @@
 {
-  "name": "10-Б — Розклад уроків",
-  "short_name": "10-Б",
-  "description": "Розклад уроків 10-Б, Ліцей №11 Івано-Франківської міської ради. Показує, який урок зараз і скільки лишилось.",
+  "name": "Розклад уроків · Ліцей №11",
+  "short_name": "Розклад",
+  "description": "Розклад уроків Ліцею №11 Івано-Франківської міської ради, 4–11 класи. Показує, який урок зараз і скільки лишилось.",
   "lang": "uk",
   "dir": "ltr",
   "id": "./",
@@ -10,7 +10,10 @@
   "display": "standalone",
   "background_color": "#f4f5f7",
   "theme_color": "#f4f5f7",
-  "categories": ["education", "productivity"],
+  "categories": [
+    "education",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

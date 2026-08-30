@@ -5,8 +5,7 @@ import { LessonList } from './components/LessonList'
 import { SettingsSheet } from './components/SettingsSheet'
 import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
-import type { DayId } from './data/schedule'
-import { CLASS_NAME, SCHOOL_NAME } from './data/schedule'
+import { SCHOOL_NAME } from './data/schedule'
 import {
   DAY_NAME,
   DAY_NAME_ACCUSATIVE,
@@ -20,12 +19,12 @@ import { isStandalone, useInstallPrompt, useNow, useTheme } from './lib/hooks'
 import type { ViewMode } from './lib/lessons'
 import {
   buildDay,
+  classById,
   computeStatus,
-  dayById,
-  dayByIso,
+  dayIndexOf,
   daysUntil,
   finishedCount,
-  nextSchoolDay,
+  nextSchoolIso,
   offWeekNote,
 } from './lib/lessons'
 import type { Prefs } from './lib/prefs'
@@ -44,7 +43,7 @@ export default function App() {
   const [prefs, setPrefs] = useState<Prefs | null>(loadPrefs)
   const [mode, setMode] = useState<ViewMode>('my')
   /** `null` — тримаємось сьогоднішнього дня і самі переїжджаємо через північ. */
-  const [picked, setPicked] = useState<DayId | null>(null)
+  const [picked, setPicked] = useState<number | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [stuck, setStuck] = useState(false)
 
@@ -57,6 +56,7 @@ export default function App() {
 
   const view = useMemo(() => {
     const active = prefs ?? DEFAULT_PREFS
+    const cls = classById(active.classId) ?? classById(DEFAULT_PREFS.classId)!
     const todayIso = now.iso
     const weekend = todayIso > 5
 
@@ -64,53 +64,57 @@ export default function App() {
     const monday = addDays(now, 1 - todayIso + (weekend ? 7 : 0))
     const week = weekParity(monday)
 
-    const autoDay = dayByIso(todayIso) ?? nextSchoolDay(todayIso)
-    const day = picked ? dayById(picked) : autoDay
-    const date = addDays(monday, day.iso - 1)
-    const isToday = !weekend && day.iso === todayIso
+    const autoIndex = dayIndexOf(todayIso) ?? 0
+    const dayIndex = picked ?? autoIndex
+    const date = addDays(monday, dayIndex)
+    const isToday = !weekend && dayIndex === autoIndex
 
-    const mine = buildDay(day, active, 'my', week)
-    const lessons = mode === 'my' ? mine : buildDay(day, active, 'full', week)
+    const lessons = buildDay(cls, dayIndex, active, mode, week)
 
     // Стан «що зараз» завжди особистий, навіть коли відкрито повний розклад.
-    const todayDay = weekend ? null : dayByIso(todayIso)
-    const todayLessons = todayDay ? buildDay(todayDay, active, 'my', week) : []
-    const status = todayDay ? computeStatus(todayLessons, now.minutes) : null
+    const todayIndex = dayIndexOf(todayIso)
+    const todayLessons =
+      todayIndex === null ? [] : buildDay(cls, todayIndex, active, 'my', week)
+    const status = todayIndex === null ? null : computeStatus(todayLessons, now.minutes)
 
     // Найближчий навчальний день може лежати вже в наступному тижні —
     // отже, і парність у нього своя.
-    const upcoming = nextSchoolDay(todayIso)
-    const upcomingDate = addDays(now, daysUntil(todayIso, upcoming.iso))
+    const upcomingIso = nextSchoolIso(todayIso > 5 ? 7 : todayIso)
+    const upcomingIndex = dayIndexOf(upcomingIso) ?? 0
+    const upcomingDate = addDays(now, daysUntil(todayIso, upcomingIso))
     const upcomingFirst =
-      buildDay(upcoming, active, 'my', weekParity(upcomingDate))[0] ?? null
+      buildDay(cls, upcomingIndex, active, 'my', weekParity(upcomingDate))[0] ?? null
 
     return {
       active,
+      cls,
       todayIso,
       weekend,
       week,
-      day,
+      dayIndex,
       date,
       isToday,
       lessons,
-      mine,
       status,
       todayLessons,
-      upcoming,
+      upcomingIso,
+      upcomingIndex,
       upcomingFirst,
     }
   }, [now, picked, mode, prefs])
 
   const nextUp: NextUp = {
-    accusative: DAY_NAME_ACCUSATIVE[view.upcoming.iso],
-    nominative: DAY_NAME_LOWER[view.upcoming.iso],
+    accusative: DAY_NAME_ACCUSATIVE[view.upcomingIso],
+    nominative: DAY_NAME_LOWER[view.upcomingIso],
     lesson: view.upcomingFirst,
-    onJump: view.day.id === view.upcoming.id ? null : () => setPicked(view.upcoming.id),
+    onJump:
+      view.dayIndex === view.upcomingIndex ? null : () => setPicked(view.upcomingIndex),
   }
 
   const done = finishedCount(view.todayLessons, now.minutes)
   const total = view.todayLessons.length
-  const skipped = mode === 'my' ? offWeekNote(view.day, view.active, view.week) : null
+  const skipped =
+    mode === 'my' ? offWeekNote(view.cls, view.dayIndex, view.active, view.week) : null
   const showTodayChip = !view.weekend && !view.isToday
   /** Що зараз — має сенс лише для сьогоднішнього дня або вихідних. */
   const showStatus = view.isToday || view.weekend
@@ -124,10 +128,15 @@ export default function App() {
     <div className="app">
       <header className={stuck ? 'topbar topbar--stuck' : 'topbar'}>
         <div className="topbar__row">
-          <div className="brand">
-            <h1 className="brand__class">{CLASS_NAME}</h1>
-            <p className="brand__sub">Розклад уроків</p>
-          </div>
+          <button
+            type="button"
+            className="brand"
+            onClick={() => setSettingsOpen(true)}
+            aria-label={`Клас ${view.cls.name}. Змінити клас`}
+          >
+            <span className="brand__class">{view.cls.name}</span>
+            <span className="brand__sub">Розклад уроків</span>
+          </button>
 
           <button
             type="button"
@@ -148,12 +157,12 @@ export default function App() {
           </button>
         </div>
 
-        <DayTabs active={view.day.id} todayIso={view.todayIso} onSelect={setPicked} />
+        <DayTabs active={view.dayIndex} todayIso={view.todayIso} onSelect={setPicked} />
       </header>
 
       <main>
         <div className="daymeta">
-          <h2 className="daymeta__day">{DAY_NAME[view.day.iso]}</h2>
+          <h1 className="daymeta__day">{DAY_NAME[view.dayIndex + 1]}</h1>
           <p className="daymeta__date">{formatDateUk(view.date)}</p>
 
           {view.isToday && total > 0 && (
@@ -209,7 +218,9 @@ export default function App() {
 
             {canInstall && (
               <div className="install">
-                <p className="install__text">Додайте розклад на головний екран — працює й без інтернету.</p>
+                <p className="install__text">
+                  Додайте розклад на головний екран — працює й без інтернету.
+                </p>
                 <button type="button" className="btn" onClick={install}>
                   Встановити
                 </button>
@@ -229,8 +240,14 @@ export default function App() {
 
         <footer className="appfooter">
           {SCHOOL_NAME}
+          {view.cls.homeroom && (
+            <>
+              <br />
+              Класний керівник: {view.cls.homeroom}
+            </>
+          )}
           <br />
-          Розклад дзвінків для 2–11 класів. Час — київський.
+          Час — київський.
         </footer>
       </main>
 
