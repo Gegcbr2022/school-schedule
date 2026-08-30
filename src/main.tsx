@@ -1,0 +1,23 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import App from './App'
+import './styles.css'
+
+const root = document.getElementById('root')
+if (!root) throw new Error('Немає #root у документі')
+
+createRoot(root).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+// Service worker живе поруч із застосунком, тому й шлях беремо з BASE_URL —
+// так воно працює і на GitHub Pages у підпапці, і локально в корені.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+      /* без офлайну теж жити можна */
+    })
+  })
+}
