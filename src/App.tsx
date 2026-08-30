@@ -112,6 +112,8 @@ export default function App() {
   const total = view.todayLessons.length
   const skipped = mode === 'my' ? offWeekNote(view.day, view.active, view.week) : null
   const showTodayChip = !view.weekend && !view.isToday
+  /** Що зараз — має сенс лише для сьогоднішнього дня або вихідних. */
+  const showStatus = view.isToday || view.weekend
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
@@ -171,9 +173,9 @@ export default function App() {
           )}
         </div>
 
-        <div className="layout">
+        <div className={showStatus ? 'layout' : 'layout layout--solo'}>
           <div className="layout__aside">
-            {(view.isToday || view.weekend) && (
+            {showStatus && (
               <StatusCard
                 status={view.status}
                 todayName={DAY_NAME[view.todayIso]}

@@ -374,10 +374,26 @@ button {
   text-wrap: balance;
 }
 
+.status__room {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.status--live .status__room {
+  color: var(--accent);
+}
+
+.status--break .status__room {
+  color: var(--warm);
+}
+
 .status__range {
   margin-top: 5px;
   font-size: 15px;
-  color: var(--text-2);
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -626,6 +642,19 @@ button {
   font-weight: 650;
   color: var(--text-2);
   vertical-align: 2px;
+}
+
+.lesson__room {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lesson--current .lesson__room {
+  color: var(--accent);
 }
 
 .lesson__variants {
@@ -903,11 +932,25 @@ button {
     font-size: 24px;
   }
 
+  .daybar {
+    max-width: 520px;
+  }
+
   .layout {
     display: grid;
     grid-template-columns: 360px minmax(0, 1fr);
     gap: 36px;
     align-items: start;
+  }
+
+  /* Картки стану немає (гортаємо інший день) — не лишаємо порожню колонку. */
+  .layout--solo {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 680px;
+  }
+
+  .layout--solo .layout__aside {
+    display: none;
   }
 
   .layout__aside {

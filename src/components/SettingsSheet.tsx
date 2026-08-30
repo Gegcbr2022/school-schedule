@@ -49,6 +49,7 @@ function Radios<T extends string>({
               className="visually-hidden"
               name={name}
               value={option.value}
+              aria-label={`${legend}: ${option.label}`}
               checked={value === option.value}
               onChange={() => onChange(option.value)}
             />
@@ -189,7 +190,7 @@ export function SettingsSheet({
           onChange={(value) =>
             update({ gender: value === 'none' ? null : (value as Prefs['gender']) })
           }
-          hint="На назву уроку не впливає — лише підпис у повному розкладі."
+          hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
         />
 
         {!onboarding && (

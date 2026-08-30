@@ -86,10 +86,16 @@ export type EnglishGroup = (typeof ENGLISH_GROUPS)[number]
 export const GENDER_GROUPS = ['boys', 'girls'] as const
 export type GenderGroup = (typeof GENDER_GROUPS)[number]
 
+/**
+ * Номер кабінету так, як він стоїть у паперовому розкладі.
+ * Якщо номера там немає — поля просто немає, вигадувати нічого не треба.
+ */
+export type Room = string
+
 /** Варіант уроку для конкретної групи. */
 export type Variant =
-  | { by: 'classGroup'; group: ClassGroup; subject: SubjectCode }
-  | { by: 'language'; group: LanguageGroup; subject: SubjectCode }
+  | { by: 'classGroup'; group: ClassGroup; subject: SubjectCode; room?: Room }
+  | { by: 'language'; group: LanguageGroup; subject: SubjectCode; room?: Room }
 
 /**
  * Урок, який слухає весь клас, але фізично сидить у різних кабінетах.
@@ -112,7 +118,17 @@ type LessonBase = {
 }
 
 export type Lesson =
-  | (LessonBase & { subject: SubjectCode; split?: WholeClassSplit })
+  | (LessonBase & {
+      subject: SubjectCode
+      split?: WholeClassSplit
+      room?: Room
+      /**
+       * Фізкультура йде одночасно в різних залах, тож кабінет залежить
+       * від поділу. Групу, для якої в розкладі номера немає, просто
+       * не вказуємо.
+       */
+      roomByGender?: Partial<Record<GenderGroup, Room>>
+    })
   | (LessonBase & { variants: Variant[] })
 
 export type DayId = 'mon' | 'tue' | 'wed' | 'thu' | 'fri'
@@ -136,18 +152,18 @@ export const WEEK: Day[] = [
     full: 'Понеділок',
     lessons: [
       { n: 1, subject: 'м' },
-      { n: 2, subject: 'м' },
-      { n: 3, subject: 'і' },
+      { n: 2, subject: 'м', room: '12' },
+      { n: 3, subject: 'і', room: '19' },
       {
         n: 4,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'ум' },
+          { by: 'classGroup', group: '1', subject: 'ум', room: '16' },
           { by: 'classGroup', group: '2', subject: 'к' },
         ],
       },
       { n: 5, subject: 'ам', split: 'english' },
-      { n: 6, subject: 'б' },
-      { n: 7, subject: 'фк', split: 'gender' },
+      { n: 6, subject: 'б', room: '6' },
+      { n: 7, subject: 'фк', split: 'gender', roomByGender: { boys: '8', girls: '13' } },
     ],
   },
   {
@@ -156,26 +172,26 @@ export const WEEK: Day[] = [
     short: 'Вт',
     full: 'Вівторок',
     lessons: [
-      { n: 1, subject: 'ф' },
+      { n: 1, subject: 'ф', room: '9' },
       { n: 2, subject: 'ул' },
       {
         n: 3,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'ум' },
-          { by: 'classGroup', group: '2', subject: 'і' },
+          { by: 'classGroup', group: '1', subject: 'ум', room: '17' },
+          { by: 'classGroup', group: '2', subject: 'і', room: '15' },
         ],
       },
       { n: 4, subject: 'ам', split: 'english' },
       {
         n: 5,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'т' },
-          { by: 'classGroup', group: '2', subject: 'ум' },
+          { by: 'classGroup', group: '1', subject: 'т', room: '14' },
+          { by: 'classGroup', group: '2', subject: 'ум', room: '18' },
         ],
       },
-      { n: 6, subject: 'м' },
+      { n: 6, subject: 'м', room: '12' },
       { n: 7, subject: 'го' },
-      { n: 8, subject: 'фк', split: 'gender' },
+      { n: 8, subject: 'фк', split: 'gender', roomByGender: { boys: '2', girls: '13' } },
     ],
   },
   {
@@ -187,15 +203,15 @@ export const WEEK: Day[] = [
       {
         n: 1,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'і' },
-          { by: 'classGroup', group: '2', subject: 'ум' },
+          { by: 'classGroup', group: '1', subject: 'і', room: '25' },
+          { by: 'classGroup', group: '2', subject: 'ум', room: '18' },
         ],
       },
       {
         n: 2,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'г' },
-          { by: 'classGroup', group: '2', subject: 'і' },
+          { by: 'classGroup', group: '1', subject: 'г', room: '1' },
+          { by: 'classGroup', group: '2', subject: 'і', room: '19' },
         ],
       },
       {
@@ -205,14 +221,15 @@ export const WEEK: Day[] = [
           { by: 'language', group: 'fr', subject: 'фм' },
         ],
       },
-      { n: 4, subject: 'м' },
-      { n: 5, subject: 'фк', split: 'gender' },
-      { n: 6, subject: 'б' },
+      { n: 4, subject: 'м', room: '12' },
+      // У дівчат у розкладі замість номера стоїть буквене позначення — не номер кабінету.
+      { n: 5, subject: 'фк', split: 'gender', roomByGender: { boys: '25' } },
+      { n: 6, subject: 'б', room: '6' },
       {
         n: 7,
         variants: [
           { by: 'language', group: 'de', subject: 'нм' },
-          { by: 'language', group: 'fr', subject: 'фм' },
+          { by: 'language', group: 'fr', subject: 'фм', room: '7' },
         ],
       },
       // Хімія стоїть тільки у 2 групи — і лише через тиждень.
@@ -226,9 +243,9 @@ export const WEEK: Day[] = [
     short: 'Чт',
     full: 'Четвер',
     lessons: [
-      { n: 1, subject: 'г' },
+      { n: 1, subject: 'г', room: '1' },
       { n: 2, subject: 'зл' },
-      { n: 3, subject: 'ф' },
+      { n: 3, subject: 'ф', room: '9' },
       { n: 4, subject: 'х' },
       { n: 5, subject: 'ам', split: 'english' },
       { n: 6, subject: 'ул' },
@@ -240,23 +257,23 @@ export const WEEK: Day[] = [
     short: 'Пт',
     full: 'Пʼятниця',
     lessons: [
-      { n: 1, subject: 'і' },
+      { n: 1, subject: 'і', room: '19' },
       { n: 2, subject: 'ам', split: 'english' },
       {
         n: 3,
         variants: [
           { by: 'language', group: 'de', subject: 'нм' },
-          { by: 'language', group: 'fr', subject: 'фм' },
+          { by: 'language', group: 'fr', subject: 'фм', room: '7' },
         ],
       },
-      { n: 4, subject: 'ф' },
+      { n: 4, subject: 'ф', room: '9' },
       { n: 5, subject: 'ам', split: 'english' },
-      { n: 6, subject: 'го' },
+      { n: 6, subject: 'го', room: '19' },
       {
         n: 7,
         variants: [
           { by: 'classGroup', group: '1', subject: 'к' },
-          { by: 'classGroup', group: '2', subject: 'т' },
+          { by: 'classGroup', group: '2', subject: 'т', room: '1' },
         ],
       },
     ],

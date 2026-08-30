@@ -4,12 +4,20 @@
  */
 
 import type { Day, DayId, Lesson, LessonNumber, WeekParity } from '../data/schedule'
-import { BELLS, ENGLISH_GROUPS, SUBJECTS, WEEK } from '../data/schedule'
+import { BELLS, ENGLISH_GROUPS, GENDER_GROUPS, SUBJECTS, WEEK } from '../data/schedule'
 import type { Prefs } from './prefs'
 import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_TAG } from './prefs'
 
-/** Один предмет у картці уроку. `who` — чия саме це група. */
-export type DisplayItem = { subject: string; who?: string }
+/**
+ * Один предмет у картці уроку.
+ * `who` — чия саме це група, `room` — кабінет (якщо він є в розкладі).
+ */
+export type DisplayItem = { subject: string; who?: string; room?: string }
+
+/** «каб. 12». Порожній кабінет ніяк не підписуємо. */
+export function roomLabel(room: string | undefined): string | null {
+  return room ? `каб. ${room}` : null
+}
 
 export type DisplayLesson = {
   n: LessonNumber
@@ -68,15 +76,31 @@ export function buildDay(
       : undefined
 
     if (!hasVariants(lesson)) {
+      const subject = SUBJECTS[lesson.subject]
       let note = weekNote
+      let items: DisplayItem[] = [{ subject, room: lesson.room }]
+
       if (lesson.split === 'english') {
+        // Предмет один для всіх підгруп, кабінети в розкладі не вказані.
         note = mode === 'my' ? `Підгрупа ${prefs.english}` : ENGLISH_SUBGROUPS_NOTE
       } else if (lesson.split === 'gender') {
-        // Стать не змінює предмет — у «моєму» розкладі про поділ мовчимо.
-        note = mode === 'full' ? GENDER_NOTE : undefined
+        // Стать не змінює предмет — але змінює зал, тож кабінет свій у кожного.
+        const rooms = lesson.roomByGender
+        if (mode === 'full' && rooms) {
+          items = GENDER_GROUPS.map((g) => ({
+            subject,
+            who: GENDER_LABEL[g],
+            room: rooms[g],
+          }))
+        } else if (mode === 'full') {
+          note = GENDER_NOTE
+        } else {
+          // У «моєму» розкладі про поділ мовчимо: показуємо лише свій зал.
+          items = [{ subject, room: prefs.gender ? rooms?.[prefs.gender] : undefined }]
+        }
       }
 
-      out.push({ n: lesson.n, ...bell, items: [{ subject: SUBJECTS[lesson.subject] }], note })
+      out.push({ n: lesson.n, ...bell, items, note })
       continue
     }
 
@@ -87,6 +111,7 @@ export function buildDay(
         items: lesson.variants.map((v) => ({
           subject: SUBJECTS[v.subject],
           who: v.by === 'classGroup' ? CLASS_GROUP_LABEL[v.group] : LANGUAGE_TAG[v.group],
+          room: v.room,
         })),
         note: weekNote,
       })
@@ -104,6 +129,7 @@ export function buildDay(
         {
           subject: SUBJECTS[mine.subject],
           who: mine.by === 'classGroup' ? CLASS_GROUP_LABEL[mine.group] : undefined,
+          room: mine.room,
         },
       ],
     })

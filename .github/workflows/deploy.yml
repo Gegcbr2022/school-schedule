@@ -28,10 +28,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Перевірка типів і лінт
+      - name: Перевірка типів, лінт і тести
         run: |
           npx tsc -b
           npm run lint
+          npm test
 
       - run: npm run build
 

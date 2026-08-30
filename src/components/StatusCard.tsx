@@ -1,5 +1,6 @@
 import { formatDuration, formatTime, plural } from '../lib/clock'
 import type { DayStatus, DisplayLesson } from '../lib/lessons'
+import { roomLabel } from '../lib/lessons'
 
 /** Куди дивитись далі: найближчий навчальний день і його перший урок. */
 export type NextUp = {
@@ -23,11 +24,27 @@ function subjectOf(lesson: DisplayLesson): string {
   return lesson.items.map((i) => i.subject).join(' / ')
 }
 
-function Range({ lesson }: { lesson: DisplayLesson }) {
+/** Кабінети уроку — лише ті, що справді є в розкладі. */
+function roomsOf(lesson: DisplayLesson): string | null {
+  const rooms = lesson.items.map((i) => roomLabel(i.room)).filter((r): r is string => r !== null)
+  return rooms.length > 0 ? [...new Set(rooms)].join(' · ') : null
+}
+
+/** «Математика · каб. 12» — для компактного рядка «наступний». */
+function shortLine(lesson: DisplayLesson): string {
+  const rooms = roomsOf(lesson)
+  return rooms ? `${subjectOf(lesson)} · ${rooms}` : subjectOf(lesson)
+}
+
+function Where({ lesson }: { lesson: DisplayLesson }) {
+  const rooms = roomsOf(lesson)
   return (
-    <p className="status__range">
-      {formatTime(lesson.start)} — {formatTime(lesson.end)}
-    </p>
+    <>
+      {rooms && <p className="status__room">{rooms}</p>}
+      <p className="status__range">
+        {formatTime(lesson.start)} — {formatTime(lesson.end)}
+      </p>
+    </>
   )
 }
 
@@ -35,7 +52,7 @@ function NextLine({ lesson }: { lesson: DisplayLesson }) {
   return (
     <div className="status__next">
       <span className="status__next-label">Наступний:</span>
-      <span className="status__next-name">{subjectOf(lesson)}</span>
+      <span className="status__next-name">{shortLine(lesson)}</span>
       <span className="status__next-time">{formatTime(lesson.start)}</span>
     </div>
   )
@@ -48,7 +65,7 @@ function JumpBlock({ nextUp }: { nextUp: NextUp }) {
         <span className="status__next-label">Далі — у {nextUp.nominative}:</span>
         {nextUp.lesson && (
           <>
-            <span className="status__next-name">{subjectOf(nextUp.lesson)}</span>
+            <span className="status__next-name">{shortLine(nextUp.lesson)}</span>
             <span className="status__next-time">{formatTime(nextUp.lesson.start)}</span>
           </>
         )}
@@ -98,7 +115,7 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
           Зараз
         </p>
         <h2 className="status__subject">{subjectOf(current)}</h2>
-        <Range lesson={current} />
+        <Where lesson={current} />
 
         <p className="status__count">
           До кінця <b>{formatDuration(leftMin)}</b>
@@ -127,7 +144,7 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
           Перерва
         </p>
         <h2 className="status__subject">{subjectOf(status.next)}</h2>
-        <Range lesson={status.next} />
+        <Where lesson={status.next} />
         <p className="status__count">
           Наступний урок через <b>{formatDuration(status.inMin)}</b>
         </p>
@@ -140,7 +157,7 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
       <section className="status" aria-label="Що зараз">
         <p className="status__label">Перший урок</p>
         <h2 className="status__subject">{subjectOf(status.next)}</h2>
-        <Range lesson={status.next} />
+        <Where lesson={status.next} />
         <p className="status__count">
           Початок через <b>{formatDuration(status.inMin)}</b>
         </p>

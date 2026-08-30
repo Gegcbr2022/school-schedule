@@ -1,5 +1,6 @@
 import { formatTime } from '../lib/clock'
 import type { DisplayLesson } from '../lib/lessons'
+import { roomLabel } from '../lib/lessons'
 
 type Props = {
   lessons: DisplayLesson[]
@@ -68,12 +69,16 @@ export function LessonList({ lessons, nowMin }: Props) {
               </div>
 
               <div className="lesson__variants">
-                {lesson.items.map((item) => (
-                  <p key={`${item.who ?? ''}-${item.subject}`} className="lesson__subject">
-                    {item.who && <span className="lesson__who">{item.who}</span>}
-                    {item.subject}
-                  </p>
-                ))}
+                {lesson.items.map((item) => {
+                  const room = roomLabel(item.room)
+                  return (
+                    <p key={`${item.who ?? ''}-${item.subject}`} className="lesson__subject">
+                      {item.who && <span className="lesson__who">{item.who}</span>}
+                      {item.subject}
+                      {room && <span className="lesson__room">{room}</span>}
+                    </p>
+                  )
+                })}
               </div>
 
               {lesson.note && <p className="lesson__note">{lesson.note}</p>}
