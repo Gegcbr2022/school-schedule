@@ -765,19 +765,25 @@ button {
 .install {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 18px;
-  padding: 12px 14px;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 8px 12px 14px;
   border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
 }
 
 .install__text {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: 12.5px;
+  line-height: 1.4;
   color: var(--text-2);
+}
+
+.install__text b {
+  font-size: 14px;
+  color: var(--text);
 }
 
 .install .btn {
@@ -785,6 +791,17 @@ button {
   padding: 0 14px;
   font-size: 14px;
   flex: none;
+}
+
+.iconbtn--small {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.iconbtn--small svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* ── Налаштування ────────────────────────────────────────────────────── */

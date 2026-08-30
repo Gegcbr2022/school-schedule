@@ -46,6 +46,16 @@
           /* приватний режим — обійдемось системною темою */
         }
       })()
+
+      // Chrome кидає beforeinstallprompt ще до того, як React встигне
+      // підписатись, і подію не можна отримати заднім числом. Тому ловимо
+      // її тут і притримуємо — застосунок забере, коли змонтується.
+      window.__installPrompt = null
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault()
+        window.__installPrompt = event
+        window.dispatchEvent(new Event('installpromptready'))
+      })
     </script>
   </head>
   <body>

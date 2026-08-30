@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DayTabs } from './components/DayTabs'
-import { InfoIcon, MoonIcon, SettingsIcon, ShareIcon, SunIcon } from './components/Icons'
+import {
+  CloseIcon,
+  InfoIcon,
+  MoonIcon,
+  SettingsIcon,
+  ShareIcon,
+  SunIcon,
+} from './components/Icons'
 import { LessonList } from './components/LessonList'
 import { SettingsSheet } from './components/SettingsSheet'
 import type { NextUp } from './components/StatusCard'
@@ -38,7 +45,7 @@ const IS_IOS =
 export default function App() {
   const now = useNow()
   const { theme, resolved, setTheme } = useTheme()
-  const { canInstall, install } = useInstallPrompt()
+  const { canInstall, install, dismiss } = useInstallPrompt()
 
   const [prefs, setPrefs] = useState<Prefs | null>(loadPrefs)
   const [mode, setMode] = useState<ViewMode>('my')
@@ -194,6 +201,27 @@ export default function App() {
           </div>
 
           <div className="layout__main">
+            {canInstall && (
+              <div className="install">
+                <p className="install__text">
+                  <b>Встановити застосунок</b>
+                  <br />
+                  Іконка на екрані, працює без інтернету.
+                </p>
+                <button type="button" className="btn" onClick={install}>
+                  Встановити
+                </button>
+                <button
+                  type="button"
+                  className="iconbtn iconbtn--small"
+                  onClick={dismiss}
+                  aria-label="Не пропонувати встановлення"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            )}
+
             <div className="modeswitch" role="group" aria-label="Режим перегляду">
               <button type="button" aria-pressed={mode === 'my'} onClick={() => setMode('my')}>
                 Мій розклад
@@ -214,17 +242,6 @@ export default function App() {
                 <InfoIcon />
                 <span>{skipped}</span>
               </p>
-            )}
-
-            {canInstall && (
-              <div className="install">
-                <p className="install__text">
-                  Додайте розклад на головний екран — працює й без інтернету.
-                </p>
-                <button type="button" className="btn" onClick={install}>
-                  Встановити
-                </button>
-              </div>
             )}
 
             {!canInstall && IS_IOS && !isStandalone() && (

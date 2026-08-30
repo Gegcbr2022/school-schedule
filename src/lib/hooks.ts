@@ -77,6 +77,15 @@ export function useTheme(): {
 
 type InstallEvent = Event & { prompt: () => Promise<void> }
 
+declare global {
+  interface Window {
+    /** Подія встановлення, спіймана інлайновим скриптом в index.html. */
+    __installPrompt?: InstallEvent | null
+  }
+}
+
+const DISMISSED_KEY = 'rozklad:install-dismissed:v1'
+
 /** Чи запущені ми як встановлений застосунок. */
 export function isStandalone(): boolean {
   return (
@@ -88,24 +97,41 @@ export function isStandalone(): boolean {
 
 /**
  * Кнопка «Встановити» з'являється лише там, де браузер справді пропонує
- * встановлення, і зникає назавжди після встановлення.
+ * встановлення, і зникає після встановлення або після того, як її закрили.
+ *
+ * Саму подію ловить інлайновий скрипт у index.html: Chrome кидає її ще до
+ * того, як React змонтується, а отримати її пізніше вже не можна.
  */
-export function useInstallPrompt(): { canInstall: boolean; install: () => void } {
+export function useInstallPrompt(): {
+  canInstall: boolean
+  install: () => void
+  dismiss: () => void
+} {
   const [event, setEvent] = useState<InstallEvent | null>(null)
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(DISMISSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
     if (isStandalone()) return
 
-    const onPrompt = (e: Event) => {
-      e.preventDefault()
-      setEvent(e as InstallEvent)
-    }
-    const onInstalled = () => setEvent(null)
+    const pick = () => setEvent(window.__installPrompt ?? null)
+    // Подія могла впасти ще до монтування — забираємо притримане.
+    pick()
 
-    window.addEventListener('beforeinstallprompt', onPrompt)
+    const onInstalled = () => {
+      window.__installPrompt = null
+      setEvent(null)
+    }
+
+    window.addEventListener('installpromptready', pick)
     window.addEventListener('appinstalled', onInstalled)
     return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('installpromptready', pick)
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [])
@@ -113,8 +139,19 @@ export function useInstallPrompt(): { canInstall: boolean; install: () => void }
   const install = useCallback(() => {
     if (!event) return
     void event.prompt()
+    // Одну й ту саму подію двічі показати не можна.
+    window.__installPrompt = null
     setEvent(null)
   }, [event])
 
-  return { canInstall: event !== null, install }
+  const dismiss = useCallback(() => {
+    setDismissed(true)
+    try {
+      localStorage.setItem(DISMISSED_KEY, '1')
+    } catch {
+      /* не збереглось — покажемо ще раз наступного разу */
+    }
+  }, [])
+
+  return { canInstall: event !== null && !dismissed, install, dismiss }
 }
