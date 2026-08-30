@@ -158,8 +158,20 @@ describe('предмети', () => {
   })
 
   it('невідоме скорочення показуємо як є, а не вигадуємо', () => {
-    expect(SUBJECTS.нр).toBeUndefined()
-    expect(subjectName('нр')).toBe('нр')
+    for (const code of ['нр', 'мпЗ', 'тфв', 'да', 'п']) {
+      expect(SUBJECTS[code]).toBeUndefined()
+      expect(subjectName(code)).toBe(code)
+    }
+  })
+
+  it('велика М — математика, мала м — мистецтво', () => {
+    expect(subjectName('М')).toBe('Математика')
+    expect(subjectName('м')).toBe('Мистецтво')
+  })
+
+  it('усі розшифровані скорочення справді трапляються в розкладі', () => {
+    const used = new Set(TIMETABLE.flatMap((c) => c.days.flat().flatMap((l) => l.c.map((x) => x.s))))
+    for (const code of Object.keys(SUBJECTS)) expect(used.has(code)).toBe(true)
   })
 })
 
