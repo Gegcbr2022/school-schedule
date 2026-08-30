@@ -162,7 +162,7 @@ export function offWeekNote(day: Day, prefs: Prefs, week: WeekParity): string | 
       : lesson.subject
     if (!subject) continue
 
-    return `${SUBJECTS[subject]} ${lesson.n}-м уроком буває через тиждень — цього тижня її немає.`
+    return `${SUBJECTS[subject]} ${lesson.n}-м уроком буває через тиждень — цього тижня немає.`
   }
   return null
 }
