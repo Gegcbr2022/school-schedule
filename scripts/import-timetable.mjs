@@ -58,6 +58,28 @@ const OVERRIDES = {
   '10б Ср8': (cells) => cells.map((c) => ({ ...c, g: '2', w: 2 })),
 }
 
+/**
+ * Одне скорочення в розкладі — різні предмети в різних учителів.
+ *
+ * «і» — це і Історія, і Інформатика. Розрізняємо за вчителем; перевірено
+ * по всій школі: жоден із цих учителів не веде обидва предмети. Історію
+ * слухає весь клас, інформатику завжди ділять на групи — тому комірки,
+ * де вчителя не вказано, теж розрізняються однозначно.
+ *
+ * «п» у 9-х веде той самий історик у своєму кабінеті — це Правознавство.
+ */
+const HISTORY_TEACHERS = new Set(['ЛК', 'ЛЧ', 'ІХ', 'СВС'])
+const LAW_TEACHERS = new Set(['ЛК'])
+
+function resolveSubject(cell) {
+  if (cell.s === 'і') {
+    const history = cell.t ? HISTORY_TEACHERS.has(cell.t) : !cell.g
+    return history ? 'іст' : 'і'
+  }
+  if (cell.s === 'п' && cell.t && LAW_TEACHERS.has(cell.t)) return 'прав'
+  return cell.s
+}
+
 /** «5а», «11б» — це інший клас, з яким урок спільний, а не вчитель. */
 const isClass = (t) => /^\d{1,2}[а-д]$/.test(t)
 /** Кабінет — число або малими літерами («сз», «тз»). */
@@ -171,12 +193,13 @@ function parsePage(page) {
         const label = labels.find((i) => i.x >= slotLeft && i.x < slotRight)
 
         // Позиція каже, до якої комірки належить напис, а вигляд — що це таке.
-        return {
+        const cell = {
           s: subject.s,
           room: own.find((i) => isRoom(i.s))?.s,
           t: own.find((i) => isTeacher(i.s))?.s,
           g: label ? GROUP_KEY[label.s] : undefined,
         }
+        return { ...cell, s: resolveSubject(cell) }
       })
 
       days[dayIndex].push({ n: index + 1, cells })

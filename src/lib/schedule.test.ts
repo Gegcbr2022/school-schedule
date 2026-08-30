@@ -169,6 +169,24 @@ describe('предмети', () => {
     expect(subjectName('м')).toBe('Мистецтво')
   })
 
+  it('«і» з паперу розділено: весь клас — історія, по групах — інформатика', () => {
+    // Понеділок, 3 урок — історик ЛК у своєму 19-му, весь клас.
+    expect(at10b(G1, MON, 3)?.items[0].subject).toBe('Історія')
+    expect(at10b(G1, MON, 3)?.items[0].room).toBe('19')
+    // Вівторок, 3 урок — інформатик ІГ, 2 група, комп'ютерний 15-й.
+    expect(at10b(G2, TUE, 3)?.items[0].subject).toBe('Інформатика')
+    expect(at10b(G2, TUE, 3)?.items[0].room).toBe('15')
+  })
+
+  it('жоден клас не має інформатики без поділу на групи', () => {
+    for (const cls of TIMETABLE) {
+      for (const cell of cls.days.flat().flatMap((l) => l.c)) {
+        if (cell.s === 'і') expect(['1', '2']).toContain(cell.g)
+        if (cell.s === 'іст') expect(cell.g === '1' || cell.g === '2').toBe(false)
+      }
+    }
+  })
+
   it('усі розшифровані скорочення справді трапляються в розкладі', () => {
     const used = new Set(TIMETABLE.flatMap((c) => c.days.flat().flatMap((l) => l.c.map((x) => x.s))))
     for (const code of Object.keys(SUBJECTS)) expect(used.has(code)).toBe(true)
@@ -235,14 +253,14 @@ describe('групи 10-Б', () => {
 })
 
 describe('чергування по тижнях', () => {
-  it('середа, 2 урок: перший тиждень географія, другий інформатика', () => {
+  it('середа, 2 урок: перший тиждень географія, другий історія', () => {
     expect(at10b(G1, WED, 2, 1)?.items[0].subject).toBe('Географія')
-    expect(at10b(G1, WED, 2, 2)?.items[0].subject).toBe('Інформатика')
+    expect(at10b(G1, WED, 2, 2)?.items[0].subject).toBe('Історія')
   })
 
   it('однаково для обох навчальних груп — це не поділ класу', () => {
     expect(at10b(G2, WED, 2, 1)?.items[0].subject).toBe('Географія')
-    expect(at10b(G2, WED, 2, 2)?.items[0].subject).toBe('Інформатика')
+    expect(at10b(G2, WED, 2, 2)?.items[0].subject).toBe('Історія')
   })
 
   it('кабінет свій у кожного тижня', () => {
