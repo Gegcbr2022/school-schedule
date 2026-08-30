@@ -87,6 +87,21 @@ export const GENDER_GROUPS = ['boys', 'girls'] as const
 export type GenderGroup = (typeof GENDER_GROUPS)[number]
 
 /**
+ * Вчителі — тільки там, де вони допомагають упізнати свою групу.
+ * Це не довідник учителів, а підказка «яка з груп моя».
+ */
+export const ENGLISH_TEACHERS: Record<EnglishGroup, string> = {
+  А: 'Андрішак',
+  Б: 'Пташник',
+  В: 'Горін',
+}
+
+export const UKRAINIAN_TEACHERS: Record<ClassGroup, string> = {
+  '1': 'Желяк',
+  '2': 'Драгомирецька',
+}
+
+/**
  * Номер кабінету так, як він стоїть у паперовому розкладі.
  * Якщо номера там немає — поля просто немає, вигадувати нічого не треба.
  */
@@ -99,10 +114,12 @@ export type Room = string
  * `week` — предмет чергується по тижнях, слухає весь клас: цього тижня одне,
  * наступного інше.
  */
+type VariantBase = { subject: SubjectCode; room?: Room; teacher?: string }
+
 export type Variant =
-  | { by: 'classGroup'; group: ClassGroup; subject: SubjectCode; room?: Room }
-  | { by: 'language'; group: LanguageGroup; subject: SubjectCode; room?: Room }
-  | { by: 'week'; group: WeekParity; subject: SubjectCode; room?: Room }
+  | (VariantBase & { by: 'classGroup'; group: ClassGroup })
+  | (VariantBase & { by: 'language'; group: LanguageGroup })
+  | (VariantBase & { by: 'week'; group: WeekParity })
 
 /**
  * Урок, який слухає весь клас, але фізично сидить у різних кабінетах.
@@ -164,7 +181,7 @@ export const WEEK: Day[] = [
       {
         n: 4,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'ум', room: '16' },
+          { by: 'classGroup', group: '1', subject: 'ум', room: '16', teacher: UKRAINIAN_TEACHERS['1'] },
           { by: 'classGroup', group: '2', subject: 'к' },
         ],
       },
@@ -184,7 +201,7 @@ export const WEEK: Day[] = [
       {
         n: 3,
         variants: [
-          { by: 'classGroup', group: '1', subject: 'ум', room: '17' },
+          { by: 'classGroup', group: '1', subject: 'ум', room: '17', teacher: UKRAINIAN_TEACHERS['1'] },
           { by: 'classGroup', group: '2', subject: 'і', room: '15' },
         ],
       },
@@ -193,7 +210,7 @@ export const WEEK: Day[] = [
         n: 5,
         variants: [
           { by: 'classGroup', group: '1', subject: 'т', room: '14' },
-          { by: 'classGroup', group: '2', subject: 'ум', room: '18' },
+          { by: 'classGroup', group: '2', subject: 'ум', room: '18', teacher: UKRAINIAN_TEACHERS['2'] },
         ],
       },
       { n: 6, subject: 'м', room: '12' },
@@ -211,7 +228,7 @@ export const WEEK: Day[] = [
         n: 1,
         variants: [
           { by: 'classGroup', group: '1', subject: 'і', room: '25' },
-          { by: 'classGroup', group: '2', subject: 'ум', room: '18' },
+          { by: 'classGroup', group: '2', subject: 'ум', room: '18', teacher: UKRAINIAN_TEACHERS['2'] },
         ],
       },
       // Не поділ класу, а чергування по тижнях: слухають усі,

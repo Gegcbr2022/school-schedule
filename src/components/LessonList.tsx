@@ -76,6 +76,7 @@ export function LessonList({ lessons, nowMin }: Props) {
                       {item.who && <span className="lesson__who">{item.who}</span>}
                       {item.subject}
                       {room && <span className="lesson__room">{room}</span>}
+                      {item.teacher && <span className="lesson__teacher">{item.teacher}</span>}
                     </p>
                   )
                 })}

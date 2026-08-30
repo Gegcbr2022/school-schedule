@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState } from 'react'
 import {
   CLASS_GROUPS,
   ENGLISH_GROUPS,
+  ENGLISH_TEACHERS,
   GENDER_GROUPS,
   LANGUAGE_GROUPS,
+  UKRAINIAN_TEACHERS,
 } from '../data/schedule'
 import type { Prefs, Theme } from '../lib/prefs'
 import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_LABEL } from '../lib/prefs'
@@ -20,7 +22,8 @@ type Props = {
   onReset: () => void
 }
 
-type Option<T> = { value: T; label: string }
+/** `sub` — дрібний другий рядок під назвою, напр. прізвище вчителя. */
+type Option<T> = { value: T; label: string; sub?: string }
 
 /** Група перемикачів на справжніх radio — заради клавіатури й читалок екрана. */
 function Radios<T extends string>({
@@ -49,11 +52,12 @@ function Radios<T extends string>({
               className="visually-hidden"
               name={name}
               value={option.value}
-              aria-label={`${legend}: ${option.label}`}
+              aria-label={`${legend}: ${option.label}${option.sub ? `, ${option.sub}` : ''}`}
               checked={value === option.value}
               onChange={() => onChange(option.value)}
             />
             <span>{option.label}</span>
+            {option.sub && <span className="option__sub">{option.sub}</span>}
           </label>
         ))}
       </div>
@@ -71,6 +75,7 @@ const THEME_OPTIONS: Option<Theme>[] = [
 const CLASS_OPTIONS: Option<Prefs['classGroup']>[] = CLASS_GROUPS.map((g) => ({
   value: g,
   label: CLASS_GROUP_LABEL[g],
+  sub: UKRAINIAN_TEACHERS[g],
 }))
 
 const LANGUAGE_OPTIONS: Option<Prefs['language']>[] = LANGUAGE_GROUPS.map((g) => ({
@@ -81,6 +86,7 @@ const LANGUAGE_OPTIONS: Option<Prefs['language']>[] = LANGUAGE_GROUPS.map((g) =>
 const ENGLISH_OPTIONS: Option<Prefs['english']>[] = ENGLISH_GROUPS.map((g) => ({
   value: g,
   label: g,
+  sub: ENGLISH_TEACHERS[g],
 }))
 
 const GENDER_OPTIONS: Option<string>[] = [
@@ -163,7 +169,7 @@ export function SettingsSheet({
           options={CLASS_OPTIONS}
           value={draft.classGroup}
           onChange={(classGroup) => update({ classGroup })}
-          hint="Ділить клас на уроках української, інформатики, технологій, країнознавства та хімії."
+          hint="Під номером — вчитель української мови. Ця сама група ділить інформатику, технології, країнознавство та хімію."
         />
 
         <Radios

@@ -4,15 +4,28 @@
  */
 
 import type { Day, DayId, Lesson, LessonNumber, Variant, WeekParity } from '../data/schedule'
-import { BELLS, ENGLISH_GROUPS, GENDER_GROUPS, SUBJECTS, WEEK } from '../data/schedule'
+import {
+  BELLS,
+  ENGLISH_GROUPS,
+  ENGLISH_TEACHERS,
+  GENDER_GROUPS,
+  SUBJECTS,
+  WEEK,
+} from '../data/schedule'
 import type { Prefs } from './prefs'
 import { CLASS_GROUP_LABEL, GENDER_LABEL, LANGUAGE_TAG } from './prefs'
 
 /**
  * Один предмет у картці уроку.
- * `who` — чия саме це група, `room` — кабінет (якщо він є в розкладі).
+ * `who` — чия саме це група, `room` — кабінет, `teacher` — вчитель
+ * (усе це є лише там, де воно є в розкладі).
  */
-export type DisplayItem = { subject: string; who?: string; room?: string }
+export type DisplayItem = {
+  subject: string
+  who?: string
+  room?: string
+  teacher?: string
+}
 
 /** «каб. 12». Порожній кабінет ніяк не підписуємо. */
 export function roomLabel(room: string | undefined): string | null {
@@ -31,7 +44,10 @@ export type DisplayLesson = {
 
 export type ViewMode = 'my' | 'full'
 
-const ENGLISH_SUBGROUPS_NOTE = `Підгрупи ${ENGLISH_GROUPS.join(' · ')}`
+/** «А — Андрішак · Б — Пташник · В — Горін» — щоб було видно, де чия підгрупа. */
+const ENGLISH_SUBGROUPS_NOTE = ENGLISH_GROUPS.map(
+  (g) => `${g} — ${ENGLISH_TEACHERS[g]}`,
+).join(' · ')
 const GENDER_NOTE = `${GENDER_LABEL.boys} · ${GENDER_LABEL.girls}`
 
 type VariantLesson = Extract<Lesson, { variants: unknown }>
@@ -90,8 +106,13 @@ export function buildDay(
       let items: DisplayItem[] = [{ subject, room: lesson.room }]
 
       if (lesson.split === 'english') {
-        // Предмет один для всіх підгруп, кабінети в розкладі не вказані.
-        note = mode === 'my' ? `Підгрупа ${prefs.english}` : ENGLISH_SUBGROUPS_NOTE
+        // Предмет однаковий для всіх підгруп — різниця лише у вчителеві.
+        if (mode === 'my') {
+          note = `Підгрупа ${prefs.english}`
+          items = [{ subject, teacher: ENGLISH_TEACHERS[prefs.english] }]
+        } else {
+          note = ENGLISH_SUBGROUPS_NOTE
+        }
       } else if (lesson.split === 'gender') {
         // Стать не змінює предмет — але змінює зал, тож кабінет свій у кожного.
         const rooms = lesson.roomByGender
@@ -121,6 +142,7 @@ export function buildDay(
           subject: SUBJECTS[v.subject],
           who: variantTag(v),
           room: v.room,
+          teacher: v.teacher,
         })),
         note: weekNote,
       })
@@ -140,6 +162,7 @@ export function buildDay(
           // Мовну групу й тиждень підписувати нема потреби — це й так видно.
           who: mine.by === 'classGroup' ? CLASS_GROUP_LABEL[mine.group] : undefined,
           room: mine.room,
+          teacher: mine.teacher,
         },
       ],
       note: mine.by === 'week' ? `Чергується по тижнях · ${week} тиждень` : undefined,

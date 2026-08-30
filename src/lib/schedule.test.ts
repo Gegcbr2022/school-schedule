@@ -179,6 +179,59 @@ describe('хімія через тиждень', () => {
   })
 })
 
+describe('вчителі як підказка «яка група моя»', () => {
+  it('англійська: свій вчитель у кожної підгрупи', () => {
+    const forGroup = (english: Prefs['english']) =>
+      buildDay(dayById('mon'), { ...G1, english }, 'my', 1).find((l) => l.n === 5)
+
+    expect(forGroup('А')?.items[0].teacher).toBe('Андрішак')
+    expect(forGroup('Б')?.items[0].teacher).toBe('Пташник')
+    expect(forGroup('В')?.items[0].teacher).toBe('Горін')
+  })
+
+  it('англійська: у повному розкладі перелічені всі підгрупи', () => {
+    const note = buildDay(dayById('mon'), G1, 'full', 1).find((l) => l.n === 5)?.note
+    expect(note).toBe('А — Андрішак · Б — Пташник · В — Горін')
+  })
+
+  it('українська мова: свій вчитель у кожної навчальної групи', () => {
+    // Понеділок, 4 урок — українська тільки у 1 групи.
+    expect(
+      buildDay(dayById('mon'), G1, 'my', 1).find((l) => l.n === 4)?.items[0].teacher,
+    ).toBe('Желяк')
+    // Вівторок, 5 урок — українська у 2 групи.
+    expect(
+      buildDay(dayById('tue'), G2, 'my', 1).find((l) => l.n === 5)?.items[0].teacher,
+    ).toBe('Драгомирецька')
+  })
+
+  it('вчитель української однаковий у всі дні', () => {
+    const ukrainianTeachers = new Set<string>()
+    for (const day of WEEK) {
+      for (const lesson of buildDay(day, G2, 'my', 1)) {
+        if (lesson.items[0].subject === SUBJECTS.ум && lesson.items[0].teacher) {
+          ukrainianTeachers.add(lesson.items[0].teacher)
+        }
+      }
+    }
+    expect([...ukrainianTeachers]).toEqual(['Драгомирецька'])
+  })
+
+  it('там, де вчителя в розкладі немає, нічого не вигадуємо', () => {
+    const mon = buildDay(dayById('mon'), G1, 'my', 1)
+    expect(mon.find((l) => l.n === 1)?.items[0].teacher).toBeUndefined() // математика
+    expect(mon.find((l) => l.n === 6)?.items[0].teacher).toBeUndefined() // біологія
+  })
+
+  it('у повному розкладі вчитель стоїть біля свого варіанта', () => {
+    const mon = buildDay(dayById('mon'), G1, 'full', 1).find((l) => l.n === 4)
+    expect(mon?.items).toEqual([
+      { subject: SUBJECTS.ум, who: '1 група', room: '16', teacher: 'Желяк' },
+      { subject: SUBJECTS.к, who: '2 група', room: undefined, teacher: undefined },
+    ])
+  })
+})
+
 describe('кабінети', () => {
   it('беруться з розкладу, а не вигадуються', () => {
     const mon = buildDay(dayById('mon'), G1, 'my', 1)

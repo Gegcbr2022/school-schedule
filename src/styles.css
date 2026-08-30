@@ -657,6 +657,14 @@ button {
   color: var(--accent);
 }
 
+.lesson__teacher {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
 .lesson__variants {
   display: flex;
   flex-direction: column;
@@ -858,12 +866,14 @@ button {
    для клавіатури та читалок екрана. */
 .option {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1 1 auto;
   min-width: 84px;
   min-height: var(--tap);
-  padding: 0 14px;
+  padding: 7px 12px;
+  line-height: 1.25;
   border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -889,6 +899,13 @@ button {
 .option:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Прізвище вчителя під назвою групи — щоб було зрозуміло, яка з них твоя. */
+.option__sub {
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0.72;
 }
 
 .sheet__actions {
