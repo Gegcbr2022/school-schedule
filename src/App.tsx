@@ -161,8 +161,12 @@ export default function App() {
   const skipped =
     mode === 'my' ? offWeekNote(view.cls, view.dayIndex, view.active, view.week) : null
   const showTodayChip = !view.weekend && !view.isToday
-  /** Бічна картка «що зараз» — для сьогодні, вихідних чи особливого дня. */
-  const showStatus = view.isToday || view.weekend || view.todaySpecial !== null
+  /**
+   * Бічна картка «що зараз» стосується саме сьогодні, тож показуємо її
+   * лише коли відкрито сьогоднішній день (або вихідні). При переході на
+   * інший день вона зникає — інакше «ще канікули» висіло б на всіх днях.
+   */
+  const showStatus = view.isToday || view.weekend
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
@@ -259,17 +263,16 @@ export default function App() {
 
         <div className={showStatus ? 'layout' : 'layout layout--solo'}>
           <div className="layout__aside">
-            {view.todaySpecial ? (
-              <SpecialCard day={view.todaySpecial} nowMin={now.minutes} />
-            ) : (
-              showStatus && (
+            {showStatus &&
+              (view.todaySpecial ? (
+                <SpecialCard day={view.todaySpecial} nowMin={now.minutes} />
+              ) : (
                 <StatusCard
                   status={view.status}
                   todayName={DAY_NAME[view.todayIso]}
                   nextUp={nextUp}
                 />
-              )
-            )}
+              ))}
           </div>
 
           <div className="layout__main">
