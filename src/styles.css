@@ -1015,6 +1015,90 @@ button {
   white-space: nowrap;
 }
 
+.book__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.book__read {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.book__error {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--warm);
+}
+
+.iconbtn--on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.book__spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Читалка ─────────────────────────────────────────────────────────── */
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.viewer__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--surface-2);
+}
+
+.viewer__loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
 /* ── Вибір класу ─────────────────────────────────────────────────────── */
 
 .grade {

@@ -186,7 +186,7 @@ export const BOOKS: Record<string, BookGroup[]> = {
       ],
     },
     {
-      title: 'Навчаємося разом',
+      subject: 'нр',
       books: [
         {
           title: 'Навчаємося разом, 9 клас',

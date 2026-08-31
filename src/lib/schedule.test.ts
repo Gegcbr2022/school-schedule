@@ -159,10 +159,25 @@ describe('предмети', () => {
   })
 
   it('невідоме скорочення показуємо як є, а не вигадуємо', () => {
-    for (const code of ['нр', 'мпЗ', 'тфв', 'да', 'п']) {
+    // Лишились тільки ці два: «да» в 11-х і «п» у 5-Д.
+    for (const code of ['да', 'п']) {
       expect(SUBJECTS[code]).toBeUndefined()
       expect(subjectName(code)).toBe(code)
     }
+  })
+
+  it('підказані в школі розшифровки на місці', () => {
+    expect(subjectName('нр')).toBe('Навчаємось разом')
+    expect(subjectName('мпЗ')).toBe('Моя планета Земля')
+    expect(subjectName('тфв')).toBe('Твої фізичні відкриття')
+  })
+
+  it('технології в 4–9 ділять на хлопців і дівчат, у 10–11 — на групи', () => {
+    const gendered = classById('8а')!.days.flat().flatMap((l) => l.c).filter((c) => c.s === 'т')
+    expect(gendered.map((c) => c.g)).toEqual(['х', 'д'])
+
+    const byGroup = classById('10б')!.days.flat().flatMap((l) => l.c).filter((c) => c.s === 'т')
+    expect(byGroup.every((c) => c.g === '1' || c.g === '2')).toBe(true)
   })
 
   it('велика М — математика, мала м — мистецтво', () => {
