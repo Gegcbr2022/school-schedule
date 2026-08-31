@@ -228,58 +228,117 @@ button {
   height: 21px;
 }
 
-/* ── Дні тижня ───────────────────────────────────────────────────────── */
+/* ── Смуга дат ───────────────────────────────────────────────────────── */
 
-.daybar {
+.datestrip {
   display: flex;
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-padding: 0 40px;
   padding-bottom: 2px;
 }
 
-.daybar::-webkit-scrollbar {
+.datestrip::-webkit-scrollbar {
   display: none;
 }
 
-.daytab {
+.daycol {
   position: relative;
-  flex: 1 1 0;
-  min-width: 52px;
-  min-height: 44px;
-  padding: 8px 4px;
-  border-radius: 12px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+  min-height: 56px;
+  padding: 7px 4px 8px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-2);
-  font-size: 14px;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.daycol:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .daycol:hover {
+    border-color: var(--border-strong);
+  }
+}
+
+.daycol--weekend {
+  background: transparent;
+}
+
+.daycol__wd {
+  font-size: 11px;
   font-weight: 600;
-  text-align: center;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
-.daytab:hover {
-  border-color: var(--border-strong);
+.daycol__num {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
-.daytab[aria-pressed='true'] {
+.daycol--weekend .daycol__num {
+  color: var(--text-3);
+}
+
+.daycol[aria-pressed='true'] {
   background: var(--accent);
   border-color: var(--accent);
+}
+
+.daycol[aria-pressed='true'] .daycol__wd,
+.daycol[aria-pressed='true'] .daycol__num {
   color: var(--accent-fg);
 }
 
 /* Крапка під сьогоднішнім днем — щоб він читався і без кольору. */
-.daytab__today {
-  display: block;
+.daycol__today {
+  position: absolute;
+  bottom: 4px;
   width: 4px;
   height: 4px;
-  margin: 3px auto -7px;
   border-radius: 50%;
   background: var(--accent);
 }
 
-.daytab[aria-pressed='true'] .daytab__today {
+.daycol[aria-pressed='true'] .daycol__today {
   background: var(--accent-fg);
+}
+
+/* ── Вихідний ────────────────────────────────────────────────────────── */
+
+.weekend {
+  padding: 26px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  text-align: center;
+}
+
+.weekend__title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.weekend__hint {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-3);
 }
 
 /* ── Рядок з датою ───────────────────────────────────────────────────── */
@@ -1475,8 +1534,8 @@ button {
     font-size: 24px;
   }
 
-  .daybar {
-    max-width: 520px;
+  .datestrip {
+    max-width: 620px;
   }
 
   .layout {
@@ -1625,7 +1684,6 @@ button {
 
 /* Натиск: кнопки трохи вгинаються — тактильний відгук на дотик. */
 .iconbtn:active,
-.daytab:active,
 .chip--button:active,
 .btn:active,
 .option:active,
@@ -1635,7 +1693,6 @@ button {
 }
 
 .iconbtn,
-.daytab,
 .chip--button,
 .btn,
 .option,
@@ -1648,15 +1705,6 @@ button {
     border-color 0.15s ease,
     color 0.15s ease,
     filter 0.15s ease;
-}
-
-/* Активна вкладка дня плавно «наповнюється» кольором. */
-.daytab {
-  transition:
-    transform 0.12s ease,
-    background-color 0.22s ease,
-    border-color 0.15s ease,
-    color 0.2s ease;
 }
 
 /* Сегментований перемикач: доріжка — найтемніший шар, тож активна

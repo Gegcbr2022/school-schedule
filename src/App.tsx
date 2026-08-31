@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BooksSheet } from './components/BooksSheet'
-import { DayTabs } from './components/DayTabs'
+import { DateStrip } from './components/DateStrip'
 import {
   BooksIcon,
   CloseIcon,
@@ -20,6 +20,7 @@ import { StatusCard } from './components/StatusCard'
 import { SCHOOL_NAME } from './data/schedule'
 import { specialDayOn } from './data/special'
 import { TIMETABLE } from './data/timetable'
+import type { CalendarDate } from './lib/clock'
 import {
   DAY_NAME,
   DAY_NAME_ACCUSATIVE,
@@ -27,6 +28,7 @@ import {
   addDays,
   dateKey,
   formatDateUk,
+  isoOf,
   plural,
   weekParity,
 } from './lib/clock'
@@ -36,7 +38,6 @@ import {
   buildDay,
   classById,
   computeStatus,
-  dayIndexOf,
   daysUntil,
   finishedCount,
   nextSchoolIso,
@@ -59,11 +60,10 @@ export default function App() {
   const [prefs, setPrefs] = useState<Prefs | null>(loadPrefs)
   const [mode, setMode] = useState<ViewMode>('my')
   /**
-   * Вибраний день. `null` — тримаємось сьогоднішнього і самі переїжджаємо
-   * через північ. `weekOffset` дозволяє зазирнути в наступний тиждень —
-   * саме так працює перехід «Переглянути понеділок» у п'ятницю.
+   * Вибрана дата. `null` — тримаємось сьогоднішнього дня і самі переїжджаємо
+   * через північ. Дата дозволяє гортати будь-куди: вихідні, наступний тиждень.
    */
-  const [picked, setPicked] = useState<{ index: number; weekOffset: number } | null>(null)
+  const [picked, setPicked] = useState<CalendarDate | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
@@ -82,98 +82,87 @@ export default function App() {
     const active = prefs ?? DEFAULT_PREFS
     // Клас за замовчуванням може зникнути з даних — тоді беремо перший наявний.
     const cls = classById(active.classId) ?? classById(DEFAULT_PREFS.classId) ?? TIMETABLE[0]
+    const today: CalendarDate = { year: now.year, month: now.month, day: now.day }
     const todayIso = now.iso
-    const weekend = todayIso > 5
 
-    // Опорний тиждень: поточний, а на вихідних — уже наступний.
-    // Перегляд наступного тижня (picked.weekOffset) зсуває і тиждень, і парність.
-    const baseMonday = addDays(now, 1 - todayIso + (weekend ? 7 : 0))
-    const monday = addDays(baseMonday, 7 * (picked?.weekOffset ?? 0))
-    const week = weekParity(monday)
+    // Що зараз відкрито — конкретна дата.
+    const selected = picked ?? today
+    const selIso = isoOf(selected)
+    const selWeekend = selIso > 5
+    const week = weekParity(addDays(selected, 1 - selIso))
+    const isToday = dateKey(selected) === dateKey(today)
 
-    const autoIndex = dayIndexOf(todayIso) ?? 0
-    const dayIndex = picked?.index ?? autoIndex
-    const date = addDays(monday, dayIndex)
-    const isToday = !weekend && (picked?.weekOffset ?? 0) === 0 && dayIndex === autoIndex
+    // Особливі дні (свята, лінійки) прив'язані до календарної дати.
+    const viewedSpecial = specialDayOn(selected)
+    const todaySpecial = specialDayOn(today)
 
-    // Особливі дні (свята, лінійки) прив'язані до календарної дати
-    // й перекривають звичайний розклад саме на цей день.
-    const viewedSpecial = specialDayOn(date)
-    const todaySpecial = specialDayOn(now)
-
-    const lessons = viewedSpecial?.noLessons ? [] : buildDay(cls, dayIndex, active, mode, week)
-
-    // Стан «що зараз» завжди особистий, навіть коли відкрито повний розклад.
-    const todayIndex = dayIndexOf(todayIso)
-    const todayLessons =
-      todayIndex === null || todaySpecial?.noLessons
+    const lessons =
+      selWeekend || viewedSpecial?.noLessons
         ? []
-        : buildDay(cls, todayIndex, active, 'my', week)
-    const status = todayIndex === null ? null : computeStatus(todayLessons, now.minutes)
+        : buildDay(cls, selIso - 1, active, mode, week)
 
-    // Найближчий навчальний день може лежати вже в наступному тижні —
-    // отже, і парність у нього своя.
-    const upcomingIso = nextSchoolIso(todayIso > 5 ? 7 : todayIso)
-    const upcomingIndex = dayIndexOf(upcomingIso) ?? 0
-    const upcomingDate = addDays(now, daysUntil(todayIso, upcomingIso))
+    // Стан «що зараз» — завжди про сьогодні, незалежно від вибраного дня.
+    const todayWeekend = todayIso > 5
+    const todayWeek = weekParity(addDays(today, 1 - todayIso))
+    const todayLessons =
+      todayWeekend || todaySpecial?.noLessons
+        ? []
+        : buildDay(cls, todayIso - 1, active, 'my', todayWeek)
+    const status = todayWeekend ? null : computeStatus(todayLessons, now.minutes)
+
+    // Найближчий навчальний день (для картки й переходу).
+    const upcomingIso = nextSchoolIso(todayIso)
+    const upcomingDate = addDays(today, daysUntil(todayIso, upcomingIso))
     const upcomingFirst =
-      buildDay(cls, upcomingIndex, active, 'my', weekParity(upcomingDate))[0] ?? null
+      buildDay(cls, upcomingIso - 1, active, 'my', weekParity(addDays(upcomingDate, 1 - upcomingIso)))[0] ??
+      null
 
     return {
       active,
       cls,
+      today,
       todayIso,
-      weekend,
+      selected,
+      selIso,
+      selWeekend,
       week,
-      dayIndex,
-      date,
       isToday,
       lessons,
       status,
       todayLessons,
       upcomingIso,
-      upcomingIndex,
+      upcomingDate,
       upcomingFirst,
       viewedSpecial,
       todaySpecial,
-      picked,
     }
   }, [now, picked, mode, prefs])
 
-  // Найближчий навчальний день лежить у наступному тижні, якщо його номер
-  // не пізніше сьогоднішнього (напр. п'ятниця → понеділок).
-  const jumpWeekOffset =
-    !view.weekend && view.upcomingIso <= view.todayIso ? 1 : 0
-  const alreadyThere =
-    view.dayIndex === view.upcomingIndex && (view.picked?.weekOffset ?? 0) === jumpWeekOffset
+  const alreadyOnUpcoming = dateKey(view.selected) === dateKey(view.upcomingDate)
 
   const nextUp: NextUp = {
     accusative: DAY_NAME_ACCUSATIVE[view.upcomingIso],
     nominative: DAY_NAME_LOWER[view.upcomingIso],
     lesson: view.upcomingFirst,
-    onJump: alreadyThere
-      ? null
-      : () => setPicked({ index: view.upcomingIndex, weekOffset: jumpWeekOffset }),
+    onJump: alreadyOnUpcoming ? null : () => setPicked(view.upcomingDate),
   }
 
   const done = finishedCount(view.todayLessons, now.minutes)
   const total = view.todayLessons.length
   const skipped =
-    mode === 'my' ? offWeekNote(view.cls, view.dayIndex, view.active, view.week) : null
-  const showTodayChip = !view.weekend && !view.isToday
-  /**
-   * Бічна картка «що зараз» стосується саме сьогодні, тож показуємо її
-   * лише коли відкрито сьогоднішній день (або вихідні). При переході на
-   * інший день вона зникає — інакше «ще канікули» висіло б на всіх днях.
-   */
-  const showStatus = view.isToday || view.weekend
+    mode === 'my' && !view.selWeekend
+      ? offWeekNote(view.cls, view.selIso - 1, view.active, view.week)
+      : null
+  const showTodayChip = !view.isToday
+  /** Бічна картка «що зараз» стосується саме сьогодні — лише коли його й відкрито. */
+  const showStatus = view.isToday
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
     savePrefs(next)
   }
 
-  const dateStr = dateKey(view.date)
+  const dateStr = dateKey(view.selected)
   // notesVersion у залежностях, щоб після збереження текст оновився.
   const noteFor = (period: number) => {
     void notesVersion
@@ -183,7 +172,7 @@ export default function App() {
     setNoteTarget({
       lesson,
       date: dateStr,
-      when: `${DAY_NAME[view.dayIndex + 1]}, ${formatDateUk(view.date)}`,
+      when: `${DAY_NAME[view.selIso]}, ${formatDateUk(view.selected)}`,
     })
 
   return (
@@ -228,17 +217,13 @@ export default function App() {
           </button>
         </div>
 
-        <DayTabs
-          active={view.dayIndex}
-          todayIso={view.todayIso}
-          onSelect={(index) => setPicked({ index, weekOffset: view.picked?.weekOffset ?? 0 })}
-        />
+        <DateStrip today={view.today} selected={view.selected} onSelect={setPicked} />
       </header>
 
       <main>
         <div className="daymeta">
-          <h1 className="daymeta__day">{DAY_NAME[view.dayIndex + 1]}</h1>
-          <p className="daymeta__date">{formatDateUk(view.date)}</p>
+          <h1 className="daymeta__day">{DAY_NAME[view.selIso]}</h1>
+          <p className="daymeta__date">{formatDateUk(view.selected)}</p>
 
           {view.isToday && total > 0 && (
             <span className="chip">
@@ -246,13 +231,15 @@ export default function App() {
             </span>
           )}
 
-          <span className="chip">
-            {view.week} тиждень
-            <span className="visually-hidden">
-              {' '}
-              — уроки «через тиждень» орієнтуються на це число
+          {!view.selWeekend && (
+            <span className="chip">
+              {view.week} тиждень
+              <span className="visually-hidden">
+                {' '}
+                — уроки «через тиждень» орієнтуються на це число
+              </span>
             </span>
-          </span>
+          )}
 
           {showTodayChip && (
             <button type="button" className="chip chip--button" onClick={() => setPicked(null)}>
@@ -297,7 +284,23 @@ export default function App() {
               </div>
             )}
 
-            {view.viewedSpecial?.noLessons ? (
+            {view.selWeekend ? (
+              <div className="weekend">
+                <p className="weekend__title">{DAY_NAME[view.selIso]} — вихідний 🌤️</p>
+                <div className="status__actions">
+                  <button
+                    type="button"
+                    className="btn btn--wide"
+                    onClick={() => {
+                      const iso = nextSchoolIso(view.selIso)
+                      setPicked(addDays(view.selected, daysUntil(view.selIso, iso)))
+                    }}
+                  >
+                    Переглянути {DAY_NAME_ACCUSATIVE[nextSchoolIso(view.selIso)]}
+                  </button>
+                </div>
+              </div>
+            ) : view.viewedSpecial?.noLessons ? (
               <SpecialDayAgenda day={view.viewedSpecial} />
             ) : (
               <>

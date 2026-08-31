@@ -94,6 +94,19 @@ export function weekParity(date: CalendarDate): 1 | 2 {
   return weeks % 2 === 0 ? 1 : 2
 }
 
+/** День тижня за ISO (1 = понеділок … 7 = неділя) для календарної дати. */
+export function isoOf(date: CalendarDate): number {
+  const weekday = new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay()
+  return weekday === 0 ? 7 : weekday
+}
+
+/** Скільки цілих діб між двома датами (b - a). */
+export function daysBetween(a: CalendarDate, b: CalendarDate): number {
+  const ua = Date.UTC(a.year, a.month - 1, a.day)
+  const ub = Date.UTC(b.year, b.month - 1, b.day)
+  return Math.round((ub - ua) / DAY_MS)
+}
+
 /** Дата через `days` діб. */
 export function addDays(date: CalendarDate, days: number): CalendarDate {
   const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day) + days * DAY_MS)

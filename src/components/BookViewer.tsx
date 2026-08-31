@@ -11,7 +11,7 @@ type Props = {
 }
 
 /** Скільки намальованих сторінок тримаємо в пам'яті одночасно. */
-const KEEP_RENDERED = 6
+const KEEP_RENDERED = 14
 /** Наскільки заздалегідь малюємо сторінку, що наближається. */
 const LOOKAHEAD = '150% 0px'
 
@@ -40,6 +40,10 @@ export function BookViewer({ title, url, onClose }: Props) {
   const frameRef = useRef<HTMLDivElement>(null)
   const docRef = useRef<Doc | null>(null)
   const renderedRef = useRef<number[]>([])
+  /** Сторінки, які саме зараз малюються — щоб не запускати вдруге. */
+  const renderingRef = useRef<Set<number>>(new Set())
+  /** Сторінки, що зараз на екрані — їх не звільняємо, інакше побіліють. */
+  const visibleRef = useRef<Set<number>>(new Set())
 
   const [pages, setPages] = useState(0)
   const [ratio, setRatio] = useState(1.414)
@@ -48,41 +52,49 @@ export function BookViewer({ title, url, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  /** Малює одну сторінку в її canvas; звільняє найдавніші. */
+  /** Малює одну сторінку в її canvas; звільняє найдавніші невидимі. */
   const renderPage = useCallback(async (n: number) => {
     const doc = docRef.current
     const holder = scrollRef.current?.querySelector<HTMLElement>(`[data-page="${n}"]`)
-    if (!doc || !holder || holder.querySelector('canvas')) return
+    // Уже намальована або малюється просто зараз — не чіпаємо.
+    if (!doc || !holder || holder.querySelector('canvas') || renderingRef.current.has(n)) return
 
-    const page = await doc.getPage(n)
-    const cssWidth = holder.clientWidth
-    const base = page.getViewport({ scale: 1 })
-    // Дрібний шкільний текст доводиться збільшувати пальцями, тож малюємо
-    // з запасом — але не більше подвійного, щоб не з'їсти пам'ять телефона.
-    const density = Math.min(window.devicePixelRatio || 1, 2)
-    const viewport = page.getViewport({ scale: (cssWidth / base.width) * density })
-
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.floor(viewport.width)
-    canvas.height = Math.floor(viewport.height)
-    canvas.style.width = '100%'
-    const context = canvas.getContext('2d')
-    if (!context) return
-
-    holder.replaceChildren(canvas)
+    renderingRef.current.add(n)
     try {
-      await page.render({ canvasContext: context, viewport }).promise
-    } catch {
-      // Малювання скасували (сторінку прогорнули далі, книжку закрили) —
-      // це штатний RenderingCancelledException, не помилка.
-      return
-    }
+      const page = await doc.getPage(n)
+      const cssWidth = holder.clientWidth || holder.offsetWidth || 1
+      const base = page.getViewport({ scale: 1 })
+      // Дрібний шкільний текст доводиться збільшувати пальцями, тож малюємо
+      // з запасом — але не більше подвійного, щоб не з'їсти пам'ять телефона.
+      const density = Math.min(window.devicePixelRatio || 1, 2)
+      const viewport = page.getViewport({ scale: (cssWidth / base.width) * density })
 
-    renderedRef.current = [...renderedRef.current.filter((p) => p !== n), n]
-    while (renderedRef.current.length > KEEP_RENDERED) {
-      const old = renderedRef.current.shift()
-      const stale = scrollRef.current?.querySelector<HTMLElement>(`[data-page="${old}"]`)
-      stale?.replaceChildren()
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.floor(viewport.width)
+      canvas.height = Math.floor(viewport.height)
+      canvas.style.width = '100%'
+      const context = canvas.getContext('2d')
+      if (!context) return
+
+      await page.render({ canvasContext: context, viewport }).promise
+
+      // Полотно додаємо ЛИШЕ після успішного малювання: якщо рендер
+      // скасували (прогорнули далі), не лишиться порожнього білого аркуша,
+      // який назавжди блокував би перемалювання.
+      holder.replaceChildren(canvas)
+      renderedRef.current = [...renderedRef.current.filter((p) => p !== n), n]
+
+      // Звільняємо найдавніші, але ніколи — ті, що зараз на екрані.
+      while (renderedRef.current.length > KEEP_RENDERED) {
+        const idx = renderedRef.current.findIndex((p) => !visibleRef.current.has(p))
+        if (idx === -1) break
+        const [old] = renderedRef.current.splice(idx, 1)
+        scrollRef.current?.querySelector<HTMLElement>(`[data-page="${old}"]`)?.replaceChildren()
+      }
+    } catch {
+      // Скасування рендеру (прогорнули далі, закрили книжку) — не помилка.
+    } finally {
+      renderingRef.current.delete(n)
     }
   }, [])
 
@@ -132,26 +144,35 @@ export function BookViewer({ title, url, onClose }: Props) {
   useEffect(() => {
     if (!pages || !scrollRef.current) return
 
-    // Видимих сторінок буває кілька — номером вважаємо найвищу з них,
-    // інакше лічильник показував би останню з видимих.
-    const visible = new Set<number>()
+    const visible = visibleRef.current
+    // Для лічильника: помітно видимі сторінки (номером беремо найвищу).
+    const prominent = new Set<number>()
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const n = Number((entry.target as HTMLElement).dataset.page)
-          if (entry.isIntersecting) void renderPage(n)
-          if (entry.isIntersecting && entry.intersectionRatio > 0.4) visible.add(n)
-          else visible.delete(n)
+          // Будь-який дотик до зони (з запасом) — сторінку тримаємо й малюємо.
+          if (entry.isIntersecting) {
+            visible.add(n)
+            void renderPage(n)
+          } else {
+            visible.delete(n)
+          }
+          if (entry.isIntersecting && entry.intersectionRatio > 0.4) prominent.add(n)
+          else prominent.delete(n)
         }
-        if (visible.size > 0) setCurrent(Math.min(...visible))
+        if (prominent.size > 0) setCurrent(Math.min(...prominent))
       },
       { root: scrollRef.current, rootMargin: LOOKAHEAD, threshold: [0, 0.4] },
     )
 
     const holders = scrollRef.current.querySelectorAll('[data-page]')
     for (const holder of holders) observer.observe(holder)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      visible.clear()
+    }
   }, [pages, renderPage])
 
   // Esc закриває, а сам переглядач при відкритті забирає фокус на себе —
