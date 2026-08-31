@@ -176,8 +176,10 @@ button {
   transition: background-color 0.15s ease;
 }
 
-.brand:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .brand:hover {
+    background: var(--surface-2);
+  }
 }
 
 .brand__class {
@@ -208,9 +210,11 @@ button {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.iconbtn:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) {
+  .iconbtn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .iconbtn svg {
@@ -1539,24 +1543,6 @@ button {
     background-color 0.22s ease,
     border-color 0.15s ease,
     color 0.2s ease;
-}
-
-/* На дотику hover не «залипає»: прибираємо декоративні наведення. */
-@media (hover: none) {
-  .iconbtn:hover,
-  .daytab:hover,
-  .brand:hover,
-  .chip--button:hover,
-  .option:hover,
-  .linkbtn:hover {
-    background: var(--surface);
-    border-color: var(--border);
-    color: inherit;
-  }
-
-  .iconbtn:hover {
-    background: none;
-  }
 }
 
 /* Сегментований перемикач: доріжка — найтемніший шар, тож активна
