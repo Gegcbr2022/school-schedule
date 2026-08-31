@@ -9,6 +9,15 @@
  * напр. `books/9/ukr-mova-1.pdf`. Куди краще класти файли, див. README.
  */
 
+/**
+ * Де лежать файли підручників.
+ *
+ * Це власний домен бакета R2 — щоб адреси книжок не залежали від
+ * випадкового імені сховища і не мінялися, якщо сховище колись переїде.
+ * Міняти тут в одному місці.
+ */
+const BOOKS_HOST = 'https://books.vell1414.site'
+
 export type Book = {
   title: string
   /** Уточнення: «Частина 1», «Зошит з друкованою основою», «Атлас». */
@@ -177,15 +186,18 @@ export const BOOKS: Record<string, BookGroup[]> = {
           note: 'BBC · 159 сторінок',
           authors:
             'Sue Kay, Vaughan Jones, Daniel Brayshaw, Izabela Michalak, Bartoz Michalowski, Beata Trapbell',
+          url: `${BOOKS_HOST}/9/focus3-students-book.pdf`,
         },
         {
           title: 'Focus 3 Second Edition · Workbook',
           note: 'BBC · 180 сторінок',
           authors: 'Daniel Brayshaw, Dean Russel, Anna Osborn, Amanda Davies',
+          url: `${BOOKS_HOST}/9/focus3-workbook.pdf`,
         },
         {
           title: 'Focus 3 Second Edition · Teacher’s Book',
           note: 'BBC · 325 сторінок · видання для вчителя',
+          url: `${BOOKS_HOST}/9/focus3-teachers-book.pdf`,
         },
       ],
     },
