@@ -65,6 +65,15 @@ export function BooksIcon() {
   )
 }
 
+export function NoteIcon() {
+  return (
+    <svg {...base}>
+      <path d="M15.5 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5Z" />
+      <path d="M15 4v4a1 1 0 0 0 1 1h4M8 13h6M8 16.5h4" />
+    </svg>
+  )
+}
+
 export function CheckIcon() {
   return (
     <svg {...base}>

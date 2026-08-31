@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { formatDuration, formatTime } from '../lib/clock'
 import type { DisplayLesson } from '../lib/lessons'
 import { roomLabel } from '../lib/lessons'
+import { NoteIcon } from './Icons'
 
 type Props = {
   lessons: DisplayLesson[]
@@ -10,6 +11,10 @@ type Props = {
    * не сьогоднішній день (тоді нічого не підсвічуємо).
    */
   nowMin: number | null
+  /** Текст нотатки для уроку за його періодом (порожній — нотатки немає). */
+  noteFor: (period: number) => string
+  /** Відкрити редактор нотатки для цього уроку. */
+  onOpenNote: (lesson: DisplayLesson) => void
 }
 
 type State = 'past' | 'current' | 'next' | 'future' | 'plain'
@@ -39,7 +44,7 @@ function breakBetween(a: DisplayLesson, b: DisplayLesson): number {
   return Math.max(0, b.start - a.end)
 }
 
-export function LessonList({ lessons, nowMin }: Props) {
+export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
   const states = statesFor(lessons, nowMin)
 
   return (
@@ -74,7 +79,12 @@ export function LessonList({ lessons, nowMin }: Props) {
                 <span className="lesson__dot" />
               </div>
 
-              <div className="lesson__card">
+              <button
+                type="button"
+                className="lesson__card"
+                onClick={() => onOpenNote(lesson)}
+                aria-label={`${lesson.items.map((i) => i.subject).join(', ')}, ${lesson.n} урок — додати нотатку`}
+              >
                 <div className="lesson__head">
                   <span className="lesson__num">{lesson.n} урок</span>
                   {badge && (
@@ -105,12 +115,24 @@ export function LessonList({ lessons, nowMin }: Props) {
 
                 {lesson.note && <p className="lesson__note">{lesson.note}</p>}
 
+                {noteFor(lesson.period) ? (
+                  <p className="lesson__usernote">
+                    <NoteIcon />
+                    {noteFor(lesson.period)}
+                  </p>
+                ) : (
+                  <span className="lesson__addnote">
+                    <NoteIcon />
+                    Додати ДЗ
+                  </span>
+                )}
+
                 {progress !== null && (
                   <div className="lesson__progress" aria-hidden="true">
                     <div className="lesson__progress-fill" style={{ width: `${progress * 100}%` }} />
                   </div>
                 )}
-              </div>
+              </button>
             </li>
 
             {gap > 0 && (

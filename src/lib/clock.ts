@@ -133,6 +133,13 @@ export function formatDateUk(time: Pick<KyivTime, 'year' | 'month' | 'day'>): st
   return dateFormatter.format(new Date(Date.UTC(time.year, time.month - 1, time.day)))
 }
 
+/** → «2026-08-31». Стабільний ключ дати для сховища. */
+export function dateKey(time: Pick<KyivTime, 'year' | 'month' | 'day'>): string {
+  const m = String(time.month).padStart(2, '0')
+  const d = String(time.day).padStart(2, '0')
+  return `${time.year}-${m}-${d}`
+}
+
 /** 95 → «1 год 35 хв», 40 → «40 хв». */
 export function formatDuration(minutes: number): string {
   const total = Math.max(0, Math.ceil(minutes))

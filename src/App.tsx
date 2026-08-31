@@ -11,6 +11,8 @@ import {
   SunIcon,
 } from './components/Icons'
 import { LessonList } from './components/LessonList'
+import type { NoteTarget } from './components/NoteSheet'
+import { NoteSheet } from './components/NoteSheet'
 import { SettingsSheet } from './components/SettingsSheet'
 import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
 import type { NextUp } from './components/StatusCard'
@@ -23,12 +25,13 @@ import {
   DAY_NAME_ACCUSATIVE,
   DAY_NAME_LOWER,
   addDays,
+  dateKey,
   formatDateUk,
   plural,
   weekParity,
 } from './lib/clock'
 import { isStandalone, useInstallPrompt, useNow, useTheme } from './lib/hooks'
-import type { ViewMode } from './lib/lessons'
+import type { DisplayLesson, ViewMode } from './lib/lessons'
 import {
   buildDay,
   classById,
@@ -40,6 +43,7 @@ import {
   offWeekNote,
 } from './lib/lessons'
 import type { Prefs } from './lib/prefs'
+import { getNote, setNote } from './lib/notes'
 import { DEFAULT_PREFS, clearPrefs, loadPrefs, savePrefs } from './lib/prefs'
 
 const IS_IOS =
@@ -62,6 +66,9 @@ export default function App() {
   const [picked, setPicked] = useState<{ index: number; weekOffset: number } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
+  const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
+  /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
+  const [notesVersion, setNotesVersion] = useState(0)
   const [stuck, setStuck] = useState(false)
 
   useEffect(() => {
@@ -161,6 +168,19 @@ export default function App() {
     setPrefs(next)
     savePrefs(next)
   }
+
+  const dateStr = dateKey(view.date)
+  // notesVersion у залежностях, щоб після збереження текст оновився.
+  const noteFor = (period: number) => {
+    void notesVersion
+    return getNote({ classId: view.cls.id, date: dateStr, period })
+  }
+  const openNote = (lesson: DisplayLesson) =>
+    setNoteTarget({
+      lesson,
+      date: dateStr,
+      when: `${DAY_NAME[view.dayIndex + 1]}, ${formatDateUk(view.date)}`,
+    })
 
   return (
     <div className="app">
@@ -292,7 +312,12 @@ export default function App() {
                 </div>
 
                 {view.lessons.length > 0 ? (
-                  <LessonList lessons={view.lessons} nowMin={view.isToday ? now.minutes : null} />
+                  <LessonList
+                    lessons={view.lessons}
+                    nowMin={view.isToday ? now.minutes : null}
+                    noteFor={noteFor}
+                    onOpenNote={openNote}
+                  />
                 ) : (
                   <p className="empty">Цього дня у вас уроків немає.</p>
                 )}
@@ -335,6 +360,25 @@ export default function App() {
           classId={view.cls.id}
           className={view.cls.name}
           onClose={() => setBooksOpen(false)}
+        />
+      )}
+
+      {noteTarget && (
+        <NoteSheet
+          target={noteTarget}
+          initial={getNote({
+            classId: view.cls.id,
+            date: noteTarget.date,
+            period: noteTarget.lesson.period,
+          })}
+          onSave={(text) => {
+            setNote(
+              { classId: view.cls.id, date: noteTarget.date, period: noteTarget.lesson.period },
+              text,
+            )
+            setNotesVersion((v) => v + 1)
+          }}
+          onClose={() => setNoteTarget(null)}
         />
       )}
 

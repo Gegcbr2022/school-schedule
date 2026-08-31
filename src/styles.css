@@ -676,10 +676,25 @@ button {
 }
 
 .lesson__card {
+  display: block;
+  width: 100%;
   padding: 11px 14px 12px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+
+.lesson__card:active {
+  transform: scale(0.99);
+}
+
+@media (hover: hover) {
+  .lesson__card:hover {
+    border-color: var(--border-strong);
+  }
 }
 
 .lesson__head {
@@ -812,11 +827,70 @@ button {
   color: var(--text-3);
 }
 
+/* Збережена нотатка учня (ДЗ) — помітна плашка під уроком. */
+.lesson__usernote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.lesson__usernote svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+/* Ненав'язлива підказка «Додати ДЗ» — видно лише при наведенні/фокусі. */
+.lesson__addnote {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.lesson__addnote svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (hover: hover) {
+  .lesson__card:hover .lesson__addnote {
+    opacity: 1;
+  }
+}
+
+/* На дотику підказку показуємо тьмяно завжди — навести нема чим. */
+@media (hover: none) {
+  .lesson__addnote {
+    opacity: 0.6;
+  }
+}
+
 /* Стани уроку */
 
 .lesson--past .lesson__card,
 .lesson--past .lesson__time {
   opacity: 0.5;
+}
+
+/* Але минулий урок із нотаткою не тьмяніє — ДЗ треба бачити. */
+.lesson--past:has(.lesson__usernote) .lesson__card {
+  opacity: 1;
 }
 
 .lesson--current .lesson__card {
@@ -985,6 +1059,34 @@ button {
   margin-bottom: 20px;
   font-size: 14px;
   color: var(--text-2);
+}
+
+.sheet--note {
+  max-height: none;
+}
+
+.note-input {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.note-input::placeholder {
+  color: var(--text-3);
+}
+
+.note-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .field {

@@ -32,6 +32,14 @@ export type SpecialDay = {
 
 export const SPECIAL_DAYS: SpecialDay[] = [
   {
+    date: '2026-08-31',
+    title: 'Ще канікули',
+    emoji: '☀️',
+    noLessons: true,
+    note: 'Навчальний рік починається завтра, 1 вересня.',
+    events: [{ title: 'Завтра о 10:00 — урочиста лінійка', where: 'шкільне подвір’я' }],
+  },
+  {
     date: '2026-09-01',
     title: 'День знань',
     emoji: '🎒',
