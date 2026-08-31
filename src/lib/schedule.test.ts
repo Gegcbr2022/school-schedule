@@ -206,7 +206,11 @@ describe('предмети', () => {
 
   it('усі розшифровані скорочення справді трапляються в розкладі', () => {
     const used = new Set(TIMETABLE.flatMap((c) => c.days.flat().flatMap((l) => l.c.map((x) => x.s))))
-    for (const code of Object.keys(SUBJECTS)) expect(used.has(code)).toBe(true)
+    // «еврика» є лише в підручниках 5–8, у сітці уроків її немає.
+    const bookOnly = new Set(['еврика'])
+    for (const code of Object.keys(SUBJECTS)) {
+      if (!bookOnly.has(code)) expect(used.has(code)).toBe(true)
+    }
   })
 })
 
@@ -449,7 +453,9 @@ describe('підручники', () => {
   })
 
   it('для класу без підручників список порожній, а не помилка', () => {
-    expect(booksForClass('7а')).toEqual([])
+    // Підручники є в 5–9; у 4, 10, 11 поки немає.
+    expect(booksForClass('4а')).toEqual([])
+    expect(booksForClass('11б')).toEqual([])
   })
 
   it('назва предмета береться з розкладу, а не дублюється', () => {
@@ -475,11 +481,15 @@ describe('підручники', () => {
     }
   })
 
-  it('усі книжки 9 класу мають файл і кількість сторінок', () => {
-    for (const group of booksForClass('9б')) {
-      for (const book of group.books) {
-        expect(book.url).toBeTruthy()
-        expect(book.pages).toBeGreaterThan(0)
+  it('усі книжки 5–9 класів мають файл і кількість сторінок', () => {
+    for (const grade of ['5', '6', '7', '8', '9']) {
+      const groups = booksForClass(`${grade}а`)
+      expect(groups.length).toBeGreaterThan(0)
+      for (const group of groups) {
+        for (const book of group.books) {
+          expect(book.url).toBeTruthy()
+          expect(book.pages).toBeGreaterThan(0)
+        }
       }
     }
   })

@@ -16,15 +16,17 @@
  *     export R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
  *     node scripts/upload-books.mjs ~/шлях/до/папки/9
  *
- * Папка з файлами передається аргументом. Її вміст лягає у бакет під
- * префіксом `<номер класу>/…` — тобто `.../9/bio-1.pdf` → `9/bio-1.pdf`.
- * Клас береться з імені папки.
+ * Папка передається аргументом; скрипт обходить її рекурсивно, а ключ
+ * у сховищі = шлях відносно неї. Тож можна вказати як одну паралель
+ * (`.../9`, де лежать bio-1.pdf → ключ `9/bio-1.pdf` при вказівці на
+ * батьківську), так і батьківську папку з підпапками 5/ 6/ 7/ 8/ —
+ * тоді всі паралелі заллються за одну команду з ключами `5/um-1.pdf` тощо.
  *
  * Потрібен один пакет: npm i -D @aws-sdk/client-s3
  */
 
 import { readdir, readFile } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 
 const BUCKET = 'books'
 
@@ -32,6 +34,22 @@ const dir = process.argv[2]
 if (!dir) {
   console.error('Вкажіть папку з файлами: node scripts/upload-books.mjs <папка>')
   process.exit(1)
+}
+
+/** Усі PDF у папці, рекурсивно, з ключем = відносний шлях (з прямими /). */
+async function collect(root) {
+  const out = []
+  async function walk(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const full = join(current, entry.name)
+      if (entry.isDirectory()) await walk(full)
+      else if (entry.name.toLowerCase().endsWith('.pdf')) {
+        out.push({ full, key: relative(root, full).split(sep).join('/') })
+      }
+    }
+  }
+  await walk(root)
+  return out
 }
 
 const { R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT } = process.env
@@ -51,26 +69,24 @@ try {
   process.exit(1)
 }
 
-const prefix = basename(dir) // «9» → усе лягає під 9/
 const s3 = new S3Client({
   region: 'auto',
   endpoint: R2_ENDPOINT,
   credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
 })
 
-const files = (await readdir(dir)).filter((f) => f.toLowerCase().endsWith('.pdf'))
+const files = await collect(dir)
 if (files.length === 0) {
   console.error('У папці немає PDF.')
   process.exit(1)
 }
 
-console.log(`Завантажую ${files.length} файлів у ${BUCKET}/${prefix}/ …\n`)
+console.log(`Завантажую ${files.length} файлів у бакет «${BUCKET}» …\n`)
 
 let done = 0
-for (const file of files) {
-  const key = `${prefix}/${file}`
-  const body = await readFile(join(dir, file))
-  process.stdout.write(`  ${key.padEnd(30)} ${(body.length / 1048576).toFixed(1)} MB … `)
+for (const { full, key } of files) {
+  const body = await readFile(full)
+  process.stdout.write(`  ${key.padEnd(24)} ${(body.length / 1048576).toFixed(1)} MB … `)
   try {
     await s3.send(
       new PutObjectCommand({
