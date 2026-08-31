@@ -1,34 +1,43 @@
 /**
  * Завантажує підручники у бакет R2 «books».
  *
- * Токен НЕ вшитий у код — береться зі змінних середовища, тож у git
- * нічого секретного не потрапляє.
+ * Доступи НЕ вшиті в код. Створіть у корені проєкту файл `.r2.env`
+ * (він у .gitignore, у git не потрапляє) з трьома рядками:
  *
- *   Windows PowerShell:
- *     $env:R2_ACCESS_KEY_ID="..."
- *     $env:R2_SECRET_ACCESS_KEY="..."
- *     $env:R2_ENDPOINT="https://<account_id>.r2.cloudflarestorage.com"
- *     node scripts/upload-books.mjs "C:\шлях\до\папки\9"
+ *     R2_ACCESS_KEY_ID=cb21141102d46f958348dcc3fe64111d
+ *     R2_SECRET_ACCESS_KEY=ваш-секрет
+ *     R2_ENDPOINT=https://8a6cf70d39abdc687584d559539ad436.r2.cloudflarestorage.com
  *
- *   Git Bash / macOS / Linux:
- *     export R2_ACCESS_KEY_ID=...
- *     export R2_SECRET_ACCESS_KEY=...
- *     export R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
- *     node scripts/upload-books.mjs ~/шлях/до/папки/9
+ * Далі просто:
+ *     npm i -D @aws-sdk/client-s3
+ *     node scripts/upload-books.mjs "C:\шлях\до\папки"
+ *
+ * (Можна й через змінні середовища напряму — вони мають пріоритет над файлом.)
  *
  * Папка передається аргументом; скрипт обходить її рекурсивно, а ключ
- * у сховищі = шлях відносно неї. Тож можна вказати як одну паралель
- * (`.../9`, де лежать bio-1.pdf → ключ `9/bio-1.pdf` при вказівці на
- * батьківську), так і батьківську папку з підпапками 5/ 6/ 7/ 8/ —
- * тоді всі паралелі заллються за одну команду з ключами `5/um-1.pdf` тощо.
- *
- * Потрібен один пакет: npm i -D @aws-sdk/client-s3
+ * у сховищі = шлях відносно неї. Тож батьківська папка з підпапками
+ * 5/ 6/ 7/ 8/ заллється за одну команду з ключами `5/um-1.pdf` тощо.
  */
 
 import { readdir, readFile } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { dirname, join, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const BUCKET = 'books'
+
+// Підхоплюємо .r2.env з кореня проєкту (не перекриваючи вже задані змінні).
+try {
+  const envPath = join(dirname(fileURLToPath(import.meta.url)), '..', '.r2.env')
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line)
+    if (m && !line.trimStart().startsWith('#') && process.env[m[1]] === undefined) {
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+    }
+  }
+} catch {
+  /* файла немає — покладаємось на змінні середовища */
+}
 
 const dir = process.argv[2]
 if (!dir) {
