@@ -473,6 +473,22 @@ describe('підручники', () => {
       }
     }
   })
+
+  it('усі книжки 9 класу мають файл і кількість сторінок', () => {
+    for (const group of booksForClass('9б')) {
+      for (const book of group.books) {
+        expect(book.url).toBeTruthy()
+        expect(book.pages).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('адреси файлів унікальні — нічого не перезаписується', () => {
+    const urls = booksForClass('9а')
+      .flatMap((g) => g.books)
+      .map((b) => b.url)
+    expect(new Set(urls).size).toBe(urls.length)
+  })
 })
 
 describe('тексти', () => {

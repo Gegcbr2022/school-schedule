@@ -89,6 +89,19 @@ export function BooksSheet({ classId, className, onClose }: Props) {
             {book.title}
             {book.note && <span className="book__note">{book.note}</span>}
           </p>
+          <p className="book__facts">
+            {book.pages && (
+              <span>
+                {book.pages} {book.pages === 1 ? 'сторінка' : book.pages < 5 ? 'сторінки' : 'сторінок'}
+              </span>
+            )}
+            {book.url &&
+              (book.full ? (
+                <span className="book__tag book__tag--full">повний</span>
+              ) : (
+                <span className="book__tag">оновлюється щотижня</span>
+              ))}
+          </p>
           {book.authors && <p className="book__authors">{book.authors}</p>}
           {failed === href && (
             <p className="book__error">
@@ -166,6 +179,9 @@ export function BooksSheet({ classId, className, onClose }: Props) {
               <p className="sheet__intro">
                 {className} · {withFiles} з {total} книжок доступні для читання.
                 {saved.size > 0 && ` Збережено на пристрій: ${saved.size}.`}
+                <br />
+                «Інтелект України» викладає підручники частинами — файли з
+                позначкою «оновлюється щотижня» доростають протягом року.
               </p>
 
               {groups.map((group) => (
