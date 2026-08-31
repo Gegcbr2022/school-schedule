@@ -40,10 +40,10 @@
   color-scheme: dark;
 
   --bg: #0d0f14;
-  --surface: #161923;
-  --surface-2: #1c202b;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --surface: #191d28;
+  --surface-2: #21262f;
+  --border: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.2);
 
   --text: #e9ebf1;
   --text-2: #b3bac8;
@@ -236,8 +236,8 @@ button {
   position: relative;
   flex: 1 1 0;
   min-width: 52px;
-  min-height: 40px;
-  padding: 8px 4px 9px;
+  min-height: 44px;
+  padding: 8px 4px;
   border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -310,7 +310,7 @@ button {
 }
 
 .chip--button {
-  min-height: 32px;
+  min-height: 40px;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -339,6 +339,12 @@ button {
 .status--break {
   background: var(--warm-soft);
   border-color: color-mix(in srgb, var(--warm) 34%, transparent);
+}
+
+/* Особливий день — святковіший, ніж робочий. */
+.status--event {
+  background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--warm) 12%, transparent));
+  border-color: var(--accent-line);
 }
 
 .status__label {
@@ -471,6 +477,73 @@ button {
   margin-top: 16px;
 }
 
+/* ── Події особливого дня ────────────────────────────────────────────── */
+
+.events {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.events--main {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.event {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.event--past {
+  opacity: 0.5;
+}
+
+.event__time {
+  flex: none;
+  min-width: 46px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.event__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.event__title {
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.event__where {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.events--main .event {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.agenda__lead {
+  margin: 4px 0 2px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -514,7 +587,7 @@ button {
 }
 
 .modeswitch button {
-  min-height: 36px;
+  min-height: 44px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
@@ -682,6 +755,51 @@ button {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+/* Жива смужка на поточному уроці — прив'язує урок до часу. */
+.lesson__progress {
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  overflow: hidden;
+}
+
+.lesson__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.6s ease;
+}
+
+/* ── Перерва між уроками ─────────────────────────────────────────────── */
+
+.brk {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  padding-left: 70px;
+  margin: -2px 0;
+}
+
+.brk__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.01em;
+}
+
+.brk--now .brk__label {
+  color: var(--warm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 1024px) {
+  .brk {
+    padding-left: 78px;
+  }
 }
 
 .lesson__note {
@@ -1023,8 +1141,8 @@ button {
 
 .book__get {
   flex: none;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 14px;
   font-size: 13px;
   gap: 5px;
   text-decoration: none;
@@ -1050,8 +1168,8 @@ button {
 }
 
 .book__read {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   font-size: 13px;
 }
 
@@ -1150,6 +1268,18 @@ button {
   color: var(--text-3);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.viewer__toast {
+  margin: 8px 10px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--warm-soft);
+  border: 1px solid color-mix(in srgb, var(--warm) 34%, transparent);
+  color: var(--warm);
+  font-size: 13px;
+  line-height: 1.4;
+  animation: card-in 0.3s ease backwards;
 }
 
 /* ── Вибір класу ─────────────────────────────────────────────────────── */
@@ -1307,4 +1437,146 @@ button {
   flex-direction: column;
   gap: 10px;
   margin-top: 22px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Анімації та мікровзаємодії
+   Легкі й функціональні: підказують зміну стану, не відволікають.
+   Усе під prefers-reduced-motion вимикається (див. блок нижче).
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Поява стрічки уроків — м'який каскад знизу вгору. */
+@keyframes lesson-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.lesson {
+  animation: lesson-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+.lesson:nth-child(1) { animation-delay: 0.02s; }
+.lesson:nth-child(2) { animation-delay: 0.05s; }
+.lesson:nth-child(3) { animation-delay: 0.08s; }
+.lesson:nth-child(4) { animation-delay: 0.11s; }
+.lesson:nth-child(5) { animation-delay: 0.14s; }
+.lesson:nth-child(6) { animation-delay: 0.17s; }
+.lesson:nth-child(7) { animation-delay: 0.2s; }
+.lesson:nth-child(n + 8) { animation-delay: 0.23s; }
+
+/* Картка стану й особливий день — плавний наплив. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+
+.status,
+.agenda {
+  animation: card-in 0.36s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+/* Поточний урок легко «дихає» рамкою — ледь помітно, лише щоб знайти оком. */
+@keyframes now-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+
+.lesson--current .lesson__card {
+  animation: now-glow 3.2s ease-in-out infinite;
+}
+
+/* Позначка «Зараз» на картці ледь погойдується при появі. */
+@keyframes badge-pop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+}
+
+.lesson__badge {
+  animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* Натиск: кнопки трохи вгинаються — тактильний відгук на дотик. */
+.iconbtn:active,
+.daytab:active,
+.chip--button:active,
+.btn:active,
+.option:active,
+.modeswitch button:active,
+.book__read:active {
+  transform: scale(0.95);
+}
+
+.iconbtn,
+.daytab,
+.chip--button,
+.btn,
+.option,
+.modeswitch button,
+.book__read,
+.book__get {
+  transition:
+    transform 0.12s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    filter 0.15s ease;
+}
+
+/* Активна вкладка дня плавно «наповнюється» кольором. */
+.daytab {
+  transition:
+    transform 0.12s ease,
+    background-color 0.22s ease,
+    border-color 0.15s ease,
+    color 0.2s ease;
+}
+
+/* На дотику hover не «залипає»: прибираємо декоративні наведення. */
+@media (hover: none) {
+  .iconbtn:hover,
+  .daytab:hover,
+  .brand:hover,
+  .chip--button:hover,
+  .option:hover,
+  .linkbtn:hover {
+    background: var(--surface);
+    border-color: var(--border);
+    color: inherit;
+  }
+
+  .iconbtn:hover {
+    background: none;
+  }
+}
+
+/* Сегментований перемикач: доріжка — найтемніший шар, тож активна
+   пігулка «підводиться» в обох темах, а не тоне. */
+:root[data-theme='dark'] .modeswitch {
+  background: var(--bg);
+}
+
+:root[data-theme='dark'] .modeswitch button[aria-pressed='true'] {
+  background: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesson,
+  .status,
+  .agenda,
+  .lesson__badge {
+    animation: none;
+  }
+  .lesson--current .lesson__card {
+    animation: none;
+  }
 }

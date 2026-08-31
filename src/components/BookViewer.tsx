@@ -36,6 +36,7 @@ type PdfPage = {
  */
 export function BookViewer({ title, url, onClose }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
   const docRef = useRef<Doc | null>(null)
   const renderedRef = useRef<number[]>([])
 
@@ -44,6 +45,7 @@ export function BookViewer({ title, url, onClose }: Props) {
   const [current, setCurrent] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   /** Малює одну сторінку в її canvas; звільняє найдавніші. */
   const renderPage = useCallback(async (n: number) => {
@@ -67,7 +69,13 @@ export function BookViewer({ title, url, onClose }: Props) {
     if (!context) return
 
     holder.replaceChildren(canvas)
-    await page.render({ canvasContext: context, viewport }).promise
+    try {
+      await page.render({ canvasContext: context, viewport }).promise
+    } catch {
+      // Малювання скасували (сторінку прогорнули далі, книжку закрили) —
+      // це штатний RenderingCancelledException, не помилка.
+      return
+    }
 
     renderedRef.current = [...renderedRef.current.filter((p) => p !== n), n]
     while (renderedRef.current.length > KEEP_RENDERED) {
@@ -145,8 +153,10 @@ export function BookViewer({ title, url, onClose }: Props) {
     return () => observer.disconnect()
   }, [pages, renderPage])
 
-  // Esc закриває — і на десктопі, і з клавіатури планшета.
+  // Esc закриває, а сам переглядач при відкритті забирає фокус на себе —
+  // інакше він завис би на кнопці «Читати» під низом.
   useEffect(() => {
+    frameRef.current?.focus()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
@@ -160,31 +170,49 @@ export function BookViewer({ title, url, onClose }: Props) {
    * немає адресного рядка, і з відкритого PDF не було б як повернутися.
    */
   const share = async () => {
-    const bytes = await bookBytes(url)
-    const blob = bytes
-      ? new Blob([bytes], { type: 'application/pdf' })
-      : await fetch(url).then((r) => r.blob())
-    const file = new File([blob], `${title}.pdf`, { type: 'application/pdf' })
-
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title })
-        return
-      } catch {
-        /* користувач передумав — це не помилка */
+    setSaveError(null)
+    try {
+      const bytes = await bookBytes(url)
+      let blob: Blob
+      if (bytes) {
+        blob = new Blob([bytes], { type: 'application/pdf' })
+      } else {
+        const resp = await fetch(url)
+        if (!resp.ok) throw new Error('network')
+        blob = await resp.blob()
       }
-    }
+      const file = new File([blob], `${title}.pdf`, { type: 'application/pdf' })
 
-    const href = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = href
-    link.download = `${title}.pdf`
-    link.click()
-    URL.revokeObjectURL(href)
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title })
+          return
+        } catch {
+          /* користувач передумав — це не помилка, тихо переходимо до завантаження */
+        }
+      }
+
+      const href = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = href
+      link.download = `${title}.pdf`
+      link.click()
+      // Звільняємо не в тому ж такті: інакше Firefox/Safari скасовують завантаження.
+      setTimeout(() => URL.revokeObjectURL(href), 4000)
+    } catch {
+      setSaveError('Не вдалося зберегти. Спробуйте онлайн або збережіть книжку заздалегідь.')
+    }
   }
 
   return (
-    <div className="viewer" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="viewer"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      ref={frameRef}
+      tabIndex={-1}
+    >
       <div className="viewer__bar">
         <button type="button" className="iconbtn" onClick={onClose} aria-label="Закрити книжку">
           <CloseIcon />
@@ -193,7 +221,7 @@ export function BookViewer({ title, url, onClose }: Props) {
         <div className="viewer__meta">
           <p className="viewer__title">{title}</p>
           {pages > 0 && (
-            <p className="viewer__pages">
+            <p className="viewer__pages" aria-live="polite">
               {current} з {pages}
             </p>
           )}
@@ -209,9 +237,23 @@ export function BookViewer({ title, url, onClose }: Props) {
         </button>
       </div>
 
+      {saveError && (
+        <p className="viewer__toast" role="alert">
+          {saveError}
+        </p>
+      )}
+
       <div className="viewer__scroll" ref={scrollRef}>
-        {loading && <p className="viewer__loading">Відкриваємо…</p>}
-        {error && <p className="viewer__loading">{error}</p>}
+        {loading && (
+          <p className="viewer__loading" role="status">
+            Відкриваємо…
+          </p>
+        )}
+        {error && (
+          <p className="viewer__loading" role="alert">
+            {error}
+          </p>
+        )}
 
         {Array.from({ length: pages }, (_, i) => (
           <div

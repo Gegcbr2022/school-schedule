@@ -12,9 +12,12 @@ import {
 } from './components/Icons'
 import { LessonList } from './components/LessonList'
 import { SettingsSheet } from './components/SettingsSheet'
+import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
 import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
 import { SCHOOL_NAME } from './data/schedule'
+import { specialDayOn } from './data/special'
+import { TIMETABLE } from './data/timetable'
 import {
   DAY_NAME,
   DAY_NAME_ACCUSATIVE,
@@ -51,8 +54,12 @@ export default function App() {
 
   const [prefs, setPrefs] = useState<Prefs | null>(loadPrefs)
   const [mode, setMode] = useState<ViewMode>('my')
-  /** `null` — тримаємось сьогоднішнього дня і самі переїжджаємо через північ. */
-  const [picked, setPicked] = useState<number | null>(null)
+  /**
+   * Вибраний день. `null` — тримаємось сьогоднішнього і самі переїжджаємо
+   * через північ. `weekOffset` дозволяє зазирнути в наступний тиждень —
+   * саме так працює перехід «Переглянути понеділок» у п'ятницю.
+   */
+  const [picked, setPicked] = useState<{ index: number; weekOffset: number } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
   const [stuck, setStuck] = useState(false)
@@ -66,25 +73,35 @@ export default function App() {
 
   const view = useMemo(() => {
     const active = prefs ?? DEFAULT_PREFS
-    const cls = classById(active.classId) ?? classById(DEFAULT_PREFS.classId)!
+    // Клас за замовчуванням може зникнути з даних — тоді беремо перший наявний.
+    const cls = classById(active.classId) ?? classById(DEFAULT_PREFS.classId) ?? TIMETABLE[0]
     const todayIso = now.iso
     const weekend = todayIso > 5
 
     // Опорний тиждень: поточний, а на вихідних — уже наступний.
-    const monday = addDays(now, 1 - todayIso + (weekend ? 7 : 0))
+    // Перегляд наступного тижня (picked.weekOffset) зсуває і тиждень, і парність.
+    const baseMonday = addDays(now, 1 - todayIso + (weekend ? 7 : 0))
+    const monday = addDays(baseMonday, 7 * (picked?.weekOffset ?? 0))
     const week = weekParity(monday)
 
     const autoIndex = dayIndexOf(todayIso) ?? 0
-    const dayIndex = picked ?? autoIndex
+    const dayIndex = picked?.index ?? autoIndex
     const date = addDays(monday, dayIndex)
-    const isToday = !weekend && dayIndex === autoIndex
+    const isToday = !weekend && (picked?.weekOffset ?? 0) === 0 && dayIndex === autoIndex
 
-    const lessons = buildDay(cls, dayIndex, active, mode, week)
+    // Особливі дні (свята, лінійки) прив'язані до календарної дати
+    // й перекривають звичайний розклад саме на цей день.
+    const viewedSpecial = specialDayOn(date)
+    const todaySpecial = specialDayOn(now)
+
+    const lessons = viewedSpecial?.noLessons ? [] : buildDay(cls, dayIndex, active, mode, week)
 
     // Стан «що зараз» завжди особистий, навіть коли відкрито повний розклад.
     const todayIndex = dayIndexOf(todayIso)
     const todayLessons =
-      todayIndex === null ? [] : buildDay(cls, todayIndex, active, 'my', week)
+      todayIndex === null || todaySpecial?.noLessons
+        ? []
+        : buildDay(cls, todayIndex, active, 'my', week)
     const status = todayIndex === null ? null : computeStatus(todayLessons, now.minutes)
 
     // Найближчий навчальний день може лежати вже в наступному тижні —
@@ -110,15 +127,26 @@ export default function App() {
       upcomingIso,
       upcomingIndex,
       upcomingFirst,
+      viewedSpecial,
+      todaySpecial,
+      picked,
     }
   }, [now, picked, mode, prefs])
+
+  // Найближчий навчальний день лежить у наступному тижні, якщо його номер
+  // не пізніше сьогоднішнього (напр. п'ятниця → понеділок).
+  const jumpWeekOffset =
+    !view.weekend && view.upcomingIso <= view.todayIso ? 1 : 0
+  const alreadyThere =
+    view.dayIndex === view.upcomingIndex && (view.picked?.weekOffset ?? 0) === jumpWeekOffset
 
   const nextUp: NextUp = {
     accusative: DAY_NAME_ACCUSATIVE[view.upcomingIso],
     nominative: DAY_NAME_LOWER[view.upcomingIso],
     lesson: view.upcomingFirst,
-    onJump:
-      view.dayIndex === view.upcomingIndex ? null : () => setPicked(view.upcomingIndex),
+    onJump: alreadyThere
+      ? null
+      : () => setPicked({ index: view.upcomingIndex, weekOffset: jumpWeekOffset }),
   }
 
   const done = finishedCount(view.todayLessons, now.minutes)
@@ -126,8 +154,8 @@ export default function App() {
   const skipped =
     mode === 'my' ? offWeekNote(view.cls, view.dayIndex, view.active, view.week) : null
   const showTodayChip = !view.weekend && !view.isToday
-  /** Що зараз — має сенс лише для сьогоднішнього дня або вихідних. */
-  const showStatus = view.isToday || view.weekend
+  /** Бічна картка «що зараз» — для сьогодні, вихідних чи особливого дня. */
+  const showStatus = view.isToday || view.weekend || view.todaySpecial !== null
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
@@ -176,7 +204,11 @@ export default function App() {
           </button>
         </div>
 
-        <DayTabs active={view.dayIndex} todayIso={view.todayIso} onSelect={setPicked} />
+        <DayTabs
+          active={view.dayIndex}
+          todayIso={view.todayIso}
+          onSelect={(index) => setPicked({ index, weekOffset: view.picked?.weekOffset ?? 0 })}
+        />
       </header>
 
       <main>
@@ -190,8 +222,12 @@ export default function App() {
             </span>
           )}
 
-          <span className="chip" title="Уроки «через тиждень» орієнтуються на це число">
+          <span className="chip">
             {view.week} тиждень
+            <span className="visually-hidden">
+              {' '}
+              — уроки «через тиждень» орієнтуються на це число
+            </span>
           </span>
 
           {showTodayChip && (
@@ -203,12 +239,16 @@ export default function App() {
 
         <div className={showStatus ? 'layout' : 'layout layout--solo'}>
           <div className="layout__aside">
-            {showStatus && (
-              <StatusCard
-                status={view.status}
-                todayName={DAY_NAME[view.todayIso]}
-                nextUp={nextUp}
-              />
+            {view.todaySpecial ? (
+              <SpecialCard day={view.todaySpecial} nowMin={now.minutes} />
+            ) : (
+              showStatus && (
+                <StatusCard
+                  status={view.status}
+                  todayName={DAY_NAME[view.todayIso]}
+                  nextUp={nextUp}
+                />
+              )
             )}
           </div>
 
@@ -234,26 +274,36 @@ export default function App() {
               </div>
             )}
 
-            <div className="modeswitch" role="group" aria-label="Режим перегляду">
-              <button type="button" aria-pressed={mode === 'my'} onClick={() => setMode('my')}>
-                Мій розклад
-              </button>
-              <button type="button" aria-pressed={mode === 'full'} onClick={() => setMode('full')}>
-                Повний розклад
-              </button>
-            </div>
-
-            {view.lessons.length > 0 ? (
-              <LessonList lessons={view.lessons} nowMin={view.isToday ? now.minutes : null} />
+            {view.viewedSpecial?.noLessons ? (
+              <SpecialDayAgenda day={view.viewedSpecial} />
             ) : (
-              <p className="empty">Цього дня у вас уроків немає.</p>
-            )}
+              <>
+                <div className="modeswitch" role="group" aria-label="Режим перегляду">
+                  <button type="button" aria-pressed={mode === 'my'} onClick={() => setMode('my')}>
+                    Мій розклад
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={mode === 'full'}
+                    onClick={() => setMode('full')}
+                  >
+                    Повний розклад
+                  </button>
+                </div>
 
-            {skipped && (
-              <p className="hint">
-                <InfoIcon />
-                <span>{skipped}</span>
-              </p>
+                {view.lessons.length > 0 ? (
+                  <LessonList lessons={view.lessons} nowMin={view.isToday ? now.minutes : null} />
+                ) : (
+                  <p className="empty">Цього дня у вас уроків немає.</p>
+                )}
+
+                {skipped && (
+                  <p className="hint">
+                    <InfoIcon />
+                    <span>{skipped}</span>
+                  </p>
+                )}
+              </>
             )}
 
             {!canInstall && IS_IOS && !isStandalone() && (

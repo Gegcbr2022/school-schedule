@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Period } from '../data/schedule'
 import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
 import { BOOKS, booksForClass } from '../data/books'
+import { specialDayOn } from '../data/special'
 import { TIMETABLE } from '../data/timetable'
-import { addDays, formatDuration, kyivNow, plural, weekParity } from './clock'
+import { addDays, formatDuration, kyivNow, parseTime, plural, weekParity } from './clock'
 import {
   buildDay,
   classById,
@@ -488,6 +489,26 @@ describe('підручники', () => {
       .flatMap((g) => g.books)
       .map((b) => b.url)
     expect(new Set(urls).size).toBe(urls.length)
+  })
+})
+
+describe('особливі дні', () => {
+  it('1 вересня 2026 — День знань без уроків із лінійкою о 10:00', () => {
+    const day = specialDayOn({ year: 2026, month: 9, day: 1 })
+    expect(day?.title).toBe('День знань')
+    expect(day?.noLessons).toBe(true)
+    expect(day?.events?.[0]).toMatchObject({ time: '10:00' })
+  })
+
+  it('звичайний день не особливий', () => {
+    expect(specialDayOn({ year: 2026, month: 9, day: 2 })).toBeNull()
+  })
+
+  it('parseTime розбирає час і відкидає кривий', () => {
+    expect(parseTime('10:00')).toBe(600)
+    expect(parseTime('08:45')).toBe(525)
+    expect(parseTime('25:00')).toBeNull()
+    expect(parseTime('хай')).toBeNull()
   })
 })
 

@@ -1,4 +1,5 @@
-import { formatTime } from '../lib/clock'
+import { Fragment } from 'react'
+import { formatDuration, formatTime } from '../lib/clock'
 import type { DisplayLesson } from '../lib/lessons'
 import { roomLabel } from '../lib/lessons'
 
@@ -33,6 +34,11 @@ const BADGE: Partial<Record<State, string>> = {
   next: 'Далі',
 }
 
+/** Перерва між двома уроками, у хвилинах (0 — суміжні впритул). */
+function breakBetween(a: DisplayLesson, b: DisplayLesson): number {
+  return Math.max(0, b.start - a.end)
+}
+
 export function LessonList({ lessons, nowMin }: Props) {
   const states = statesFor(lessons, nowMin)
 
@@ -42,49 +48,79 @@ export function LessonList({ lessons, nowMin }: Props) {
         const state = states[index]
         const badge = BADGE[state]
 
+        // Скільки уроку минуло — для живої смужки на поточній картці.
+        const progress =
+          state === 'current' && nowMin !== null
+            ? Math.min(1, Math.max(0, (nowMin - lesson.start) / (lesson.end - lesson.start)))
+            : null
+
+        // Перерва до наступного уроку — показуємо, якщо триває зараз чи попереду.
+        const nextLesson = lessons[index + 1]
+        const gap = nextLesson ? breakBetween(lesson, nextLesson) : 0
+        const onBreakNow =
+          nowMin !== null && nextLesson
+            ? nowMin >= lesson.end && nowMin < nextLesson.start
+            : false
+
         return (
-          <li key={lesson.n} className={`lesson lesson--${state}`}>
-            <div className="lesson__time">
-              <span className="lesson__start">{formatTime(lesson.start)}</span>
-              <span className="lesson__end">{formatTime(lesson.end)}</span>
-            </div>
+          <Fragment key={lesson.n}>
+            <li className={`lesson lesson--${state}`}>
+              <div className="lesson__time">
+                <span className="lesson__start">{formatTime(lesson.start)}</span>
+                <span className="lesson__end">{formatTime(lesson.end)}</span>
+              </div>
 
-            <div className="lesson__rail" aria-hidden="true">
-              <span className="lesson__dot" />
-            </div>
+              <div className="lesson__rail" aria-hidden="true">
+                <span className="lesson__dot" />
+              </div>
 
-            <div className="lesson__card">
-              <div className="lesson__head">
-                <span className="lesson__num">{lesson.n} урок</span>
-                {badge && (
-                  <span
-                    className={
-                      state === 'current' ? 'lesson__badge' : 'lesson__badge lesson__badge--soft'
-                    }
-                  >
-                    {badge}
-                  </span>
+              <div className="lesson__card">
+                <div className="lesson__head">
+                  <span className="lesson__num">{lesson.n} урок</span>
+                  {badge && (
+                    <span
+                      className={
+                        state === 'current' ? 'lesson__badge' : 'lesson__badge lesson__badge--soft'
+                      }
+                    >
+                      {badge}
+                    </span>
+                  )}
+                  {state === 'past' && <span className="visually-hidden">Урок минув</span>}
+                </div>
+
+                <div className="lesson__variants">
+                  {lesson.items.map((item) => {
+                    const room = roomLabel(item.room)
+                    return (
+                      <p key={`${item.who ?? ''}-${item.subject}`} className="lesson__subject">
+                        {item.who && <span className="lesson__who">{item.who}</span>}
+                        {item.subject}
+                        {room && <span className="lesson__room">{room}</span>}
+                        {item.teacher && <span className="lesson__teacher">{item.teacher}</span>}
+                      </p>
+                    )
+                  })}
+                </div>
+
+                {lesson.note && <p className="lesson__note">{lesson.note}</p>}
+
+                {progress !== null && (
+                  <div className="lesson__progress" aria-hidden="true">
+                    <div className="lesson__progress-fill" style={{ width: `${progress * 100}%` }} />
+                  </div>
                 )}
-                {state === 'past' && <span className="visually-hidden">Урок минув</span>}
               </div>
+            </li>
 
-              <div className="lesson__variants">
-                {lesson.items.map((item) => {
-                  const room = roomLabel(item.room)
-                  return (
-                    <p key={`${item.who ?? ''}-${item.subject}`} className="lesson__subject">
-                      {item.who && <span className="lesson__who">{item.who}</span>}
-                      {item.subject}
-                      {room && <span className="lesson__room">{room}</span>}
-                      {item.teacher && <span className="lesson__teacher">{item.teacher}</span>}
-                    </p>
-                  )
-                })}
-              </div>
-
-              {lesson.note && <p className="lesson__note">{lesson.note}</p>}
-            </div>
-          </li>
+            {gap > 0 && (
+              <li className={onBreakNow ? 'brk brk--now' : 'brk'} aria-hidden="true">
+                <span className="brk__label">
+                  {onBreakNow ? 'Перерва' : 'перерва'} {formatDuration(gap)}
+                </span>
+              </li>
+            )}
+          </Fragment>
         )
       })}
     </ol>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import type { Dim } from '../data/schedule'
 import {
   CLASS_GROUPS,
@@ -10,6 +10,7 @@ import {
   LANGUAGE_LABEL,
   TEACHERS,
 } from '../data/schedule'
+import { useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Theme } from '../lib/prefs'
 import { CloseIcon } from './Icons'
@@ -101,8 +102,9 @@ export function SettingsSheet({
 }: Props) {
   const [draft, setDraft] = useState<Prefs>(prefs)
   const headingId = useId()
-  const sheetRef = useRef<HTMLDivElement>(null)
   const onboarding = mode === 'onboarding'
+  // Під час знайомства Escape не закриває — клас треба обрати обов'язково.
+  const sheetRef = useModal(onboarding ? () => {} : onClose)
 
   // Під час знайомства зміни ще не збережені — чекаємо на «Готово».
   const update = (patch: Partial<Prefs>) => {
@@ -110,22 +112,6 @@ export function SettingsSheet({
     setDraft(next)
     if (!onboarding) onPrefs(next)
   }
-
-  useEffect(() => {
-    sheetRef.current?.focus()
-    const { overflow } = document.body.style
-    document.body.style.overflow = 'hidden'
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !onboarding) onClose()
-    }
-    document.addEventListener('keydown', onKey)
-
-    return () => {
-      document.body.style.overflow = overflow
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onboarding, onClose])
 
   const cls = classById(draft.classId)
   // Питаємо лише про ті поділи, які в цьому класі справді є.

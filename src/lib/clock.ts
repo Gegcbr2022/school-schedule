@@ -112,6 +112,16 @@ export function formatTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+/** «10:00» → 600 хвилин від півночі, або `null` для кривого рядка. */
+export function parseTime(hhmm: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim())
+  if (!match) return null
+  const h = Number(match[1])
+  const m = Number(match[2])
+  if (h > 23 || m > 59) return null
+  return h * 60 + m
+}
+
 const dateFormatter = new Intl.DateTimeFormat('uk-UA', {
   timeZone: 'UTC',
   day: 'numeric',

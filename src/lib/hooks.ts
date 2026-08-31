@@ -1,8 +1,64 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import type { KyivTime } from './clock'
 import { kyivNow } from './clock'
 import type { Theme } from './prefs'
 import { loadTheme, saveTheme } from './prefs'
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])'
+
+/**
+ * Робить із контейнера повноцінну модалку:
+ *   · переводить фокус усередину при відкритті;
+ *   · тримає Tab у межах модалки (не пускає на закриту сторінку позаду);
+ *   · повертає фокус на кнопку, що її відкрила, при закритті;
+ *   · закриває на Escape.
+ *
+ * Повертає ref, який треба повісити на корінь модалки.
+ */
+export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    const root = ref.current
+    // Фокус на сам контейнер (він має tabIndex={-1}), або на першу кнопку.
+    const first = root?.querySelector<HTMLElement>(FOCUSABLE)
+    ;(first ?? root)?.focus()
+
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab' || !root) return
+
+      const items = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => el.offsetParent !== null || el === root,
+      )
+      if (items.length === 0) return
+      const edge = event.shiftKey ? items[0] : items[items.length - 1]
+      if (document.activeElement === edge || !root.contains(document.activeElement)) {
+        event.preventDefault()
+        ;(event.shiftKey ? items[items.length - 1] : items[0]).focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = overflow
+      document.removeEventListener('keydown', onKey)
+      // Повертаємо фокус туди, звідки прийшли, — інакше він завис би в нікуди.
+      opener?.focus?.()
+    }
+  }, [onClose])
+
+  return ref
+}
 
 /**
  * Київський час, який сам оновлюється.

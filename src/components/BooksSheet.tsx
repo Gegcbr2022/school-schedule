@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import type { Book, BookGroup } from '../data/books'
 import { booksForClass, gradeOf } from '../data/books'
 import { subjectName } from '../data/schedule'
+import { useModal } from '../lib/hooks'
 import { removeBook, saveBook, savedUrls } from '../lib/library'
 import { BookViewer } from './BookViewer'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -32,7 +33,7 @@ function hrefOf(url: string): string {
 
 export function BooksSheet({ classId, className, onClose }: Props) {
   const headingId = useId()
-  const sheetRef = useRef<HTMLDivElement>(null)
+  const sheetRef = useModal(onClose)
   const groups = booksForClass(classId)
 
   const [saved, setSaved] = useState<Set<string>>(new Set())
@@ -44,22 +45,7 @@ export function BooksSheet({ classId, className, onClose }: Props) {
     void savedUrls().then(setSaved)
   }, [])
 
-  useEffect(() => {
-    refresh()
-    sheetRef.current?.focus()
-    const { overflow } = document.body.style
-    document.body.style.overflow = 'hidden'
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-
-    return () => {
-      document.body.style.overflow = overflow
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose, refresh])
+  useEffect(refresh, [refresh])
 
   const toggleSave = async (href: string) => {
     setFailed(null)
@@ -104,7 +90,7 @@ export function BooksSheet({ classId, className, onClose }: Props) {
           </p>
           {book.authors && <p className="book__authors">{book.authors}</p>}
           {failed === href && (
-            <p className="book__error">
+            <p className="book__error" role="alert">
               Не вдалося зберегти. Файл має віддаватись із дозволом на завантаження
               (CORS) — або покладіть його поруч із застосунком.
             </p>
