@@ -1082,7 +1082,9 @@ button {
   border: 1px solid var(--border-strong);
   color: var(--text);
   font: inherit;
-  font-size: 15px;
+  /* Рівно 16px: менше — і iOS сам наближає поле при фокусі, а зворотний
+     зум ми вимкнули, тож сайт застряг би наближеним. */
+  font-size: 16px;
   line-height: 1.5;
   resize: vertical;
   min-height: 96px;
