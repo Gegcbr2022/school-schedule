@@ -4,6 +4,7 @@ import { booksForClass, gradeOf } from '../data/books'
 import { subjectName } from '../data/schedule'
 import { removeBook, saveBook, savedUrls } from '../lib/library'
 import { BookViewer } from './BookViewer'
+import { ErrorBoundary } from './ErrorBoundary'
 import { CheckIcon, CloseIcon, DownloadIcon } from './Icons'
 
 type Props = {
@@ -185,11 +186,19 @@ export function BooksSheet({ classId, className, onClose }: Props) {
       </div>
 
       {reading && (
-        <BookViewer
-          title={reading.title}
-          url={reading.url}
-          onClose={() => setReading(null)}
-        />
+        // Збій у читалці не має валити весь розклад — просто закриваємо книжку.
+        <ErrorBoundary
+          fallback={() => {
+            setReading(null)
+            return null
+          }}
+        >
+          <BookViewer
+            title={reading.title}
+            url={reading.url}
+            onClose={() => setReading(null)}
+          />
+        </ErrorBoundary>
       )}
     </>
   )

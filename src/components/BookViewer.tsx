@@ -17,8 +17,9 @@ const LOOKAHEAD = '150% 0px'
 type Doc = {
   numPages: number
   getPage: (n: number) => Promise<PdfPage>
-  destroy: () => Promise<void>
 }
+/** Закривати документ уміє саме задача завантаження, а не сам документ. */
+type LoadingTask = { promise: Promise<Doc>; destroy: () => Promise<void> }
 type PdfPage = {
   getViewport: (o: { scale: number }) => { width: number; height: number }
   render: (o: object) => { promise: Promise<void>; cancel: () => void }
@@ -79,7 +80,7 @@ export function BookViewer({ title, url, onClose }: Props) {
   // Завантаження документа
   useEffect(() => {
     let alive = true
-    let doc: Doc | null = null
+    let task: LoadingTask | null = null
 
     void (async () => {
       try {
@@ -90,11 +91,10 @@ export function BookViewer({ title, url, onClose }: Props) {
         // Збережена книжка читається з пам'яті — інтернет не потрібен.
         const bytes = await bookBytes(url)
         const source = bytes ? { data: bytes } : { url }
-        doc = (await pdfjs.getDocument(source).promise) as unknown as Doc
-        if (!alive) {
-          void doc.destroy()
-          return
-        }
+        task = pdfjs.getDocument(source) as unknown as LoadingTask
+
+        const doc = await task.promise
+        if (!alive) return
 
         docRef.current = doc
         const first = await doc.getPage(1)
@@ -114,7 +114,8 @@ export function BookViewer({ title, url, onClose }: Props) {
       alive = false
       docRef.current = null
       renderedRef.current = []
-      void doc?.destroy()
+      // Закриття може перервати малювання сторінки — це очікувано, не помилка.
+      void task?.destroy().catch(() => {})
     }
   }, [url])
 
