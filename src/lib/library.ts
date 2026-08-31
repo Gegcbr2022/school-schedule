@@ -66,27 +66,19 @@ export async function removeBook(url: string): Promise<void> {
 }
 
 /**
- * Адреса, за якою книжку можна показати: якщо вона збережена — локальна
- * blob-адреса (працює офлайн), інакше звичайне посилання.
- *
- * Повернений blob треба звільнити через `releaseBook`, коли переглядач
- * закриється.
+ * Байти збереженої книжки, або `null`, якщо її на пристрої немає.
+ * Саме з них читалка малює сторінки, коли інтернету нема.
  */
-export async function bookSource(url: string): Promise<string> {
+export async function bookBytes(url: string): Promise<ArrayBuffer | null> {
   const cache = await open()
-  if (!cache) return url
+  if (!cache) return null
 
   try {
     const hit = await cache.match(url)
-    if (!hit) return url
-    return URL.createObjectURL(await hit.blob())
+    return hit ? await hit.arrayBuffer() : null
   } catch {
-    return url
+    return null
   }
-}
-
-export function releaseBook(source: string): void {
-  if (source.startsWith('blob:')) URL.revokeObjectURL(source)
 }
 
 /** Скільки місця займають збережені книжки, у мегабайтах. */

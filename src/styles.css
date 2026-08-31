@@ -1074,29 +1074,55 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
-.viewer__title {
+.viewer__meta {
   flex: 1;
   min-width: 0;
-  font-size: 14.5px;
+  text-align: center;
+}
+
+.viewer__title {
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.viewer__frame {
+.viewer__pages {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer__scroll {
   flex: 1;
-  width: 100%;
-  border: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: var(--surface-2);
 }
 
+.viewer__page {
+  width: 100%;
+  margin-bottom: 10px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.viewer__page canvas {
+  display: block;
+}
+
 .viewer__loading {
-  flex: 1;
-  display: grid;
-  place-items: center;
+  padding: 40px 20px;
+  text-align: center;
   color: var(--text-3);
   font-size: 14px;
+  line-height: 1.5;
 }
 
 /* ── Вибір класу ─────────────────────────────────────────────────────── */

@@ -174,14 +174,18 @@ export const BOOKS: Record<string, BookGroup[]> = {
       books: [
         {
           title: 'Focus 3 Second Edition · Student’s Book',
-          note: 'BBC',
+          note: 'BBC · 159 сторінок',
           authors:
             'Sue Kay, Vaughan Jones, Daniel Brayshaw, Izabela Michalak, Bartoz Michalowski, Beata Trapbell',
         },
         {
           title: 'Focus 3 Second Edition · Workbook',
-          note: 'BBC',
+          note: 'BBC · 180 сторінок',
           authors: 'Daniel Brayshaw, Dean Russel, Anna Osborn, Amanda Davies',
+        },
+        {
+          title: 'Focus 3 Second Edition · Teacher’s Book',
+          note: 'BBC · 325 сторінок · видання для вчителя',
         },
       ],
     },
