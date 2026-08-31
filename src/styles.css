@@ -136,6 +136,12 @@ button {
   max-width: 680px;
   margin: 0 auto;
   padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 48px);
+  /*
+   * Дозволяємо лише прокрутку — pinch і подвійний тап більше не зумлять
+   * сайт (розклад на зумі «розповзається»). Читалка PDF винесена в портал
+   * на <body>, тож це обмеження на неї не поширюється — там зум працює.
+   */
+  touch-action: pan-x pan-y;
 }
 
 /* ── Шапка ───────────────────────────────────────────────────────────── */
@@ -1013,6 +1019,8 @@ button {
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   animation: fade 0.2s ease;
+  /* Плавно піднімаємо аркуш, коли з'являється клавіатура. */
+  transition: padding-bottom 0.2s ease;
 }
 
 .sheet {
@@ -1353,6 +1361,8 @@ button {
   -webkit-overflow-scrolling: touch;
   padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: var(--surface-2);
+  /* У читалці навпаки — прокрутка вертикальна + зум пальцями для дрібного тексту. */
+  touch-action: pan-y pinch-zoom;
 }
 
 .viewer__page {

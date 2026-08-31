@@ -1,6 +1,6 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { formatTime } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useKeyboardInset, useModal } from '../lib/hooks'
 import type { DisplayLesson } from '../lib/lessons'
 
 export type NoteTarget = {
@@ -23,6 +23,15 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   const [text, setText] = useState(initial)
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const keyboard = useKeyboardInset()
+
+  // Фокусуємо поле лише після анімації появи — тоді iOS ставить клавіатуру
+  // на місце з першого разу, а не «зависає» над аркушем.
+  useEffect(() => {
+    const id = window.setTimeout(() => textareaRef.current?.focus(), 320)
+    return () => window.clearTimeout(id)
+  }, [])
 
   const save = () => {
     onSave(text)
@@ -34,6 +43,7 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   return (
     <div
       className="sheet-backdrop"
+      style={{ paddingBottom: keyboard }}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -58,12 +68,12 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
         </p>
 
         <textarea
+          ref={textareaRef}
           className="note-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Домашнє завдання, що принести, нагадування…"
           rows={4}
-          autoFocus
           aria-label="Текст нотатки"
         />
 

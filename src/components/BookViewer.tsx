@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { bookBytes } from '../lib/library'
 import { CloseIcon, DownloadIcon } from './Icons'
 
@@ -204,7 +205,8 @@ export function BookViewer({ title, url, onClose }: Props) {
     }
   }
 
-  return (
+  // Рендеримо поза .app: там заборонено зум сайту, а тут він потрібен.
+  return createPortal(
     <div
       className="viewer"
       role="dialog"
@@ -264,6 +266,7 @@ export function BookViewer({ title, url, onClose }: Props) {
           />
         ))}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

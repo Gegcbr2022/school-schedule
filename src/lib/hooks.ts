@@ -23,9 +23,9 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const root = ref.current
-    // Фокус на сам контейнер (він має tabIndex={-1}), або на першу кнопку.
-    const first = root?.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? root)?.focus()
+    // Фокус на сам контейнер (він має tabIndex={-1}), а не на перше поле:
+    // інакше на iOS одразу вискакувала б клавіатура ще до анімації появи.
+    root?.focus()
 
     const { overflow } = document.body.style
     document.body.style.overflow = 'hidden'
@@ -90,6 +90,35 @@ export function useNow(intervalMs = 30_000): KyivTime {
   }, [intervalMs])
 
   return now
+}
+
+/**
+ * Висота екранної клавіатури в пікселях (0 — клавіатури немає).
+ *
+ * На iOS у standalone-режимі layout-viewport не стискається під клавіатуру,
+ * тож нижній аркуш ховається за нею. Рахуємо різницю через visualViewport
+ * і піднімаємо аркуш на цю висоту.
+ */
+export function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0)
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+
+    const update = () => {
+      setInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  return inset
 }
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
