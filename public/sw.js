@@ -8,8 +8,8 @@
  * Піднімайте VERSION, коли треба примусово скинути старий кеш.
  */
 
-const VERSION = 'v2'
-const CACHE = `rozklad-10b-${VERSION}`
+const VERSION = 'v3'
+const CACHE = `rozklad-${VERSION}`
 
 /** Адреса оболонки застосунку: та сама папка, де лежить цей файл. */
 const SHELL = new URL('./', self.location).href
@@ -82,6 +82,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+
+  // Підручники важать десятки мегабайт — у кеш застосунку їм не місце.
+  // Хай браузер качає їх сам, як звичайний файл.
+  if (url.pathname.endsWith('.pdf')) return
 
   // Будь-яка навігація всередині застосунку веде до однієї й тієї ж оболонки.
   if (request.mode === 'navigate') {

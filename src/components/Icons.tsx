@@ -56,6 +56,24 @@ export function InfoIcon() {
   )
 }
 
+export function BooksIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 15.5Z" />
+      <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5Z" />
+    </svg>
+  )
+}
+
+export function DownloadIcon() {
+  return (
+    <svg {...base}>
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4" />
+      <path d="M5 19h14" />
+    </svg>
+  )
+}
+
 export function ShareIcon() {
   return (
     <svg {...base}>

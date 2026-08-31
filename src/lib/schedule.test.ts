@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Period } from '../data/schedule'
 import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
+import { BOOKS, booksForClass } from '../data/books'
 import { TIMETABLE } from '../data/timetable'
 import { addDays, formatDuration, kyivNow, plural, weekParity } from './clock'
 import {
@@ -420,6 +421,42 @@ describe('налаштування зі старої версії', () => {
   it('невідомий клас у сховищі не ламає застосунок', () => {
     savePrefs({ ...G1, classId: '12я' })
     expect(loadPrefs()).toBeNull()
+  })
+})
+
+describe('підручники', () => {
+  it('усі 9-і класи бачать один список', () => {
+    const a = booksForClass('9а')
+    expect(booksForClass('9б')).toBe(a)
+    expect(booksForClass('9в')).toBe(a)
+    expect(a.length).toBeGreaterThan(0)
+  })
+
+  it('для класу без підручників список порожній, а не помилка', () => {
+    expect(booksForClass('7а')).toEqual([])
+  })
+
+  it('назва предмета береться з розкладу, а не дублюється', () => {
+    for (const group of Object.values(BOOKS).flat()) {
+      if (group.subject) expect(SUBJECTS[group.subject]).toBeDefined()
+      else expect(group.title).toBeTruthy()
+    }
+  })
+
+  it('у кожної книжки є назва', () => {
+    for (const group of Object.values(BOOKS).flat()) {
+      expect(group.books.length).toBeGreaterThan(0)
+      for (const book of group.books) expect(book.title.trim()).not.toBe('')
+    }
+  })
+
+  it('посилання, якщо є, ведуть на pdf', () => {
+    for (const group of Object.values(BOOKS).flat()) {
+      for (const book of group.books) {
+        // Або повна адреса, або шлях до файлу в public/ — але завжди pdf.
+        if (book.url) expect(book.url).toMatch(/\.pdf(\?.*)?$/i)
+      }
+    }
   })
 })
 

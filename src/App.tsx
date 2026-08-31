@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BooksSheet } from './components/BooksSheet'
 import { DayTabs } from './components/DayTabs'
 import {
+  BooksIcon,
   CloseIcon,
   InfoIcon,
   MoonIcon,
@@ -52,6 +54,7 @@ export default function App() {
   /** `null` — тримаємось сьогоднішнього дня і самі переїжджаємо через північ. */
   const [picked, setPicked] = useState<number | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [booksOpen, setBooksOpen] = useState(false)
   const [stuck, setStuck] = useState(false)
 
   useEffect(() => {
@@ -143,6 +146,15 @@ export default function App() {
           >
             <span className="brand__class">{view.cls.name}</span>
             <span className="brand__sub">Розклад уроків</span>
+          </button>
+
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={() => setBooksOpen(true)}
+            aria-label="Підручники"
+          >
+            <BooksIcon />
           </button>
 
           <button
@@ -267,6 +279,14 @@ export default function App() {
           Час — київський.
         </footer>
       </main>
+
+      {booksOpen && (
+        <BooksSheet
+          classId={view.cls.id}
+          className={view.cls.name}
+          onClose={() => setBooksOpen(false)}
+        />
+      )}
 
       {(settingsOpen || prefs === null) && (
         <SettingsSheet
