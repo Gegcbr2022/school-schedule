@@ -294,17 +294,19 @@ describe('чергування по тижнях', () => {
     expect(at10b(G1, WED, 2, 2)).toBeDefined()
   })
 
-  it('хімія 8-м уроком: лише 2 група і лише другий тиждень', () => {
-    expect(at10b(G2, WED, 8, 1)).toBeUndefined()
-    expect(at10b(G2, WED, 8, 2)?.items[0].subject).toBe('Хімія')
+  it('хімія 8-м уроком: для всього класу, але лише на другому тижні', () => {
+    // Перший тиждень — немає ні в кого.
     expect(at10b(G1, WED, 8, 1)).toBeUndefined()
-    expect(at10b(G1, WED, 8, 2)).toBeUndefined()
+    expect(at10b(G2, WED, 8, 1)).toBeUndefined()
+    // Другий тиждень — є в обох груп.
+    expect(at10b(G1, WED, 8, 2)?.items[0].subject).toBe('Хімія')
+    expect(at10b(G2, WED, 8, 2)?.items[0].subject).toBe('Хімія')
   })
 
-  it('пояснюємо зниклу хімію тільки тому, у кого вона буває', () => {
+  it('пояснюємо зниклу хімію на першому тижні всім', () => {
+    expect(offWeekNote(TEN_B, WED, G1, 1)).toContain('Хімія')
     expect(offWeekNote(TEN_B, WED, G2, 1)).toContain('Хімія')
-    expect(offWeekNote(TEN_B, WED, G2, 2)).toBeNull()
-    expect(offWeekNote(TEN_B, WED, G1, 1)).toBeNull()
+    expect(offWeekNote(TEN_B, WED, G1, 2)).toBeNull()
   })
 })
 
