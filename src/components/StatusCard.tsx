@@ -128,7 +128,8 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
           aria-valuemax={100}
           aria-valuenow={percent}
         >
-          <div className="progress__fill" style={{ width: `${percent}%` }} />
+          {/* Масштаб, а не ширина: ширину браузер щоразу перераховує заново. */}
+          <div className="progress__fill" style={{ transform: `scaleX(${percent / 100})` }} />
         </div>
 
         {next ? <NextLine lesson={next} /> : <JumpBlock nextUp={nextUp} />}

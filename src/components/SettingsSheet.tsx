@@ -150,6 +150,9 @@ export function SettingsSheet({
         aria-labelledby={headingId}
         tabIndex={-1}
       >
+        {/* Під час знайомства аркуш не закривається, тож і тягнути нема куди. */}
+        {!onboarding && <div className="sheet__grip" aria-hidden="true" />}
+
         <div className="sheet__head">
           <h2 className="sheet__title" id={headingId}>
             {onboarding ? 'Ваш клас' : 'Налаштування'}

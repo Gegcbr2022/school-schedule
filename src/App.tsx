@@ -19,6 +19,7 @@ import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
 import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
 import { TeachersSheet } from './components/TeachersSheet'
+import { WeekSheet } from './components/WeekSheet'
 import { SCHOOL_NAME } from './data/schedule'
 import { specialDayOn } from './data/special'
 import { TIMETABLE } from './data/timetable'
@@ -71,6 +72,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
+  const [weekOpen, setWeekOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
@@ -285,6 +287,10 @@ export default function App() {
               Сьогодні
             </button>
           )}
+
+          <button type="button" className="chip chip--button" onClick={() => setWeekOpen(true)}>
+            Тиждень
+          </button>
         </div>
 
         <div className={showStatus ? 'layout' : 'layout layout--solo'}>
@@ -405,6 +411,18 @@ export default function App() {
           Час — київський.
         </footer>
       </main>
+
+      {weekOpen && (
+        <WeekSheet
+          cls={view.cls}
+          prefs={view.active}
+          mode={mode}
+          teacher={view.teacher}
+          currentWeek={view.week}
+          todayIso={view.todayIso <= 5 ? view.todayIso : undefined}
+          onClose={() => setWeekOpen(false)}
+        />
+      )}
 
       {teachersOpen && (
         <TeachersSheet

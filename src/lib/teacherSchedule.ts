@@ -1,43 +1,69 @@
 /**
- * Розклад очима вчителя: усі його уроки по всіх класах, з «вікнами» —
- * порожніми уроками між першим і останнім.
+ * Тиждень одним екраном — з «вікнами», тобто порожніми уроками між
+ * першим і останнім.
  *
- * Дані ті самі, що й у класів (`TIMETABLE`), просто дивимось на них
- * з іншого боку: не «що в цього класу», а «де цей учитель».
+ * Тут два різні погляди на ті самі дані (`TIMETABLE`):
+ *   · учнівський день збирає `lessons.ts` — «що в цього класу»;
+ *   · вчительський збираємо тут — «де цей учитель», по всіх класах.
  *
  * Саме вчитель, а не код: під одним кодом у розкладі інколи ходять
  * двоє тезок, і уроки історика не мають потрапити до музиканта.
+ *
+ * Складання тижня з п'яти днів спільне для обох — `weekFrom`.
  */
 
 import type { Period, WeekParity } from '../data/schedule'
 import { BELLS, GROUP_DIM, GROUP_LABEL, subjectName } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
-import type { DisplayLesson } from './lessons'
+import type { DisplayItem, DisplayLesson } from './lessons'
 import type { Teacher } from './teachers'
 import { teaches } from './teachers'
 
-/** Один предмет у клітинці вчительського розкладу. */
-export type TeacherEntry = {
-  /** Як показуємо клас: «10-Б». */
-  className: string
-  subject: string
-  room?: string
-  /** Підгрупа чи чергування, якщо урок не на весь клас. */
-  who?: string
-}
-
-export type TeacherRow =
-  | { kind: 'lesson'; period: Period; start: number; end: number; entries: TeacherEntry[] }
+export type WeekRow =
+  | { kind: 'lesson'; period: Period; start: number; end: number; items: DisplayItem[] }
   | { kind: 'window'; period: Period; start: number; end: number }
 
-export type TeacherDay = {
+export type WeekDay = {
   /** ISO-номер дня, 1 (Пн) … 5 (Пт). */
   iso: number
-  rows: TeacherRow[]
+  rows: WeekRow[]
   /** Скільки вікон цього дня. */
   windows: number
   /** Скільки уроків цього дня. */
   count: number
+}
+
+/**
+ * П'ять зібраних днів → тиждень, у якому між першим і останнім уроком
+ * кожного дня стоять вікна. До першого й після останнього їх немає:
+ * у цей час у школі бути не обов'язково.
+ */
+export function weekFrom(days: DisplayLesson[][]): WeekDay[] {
+  return days.map((lessons, index) => {
+    const byPeriod = new Map<number, DisplayLesson>()
+    for (const lesson of lessons) byPeriod.set(lesson.period, lesson)
+
+    const rows: WeekRow[] = []
+    let windows = 0
+    const first = lessons[0]?.period
+    const last = lessons[lessons.length - 1]?.period
+
+    if (first !== undefined && last !== undefined) {
+      for (let p = first; p <= last; p += 1) {
+        const bell = BELLS[p as Period]
+        if (!bell) continue
+        const lesson = byPeriod.get(p)
+        if (lesson) {
+          rows.push({ kind: 'lesson', period: p as Period, ...bell, items: lesson.items })
+        } else {
+          rows.push({ kind: 'window', period: p as Period, ...bell })
+          windows += 1
+        }
+      }
+    }
+
+    return { iso: index + 1, rows, windows, count: lessons.length }
+  })
 }
 
 /** Урок цієї клітинки буває на цьому тижні? */
@@ -60,8 +86,8 @@ function lessonsOf(
   teacher: Teacher,
   dayIndex: number,
   week: WeekParity,
-): Map<Period, TeacherEntry[]> {
-  const byPeriod = new Map<Period, TeacherEntry[]>()
+): Map<Period, DisplayItem[]> {
+  const byPeriod = new Map<Period, DisplayItem[]>()
 
   for (const cls of TIMETABLE) {
     for (const lesson of cls.days[dayIndex] ?? []) {
@@ -69,8 +95,8 @@ function lessonsOf(
         if (!cell.t || !teaches(teacher, cell.t, cell.s, cls.id)) continue
         if (!onWeek(cell.w, cell.g, week)) continue
 
-        const entry: TeacherEntry = {
-          className: cls.name,
+        const entry: DisplayItem = {
+          cls: cls.name,
           subject: subjectName(cell.s),
           room: cell.r,
           who: cell.g ? GROUP_LABEL[cell.g] : undefined,
@@ -86,42 +112,13 @@ function lessonsOf(
 }
 
 /** Періоди дня за зростанням. */
-function periodsOf(byPeriod: Map<Period, TeacherEntry[]>): Period[] {
+function periodsOf(byPeriod: Map<Period, DisplayItem[]>): Period[] {
   return [...byPeriod.keys()].sort((a, b) => a - b)
 }
 
-/**
- * Тиждень учителя: п'ять днів. У кожному — уроки за номерами періодів,
- * а між першим і останнім уроком вставлені вікна.
- */
-export function buildTeacherWeek(teacher: Teacher, week: WeekParity): TeacherDay[] {
-  const days: TeacherDay[] = []
-
-  for (let d = 0; d < 5; d += 1) {
-    const byPeriod = lessonsOf(teacher, d, week)
-    const periods = periodsOf(byPeriod)
-    const rows: TeacherRow[] = []
-    let windows = 0
-
-    // Вікна рахуємо лише між першим і останнім уроком: до першого й після
-    // останнього вчитель у школі бути не зобов'язаний.
-    for (let p = periods[0] ?? 1; periods.length > 0 && p <= periods[periods.length - 1]; p += 1) {
-      const period = p as Period
-      const bell = BELLS[period]
-      if (!bell) continue
-      const entries = byPeriod.get(period)
-      if (entries) {
-        rows.push({ kind: 'lesson', period, ...bell, entries })
-      } else {
-        rows.push({ kind: 'window', period, ...bell })
-        windows += 1
-      }
-    }
-
-    days.push({ iso: d + 1, rows, windows, count: periods.length })
-  }
-
-  return days
+/** Тиждень учителя: п'ять днів із вікнами між уроками. */
+export function buildTeacherWeek(teacher: Teacher, week: WeekParity): WeekDay[] {
+  return weekFrom([0, 1, 2, 3, 4].map((day) => buildTeacherDay(teacher, day, week)))
 }
 
 /**
@@ -140,12 +137,7 @@ export function buildTeacherDay(
     n: index + 1,
     period,
     ...BELLS[period],
-    items: (byPeriod.get(period) ?? []).map((entry) => ({
-      subject: entry.subject,
-      cls: entry.className,
-      room: entry.room,
-      who: entry.who,
-    })),
+    items: byPeriod.get(period) ?? [],
   }))
 }
 

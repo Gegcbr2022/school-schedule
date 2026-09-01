@@ -73,6 +73,9 @@ html {
   /* Щоб гумовий скрол в standalone не показував біле тло під сторінкою. */
   background: var(--bg);
   -webkit-text-size-adjust: 100%;
+  /* Місце під смужку скролу тримаємо завжди: інакше відкрита шторка,
+     яка блокує прокрутку сторінки, смикала б усе вбік. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -510,10 +513,12 @@ button {
 }
 
 .progress__fill {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 0.6s ease;
+  transform-origin: left;
+  transition: transform 0.6s ease;
 }
 
 .status__next {
@@ -862,10 +867,12 @@ button {
 }
 
 .lesson__progress-fill {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 0.6s ease;
+  transform-origin: left;
+  transition: transform 0.6s ease;
 }
 
 /* ── Перерва між уроками ─────────────────────────────────────────────── */
@@ -1998,4 +2005,125 @@ button {
 /* Прізвище в шапці довше за «10-Б» — трохи меншим кеглем. */
 .brand__class--name {
   font-size: 18px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Нативні дрібниці
+   Те, чим застосунок відрізняється від сторінки: без смужок скролу,
+   без випадкових виділень і з аркушами, які змахуються вниз.
+   ───────────────────────────────────────────────────────────────────── */
+
+/*
+ * Смужку скролу ховаємо лише там, де пальцем: у встановленому застосунку
+ * вона стирчить збоку й видає «сайт». На миші вона потрібна — там видно,
+ * скільки ще лишилось.
+ */
+@media (pointer: coarse) {
+  html,
+  body,
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+/* Скрол не перетікає за межі застосунку — жодного «гумового» тла під ним. */
+html {
+  overscroll-behavior-y: none;
+}
+
+/*
+ * Інтерфейс не виділяється й не викликає лупу з «Copy» на довгий дотик.
+ * Текст, який справді хочеться скопіювати — нотатки, назви підручників, —
+ * лишається виділюваним нижче.
+ */
+.topbar,
+.daymeta,
+.modeswitch,
+.lesson__head,
+.brk,
+.sheet__head,
+.tdir,
+.status__actions {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Дотик спрацьовує одразу, без очікування на подвійний тап. */
+button,
+a,
+label,
+select,
+summary {
+  touch-action: manipulation;
+}
+
+/* «Ручка» аркуша: і підказка, що його можна змахнути, і сама зона захвату. */
+.sheet__grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  margin: -10px -20px 2px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet__grip::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.sheet__grip:active {
+  cursor: grabbing;
+}
+
+/* Поки аркуш тягнуть, він має йти за пальцем без згладжування. */
+.sheet {
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Шапка аркуша лишається на місці, поки гортаєш довгий список. */
+.sheet__head {
+  position: sticky;
+  top: -20px;
+  z-index: 1;
+  /* Від'ємні поля — щоб тло шапки доходило до країв аркуша, а не до тексту. */
+  margin: -6px -20px 6px;
+  padding: 6px 20px;
+  background: var(--bg);
+}
+
+/* На вузьких екранах іконки з'їдають назву класу — тіснимо проміжки. */
+@media (max-width: 360px) {
+  .topbar__row {
+    gap: 4px;
+  }
+}
+
+/* Сьогоднішній день у тижні — щоб око одразу знаходило, де ти. */
+.tday--today .tday__head {
+  color: var(--accent);
+}
+
+/* «Де він зараз» у картці вчителя — найкорисніший рядок у довіднику. */
+.tnow {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent);
 }

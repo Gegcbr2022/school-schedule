@@ -48,10 +48,57 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
       }
     }
 
+    /*
+     * Аркуш можна змахнути вниз — як у рідних застосунках.
+     *
+     * Тягнемо лише за «ручку» й шапку: вони не прокручуються, тож жест
+     * ні з чим не свариться, і всередині списку скрол лишається скролом.
+     */
+    const grip = root?.querySelector<HTMLElement>('.sheet__grip')
+    let startY = 0
+    let shift = 0
+    let dragging = false
+
+    const move = (event: PointerEvent) => {
+      if (!root) return
+      shift = Math.max(0, event.clientY - startY)
+      root.style.transform = `translateY(${shift}px)`
+    }
+
+    const end = () => {
+      if (!root || !dragging) return
+      dragging = false
+      // Знімаємо інлайнові стилі — і аркуш сам плавно стає на місце.
+      root.removeAttribute('style')
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', end)
+      document.removeEventListener('pointercancel', end)
+      // Пройшов чверть екрана — відпускаємо; менше — аркуш стає на місце.
+      if (shift > Math.min(140, window.innerHeight * 0.18)) onClose()
+    }
+
+    const start = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      dragging = true
+      startY = event.clientY
+      shift = 0
+      // Поки тягнемо — жодного згладжування, аркуш іде рівно за пальцем.
+      if (root) root.style.transition = 'none'
+      document.addEventListener('pointermove', move)
+      document.addEventListener('pointerup', end)
+      document.addEventListener('pointercancel', end)
+    }
+
+    grip?.addEventListener('pointerdown', start)
+
     document.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = overflow
       document.removeEventListener('keydown', onKey)
+      grip?.removeEventListener('pointerdown', start)
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', end)
+      document.removeEventListener('pointercancel', end)
       // Повертаємо фокус туди, звідки прийшли, — інакше він завис би в нікуди.
       opener?.focus?.()
     }

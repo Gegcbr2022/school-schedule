@@ -149,6 +149,8 @@ export function BooksSheet({ classId, className, onClose }: Props) {
           aria-labelledby={headingId}
           tabIndex={-1}
         >
+          <div className="sheet__grip" aria-hidden="true" />
+
           <div className="sheet__head">
             <h2 className="sheet__title" id={headingId}>
               Підручники

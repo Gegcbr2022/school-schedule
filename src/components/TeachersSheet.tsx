@@ -1,11 +1,11 @@
 import { useId, useMemo, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
-import { formatTime, plural } from '../lib/clock'
+import { formatTime, kyivNow, plural } from '../lib/clock'
 import { HAS_CONTACTS, formatPhone, phoneOf, telHref } from '../lib/contacts'
 import { useModal } from '../lib/hooks'
-import { roomLabel } from '../lib/lessons'
 import type { TeacherFacts } from '../lib/teacherSchedule'
-import { buildTeacherWeek, teacherFacts } from '../lib/teacherSchedule'
+import { computeStatus, roomLabel } from '../lib/lessons'
+import { buildTeacherDay, buildTeacherWeek, teacherFacts } from '../lib/teacherSchedule'
 import type { Teacher } from '../lib/teachers'
 import {
   formalName,
@@ -16,6 +16,7 @@ import {
   undecodedCodes,
 } from '../lib/teachers'
 import { BackIcon, CloseIcon, PhoneIcon, SearchIcon } from './Icons'
+import { WeekGrid } from './WeekGrid'
 
 type Props = {
   /** Парність поточного тижня — з неї починаємо показ. */
@@ -26,8 +27,6 @@ type Props = {
   onPin: (id: number | null) => void
   onClose: () => void
 }
-
-const DAY_FULL = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"]
 
 type Entry = {
   key: string
@@ -93,6 +92,8 @@ export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) 
         aria-labelledby={headingId}
         tabIndex={-1}
       >
+        <div className="sheet__grip" aria-hidden="true" />
+
         <div className="sheet__head">
           {current && (
             <button
@@ -179,6 +180,32 @@ export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) 
   )
 }
 
+/**
+ * Де вчитель просто зараз — щоб не бігати поверхами, шукаючи його.
+ * Рахуємо тим самим кодом, що й «що зараз» на головному екрані.
+ */
+function nowLine(teacher: Teacher, week: WeekParity): string | null {
+  const now = kyivNow()
+  if (now.iso > 5) return null
+
+  const status = computeStatus(buildTeacherDay(teacher, now.iso - 1, week), now.minutes)
+  const where = (item: { cls?: string; room?: string }) =>
+    [item.cls, roomLabel(item.room)].filter(Boolean).join(', ')
+
+  switch (status.kind) {
+    case 'empty':
+      return 'Сьогодні уроків немає'
+    case 'before':
+      return `Перший урок о ${formatTime(status.next.start)}`
+    case 'lesson':
+      return `Зараз веде ${status.current.items.map(where).join(' · ')} — до ${formatTime(status.current.end)}`
+    case 'break':
+      return `Перерва до ${formatTime(status.next.start)}, далі ${status.next.items.map(where).join(' · ')}`
+    case 'done':
+      return 'Уроки на сьогодні закінчились'
+  }
+}
+
 function TeacherCard({
   entry,
   currentWeek,
@@ -197,6 +224,7 @@ function TeacherCard({
   const days = useMemo(() => buildTeacherWeek(teacher, week), [teacher, week])
   const windows = days.reduce((n, day) => n + day.windows, 0)
   const phone = known ? phoneOf(teacher.id) : undefined
+  const now = nowLine(teacher, currentWeek)
 
   return (
     <>
@@ -227,6 +255,8 @@ function TeacherCard({
           </>
         )}
       </p>
+
+      {now && <p className="tnow">{now}</p>}
 
       {(phone || pinned || known) && (
         <div className="tcard__actions">
@@ -260,57 +290,7 @@ function TeacherCard({
         </button>
       </div>
 
-      <div className="tweek">
-        {days.map((day) => (
-          <section className="tday" key={day.iso}>
-            <h3 className="tday__head">
-              {DAY_FULL[day.iso - 1]}
-              <span className="tday__meta">
-                {day.count > 0
-                  ? `${day.count} ${plural(day.count, ['урок', 'уроки', 'уроків'])}`
-                  : 'без уроків'}
-                {day.windows > 0 &&
-                  ` · ${day.windows} ${plural(day.windows, ['вікно', 'вікна', 'вікон'])}`}
-              </span>
-            </h3>
-
-            {day.rows.length === 0 ? (
-              <p className="tday__empty">Уроків немає.</p>
-            ) : (
-              <ol className="trows">
-                {day.rows.map((row) =>
-                  row.kind === 'window' ? (
-                    <li className="trow trow--window" key={row.period}>
-                      <span className="trow__time">{formatTime(row.start)}</span>
-                      <span className="trow__window">Вікно</span>
-                    </li>
-                  ) : (
-                    <li className="trow" key={row.period}>
-                      <span className="trow__time">
-                        {formatTime(row.start)}
-                        <span className="trow__end">{formatTime(row.end)}</span>
-                      </span>
-                      <span className="trow__body">
-                        {row.entries.map((item, i) => (
-                          <span className="tentry" key={i}>
-                            <span className="tentry__class">{item.className}</span>
-                            <span className="tentry__subject">{item.subject}</span>
-                            {(roomLabel(item.room) || item.who) && (
-                              <span className="tentry__meta">
-                                {[roomLabel(item.room), item.who].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </span>
-                    </li>
-                  ),
-                )}
-              </ol>
-            )}
-          </section>
-        ))}
-      </div>
+      <WeekGrid days={days} />
 
       <p className="hint hint--muted">
         За {week} тиждень {windows} {plural(windows, ['вікно', 'вікна', 'вікон'])}.

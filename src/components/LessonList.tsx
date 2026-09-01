@@ -132,7 +132,10 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
 
                 {progress !== null && (
                   <div className="lesson__progress" aria-hidden="true">
-                    <div className="lesson__progress-fill" style={{ width: `${progress * 100}%` }} />
+                    <div
+                      className="lesson__progress-fill"
+                      style={{ transform: `scaleX(${progress})` }}
+                    />
                   </div>
                 )}
               </button>
