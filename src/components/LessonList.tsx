@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { formatDuration, formatTime } from '../lib/clock'
+import { formatDuration, formatTime, plural } from '../lib/clock'
 import type { DisplayLesson } from '../lib/lessons'
 import { roomLabel } from '../lib/lessons'
 import { NoteIcon } from './Icons'
@@ -62,6 +62,8 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
         // Перерва до наступного уроку — показуємо, якщо триває зараз чи попереду.
         const nextLesson = lessons[index + 1]
         const gap = nextLesson ? breakBetween(lesson, nextLesson) : 0
+        // Скільки цілих уроків пропущено — це вже вікно, а не перерва.
+        const free = nextLesson ? nextLesson.period - lesson.period - 1 : 0
         const onBreakNow =
           nowMin !== null && nextLesson
             ? nowMin >= lesson.end && nowMin < nextLesson.start
@@ -100,10 +102,11 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
                 </div>
 
                 <div className="lesson__variants">
-                  {lesson.items.map((item) => {
+                  {lesson.items.map((item, i) => {
                     const room = roomLabel(item.room)
                     return (
-                      <p key={`${item.who ?? ''}-${item.subject}`} className="lesson__subject">
+                      <p key={i} className="lesson__subject">
+                        {item.cls && <span className="lesson__cls">{item.cls}</span>}
                         {item.who && <span className="lesson__who">{item.who}</span>}
                         {item.subject}
                         {room && <span className="lesson__room">{room}</span>}
@@ -135,13 +138,23 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
               </button>
             </li>
 
-            {gap > 0 && (
-              <li className={onBreakNow ? 'brk brk--now' : 'brk'} aria-hidden="true">
-                <span className="brk__label">
-                  {onBreakNow ? 'Перерва' : 'перерва'} {formatDuration(gap)}
-                </span>
-              </li>
-            )}
+            {gap > 0 &&
+              (free > 0 ? (
+                // Вікно: між уроками пропущено цілі уроки за розкладом дзвінків.
+                // В учня таке буває на поділах, у вчителя — постійно.
+                <li className={onBreakNow ? 'brk brk--window brk--now' : 'brk brk--window'}>
+                  <span className="brk__label">
+                    Вікно · {free} {plural(free, ['урок', 'уроки', 'уроків'])} ·{' '}
+                    {formatDuration(gap)}
+                  </span>
+                </li>
+              ) : (
+                <li className={onBreakNow ? 'brk brk--now' : 'brk'} aria-hidden="true">
+                  <span className="brk__label">
+                    {onBreakNow ? 'Перерва' : 'перерва'} {formatDuration(gap)}
+                  </span>
+                </li>
+              ))}
           </Fragment>
         )
       })}

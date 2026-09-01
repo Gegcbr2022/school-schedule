@@ -1728,3 +1728,245 @@ button {
     animation: none;
   }
 }
+
+/* ── Вчителі: довідник + тижневий розклад ────────────────────────────── */
+
+.tsearch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.tsearch svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+}
+.tsearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px; /* < 16px змушує iOS зумити при фокусі */
+  outline: none;
+}
+
+.tdir {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tdir__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.tdir__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.tdir__code {
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  vertical-align: 1px;
+}
+.tdir__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tdir__name {
+  font-weight: 650;
+  font-size: 15px;
+}
+.tdir__subjects {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.tdir__hr {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.tweek {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.tday__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.tday__meta {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.tday__empty {
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+
+.trows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trow {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.trow__time {
+  flex: none;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  font-size: 14px;
+}
+.trow__end {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.trow__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tentry {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.tentry__class {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.tentry__subject {
+  font-size: 14.5px;
+  font-weight: 550;
+}
+.tentry__meta {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.trow--window {
+  align-items: center;
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.trow__window {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warm);
+}
+
+.hint--muted {
+  background: transparent;
+  border: 0;
+  padding: 8px 2px 0;
+  color: var(--text-3);
+}
+
+.tcard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* Кнопка-контур: телефон поруч із головною дією не має з нею змагатись. */
+.btn--ghost {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font-variant-numeric: tabular-nums;
+}
+.btn--ghost svg {
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+}
+
+/* Список учителів довгий — рідний <select> тут зручніший за 53 радіокнопки. */
+.select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font-size: 16px; /* < 16px змушує iOS зумити при фокусі */
+}
+
+/* Клас на картці уроку — лише у вчительському розкладі. */
+.lesson__cls {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Вікно — не перерва: це пропущений урок, і його видно здалеку. */
+.brk--window .brk__label {
+  padding: 2px 9px;
+  border-radius: 7px;
+  border: 1px dashed var(--border-strong);
+  color: var(--warm);
+}
+
+/* Прізвище в шапці довше за «10-Б» — трохи меншим кеглем. */
+.brand__class--name {
+  font-size: 18px;
+}

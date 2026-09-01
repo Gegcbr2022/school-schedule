@@ -8,10 +8,10 @@ import {
   GROUP_LABEL,
   LANGUAGE_GROUPS,
   LANGUAGE_LABEL,
-  TEACHERS,
 } from '../data/schedule'
 import { useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
+import { formalName, scheduleTeachers, teacherOf } from '../lib/teachers'
 import type { Prefs, Theme } from '../lib/prefs'
 import { CloseIcon } from './Icons'
 
@@ -70,6 +70,13 @@ function Radios<T extends string>({
   )
 }
 
+const TEACHER_LIST = scheduleTeachers()
+
+const ROLE_OPTIONS: Option<'student' | 'teacher'>[] = [
+  { value: 'student', label: 'Учня' },
+  { value: 'teacher', label: 'Вчителя' },
+]
+
 const THEME_OPTIONS: Option<Theme>[] = [
   { value: 'system', label: 'Системна' },
   { value: 'light', label: 'Світла' },
@@ -113,6 +120,7 @@ export function SettingsSheet({
     if (!onboarding) onPrefs(next)
   }
 
+  const teacherMode = draft.teacherId !== null
   const cls = classById(draft.classId)
   // Питаємо лише про ті поділи, які в цьому класі справді є.
   const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
@@ -123,7 +131,8 @@ export function SettingsSheet({
       .flat()
       .flatMap((l) => l.c)
       .find((c) => c.g === g)?.t
-    return { value: g, label: g.toUpperCase(), sub: code ? (TEACHERS[code] ?? code) : undefined }
+    const who = code ? teacherOf(code, 'ам', draft.classId) : undefined
+    return { value: g, label: g.toUpperCase(), sub: who?.last ?? code }
   })
 
   return (
@@ -154,10 +163,44 @@ export function SettingsSheet({
 
         <p className="sheet__intro">
           {onboarding
-            ? 'Оберіть свій клас — і побачите саме свій розклад. Змінити можна будь-коли.'
+            ? 'Оберіть свій клас — і побачите саме свій розклад. Учителі можуть увімкнути свій. Змінити можна будь-коли.'
             : 'Налаштування зберігаються лише на цьому пристрої.'}
         </p>
 
+        <Radios
+          name="role"
+          legend="Чий розклад показувати"
+          options={ROLE_OPTIONS}
+          value={teacherMode ? 'teacher' : 'student'}
+          onChange={(role) =>
+            update({
+              teacherId: role === 'teacher' ? (draft.teacherId ?? TEACHER_LIST[0].id) : null,
+            })
+          }
+        />
+
+        {teacherMode ? (
+          <fieldset className="field">
+            <legend className="field__label">Вчитель</legend>
+            <select
+              className="select"
+              value={draft.teacherId ?? ''}
+              aria-label="Вчитель"
+              onChange={(event) => update({ teacherId: Number(event.target.value) })}
+            >
+              {TEACHER_LIST.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {formalName(teacher)}
+                </option>
+              ))}
+            </select>
+            <p className="field__hint">
+              Уроки по всіх класах, з вікнами між ними. Прізвища двох учителів у розкладі
+              так і лишились нерозгаданими — їх у списку немає.
+            </p>
+          </fieldset>
+        ) : (
+          <>
         <fieldset className="field">
           <legend className="field__label">Клас</legend>
           {classesByGrade().map(({ grade, classes }) => (
@@ -226,6 +269,8 @@ export function SettingsSheet({
             }
             hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
           />
+        )}
+          </>
         )}
 
         {!onboarding && (

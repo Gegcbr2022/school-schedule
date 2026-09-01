@@ -10,6 +10,7 @@ import {
   GENDER_GROUPS,
   LANGUAGE_GROUPS,
 } from '../data/schedule'
+import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 
 /** Налаштування учня. Живуть тільки в localStorage цього пристрою. */
@@ -21,6 +22,11 @@ export type Prefs = {
   english: EnglishGroup
   /** Впливає лише на те, який зал показати на фізкультурі. */
   gender: GenderGroup | null
+  /**
+   * Якщо стоїть — застосунок показує розклад цього вчителя, а не класу.
+   * Ідентифікатор із `data/teachers.ts`.
+   */
+  teacherId: number | null
 }
 
 export type Theme = 'light' | 'dark' | 'system'
@@ -39,6 +45,7 @@ export const DEFAULT_PREFS: Prefs = {
   language: 'н',
   english: 'а',
   gender: null,
+  teacherId: null,
 }
 
 /** localStorage може кинути виняток (приватний режим, вимкнені куки). */
@@ -80,6 +87,10 @@ function knownClass(value: unknown): string | null {
   return typeof value === 'string' && TIMETABLE.some((c) => c.id === value) ? value : null
 }
 
+function knownTeacher(value: unknown): number | null {
+  return typeof value === 'number' && TEACHERS.some((t) => t.id === value) ? value : null
+}
+
 /**
  * Налаштування з часів «тільки 10-Б». Позначення груп тоді були інші,
  * тому переносимо їх, а не викидаємо: людина, яка вже поставила застосунок,
@@ -102,6 +113,7 @@ function migrateLegacy(): Prefs | null {
     english: english ?? DEFAULT_PREFS.english,
     language: language ?? DEFAULT_PREFS.language,
     gender: gender ?? null,
+    teacherId: null,
   }
 }
 
@@ -131,6 +143,8 @@ export function loadPrefs(): Prefs | null {
     language: language ?? DEFAULT_PREFS.language,
     english: english ?? DEFAULT_PREFS.english,
     gender: oneOf(GENDER_GROUPS, stored.gender),
+    // Учитель міг звільнитись — тоді просто повертаємось до розкладу класу.
+    teacherId: knownTeacher(stored.teacherId),
   }
 }
 

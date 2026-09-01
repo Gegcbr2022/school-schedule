@@ -22,8 +22,15 @@ import { loadPrefs, savePrefs } from './prefs'
 
 const at = (h: number, m: number) => h * 60 + m
 
-const G1: Prefs = { classId: '10б', classGroup: '1', language: 'н', english: 'а', gender: 'х' }
-const G2: Prefs = { classId: '10б', classGroup: '2', language: 'ф', english: 'б', gender: 'д' }
+const G1: Prefs = {
+  classId: '10б',
+  classGroup: '1',
+  language: 'н',
+  english: 'а',
+  gender: 'х',
+  teacherId: null,
+}
+const G2: Prefs = { ...G1, classGroup: '2', language: 'ф', english: 'б', gender: 'д' }
 const NO_GENDER: Prefs = { ...G1, gender: null }
 
 const TEN_B = classById('10б')!
@@ -257,7 +264,7 @@ describe('групи 10-Б', () => {
 
   it('вчителі підказують, яка група твоя', () => {
     expect(at10b(G1, MON, 4)?.items[0].teacher).toBe('Желяк')
-    expect(at10b(G2, TUE, 5)?.items[0].teacher).toBe('Драгомирецька')
+    expect(at10b(G2, TUE, 5)?.items[0].teacher).toBe('Дрогомирецька')
     expect(at10b({ ...G1, english: 'а' }, MON, 5)?.items[0].teacher).toBe('Андрішак')
     expect(at10b({ ...G1, english: 'б' }, MON, 5)?.items[0].teacher).toBe('Пташник')
     expect(at10b({ ...G1, english: 'в' }, MON, 5)?.items[0].teacher).toBe('Горін')
@@ -415,6 +422,7 @@ describe('налаштування зі старої версії', () => {
     )
 
     expect(loadPrefs()).toEqual({
+      teacherId: null,
       classId: '10б',
       classGroup: '2',
       language: 'ф',

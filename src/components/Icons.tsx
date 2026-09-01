@@ -99,3 +99,37 @@ export function ShareIcon() {
     </svg>
   )
 }
+
+export function TeacherIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="12" cy="7.5" r="3" />
+      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+    </svg>
+  )
+}
+
+export function SearchIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.2-3.2" />
+    </svg>
+  )
+}
+
+export function BackIcon() {
+  return (
+    <svg {...base}>
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  )
+}
+
+export function PhoneIcon() {
+  return (
+    <svg {...base}>
+      <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5Z" />
+    </svg>
+  )
+}

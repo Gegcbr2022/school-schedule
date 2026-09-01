@@ -95,22 +95,12 @@ export function subjectName(code: string): string {
 
 /* ── Вчителі ─────────────────────────────────────────────────────────── */
 
-/**
- * У розкладі стоять дволітерні коди. Розшифровуємо лише ті, які точно
- * відомі; решту показуємо кодом — так само, як на папері.
+/*
+ * У розкладі стоять дволітерні коди. Хто за ними стоїть — у
+ * `teachers.ts` (згенеровано зі шкільного журналу); розшифровка й
+ * розведення тезок живуть у `scripts/import-teachers.mjs`.
+ * Див. `lib/teachers.ts`: `teacherOf`, `teacherLabel`.
  */
-export const TEACHERS: Record<string, string> = {
-  НА: 'Андрішак',
-  ГП: 'Пташник',
-  АГ: 'Горін',
-  ГЖ: 'Желяк',
-  ОД: 'Драгомирецька',
-}
-
-export function teacherName(code: string | undefined): string | undefined {
-  if (!code) return undefined
-  return TEACHERS[code] ?? code
-}
 
 /* ── Групи ───────────────────────────────────────────────────────────── */
 

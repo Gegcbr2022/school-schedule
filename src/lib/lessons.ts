@@ -15,9 +15,9 @@ import {
   GROUP_DIM,
   GROUP_LABEL,
   subjectName,
-  teacherName,
 } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
+import { teacherLabel } from './teachers'
 import type { Prefs } from './prefs'
 
 /**
@@ -30,6 +30,8 @@ export type DisplayItem = {
   who?: string
   room?: string
   teacher?: string
+  /** Клас — лише у вчительському розкладі, де уроки з різних класів. */
+  cls?: string
 }
 
 export type DisplayLesson = {
@@ -110,7 +112,7 @@ function isMine(cell: Cell, prefs: Prefs, week: WeekParity): boolean {
   }
 }
 
-function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode): DisplayItem {
+function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode, classId: string): DisplayItem {
   const dim = cell.g ? GROUP_DIM[cell.g] : undefined
   const unknownGender = dim === 'gender' && !prefs.gender
 
@@ -124,7 +126,8 @@ function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode): DisplayItem {
           ? GROUP_LABEL[cell.g]
           : undefined,
     room: unknownGender && mode === 'my' ? undefined : cell.r,
-    teacher: teacherName(cell.t),
+    // Предмет+клас розводять тезок під спільним кодом (напр. ГП, СМ, НГ).
+    teacher: teacherLabel(cell.t, cell.s, classId),
   }
 }
 
@@ -178,7 +181,7 @@ export function buildDay(
       n: out.length + 1,
       period: lesson.p,
       ...bell,
-      items: cells.map((c) => itemOf(c, prefs, mode)),
+      items: cells.map((c) => itemOf(c, prefs, mode, cls.id)),
       note: noteOf(cells, prefs, mode, week),
     })
   }
