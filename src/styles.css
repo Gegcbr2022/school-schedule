@@ -2127,3 +2127,111 @@ summary {
   font-weight: 600;
   color: var(--accent);
 }
+
+/* ── Завдання: те, що записали до уроків ─────────────────────────────── */
+
+/*
+ * Позначка на дні, де щось записано. Стоїть поруч із крапкою «сьогодні»,
+ * тому зсуваємо її вбік — інакше в сьогоднішньому дні вони б злились.
+ */
+.daycol__task {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--warm);
+}
+
+.daycol:has(.daycol__today) .daycol__task {
+  transform: translateX(6px);
+}
+
+.daycol:has(.daycol__today) .daycol__today {
+  transform: translateX(-6px);
+}
+
+.chip--task {
+  color: var(--warm);
+  background: var(--warm-soft);
+  border-color: transparent;
+}
+
+.chip__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--warm);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tasks__day {
+  margin-bottom: 16px;
+}
+
+.tasks__date {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.tasks__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task {
+  display: flex;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.task__when {
+  flex: none;
+  width: 46px;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-3);
+}
+
+.task__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task__subject {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.task__text {
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tasks__past summary {
+  padding: 10px 2px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-3);
+}
+
+.tasks__past[open] summary {
+  margin-bottom: 6px;
+}

@@ -18,6 +18,8 @@ type Props = {
   status: DayStatus | null
   todayName: string
   nextUp: NextUp
+  /** Показуємо розклад учителя — деякі підписи для нього інші. */
+  teacher?: boolean
 }
 
 function subjectOf(lesson: DisplayLesson): string {
@@ -81,7 +83,7 @@ function JumpBlock({ nextUp }: { nextUp: NextUp }) {
   )
 }
 
-export function StatusCard({ status, todayName, nextUp }: Props) {
+export function StatusCard({ status, todayName, nextUp, teacher }: Props) {
   // Вихідний: уроків немає взагалі, показуємо найближчий навчальний день.
   if (status === null) {
     return (
@@ -99,7 +101,11 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
       <section className="status" aria-label="Що зараз">
         <p className="status__label">{todayName}</p>
         <h2 className="status__subject">Сьогодні уроків немає</h2>
-        <p className="status__range">За вашими групами на сьогодні нічого не стоїть.</p>
+        <p className="status__range">
+          {teacher
+            ? 'Жодного уроку в розкладі на сьогодні.'
+            : 'За вашими групами на сьогодні нічого не стоїть.'}
+        </p>
         <JumpBlock nextUp={nextUp} />
       </section>
     )
@@ -138,11 +144,16 @@ export function StatusCard({ status, todayName, nextUp }: Props) {
   }
 
   if (status.kind === 'break') {
+    // Пропущено цілі уроки — це вікно. У вчителя воно буває на пів дня,
+    // і називати таке перервою було б неправдою.
+    const window = status.free > 0
     return (
       <section className="status status--break" aria-label="Що зараз">
         <p className="status__label">
           <span className="status__pulse" aria-hidden="true" />
-          Перерва
+          {window
+            ? `Вікно · ${status.free} ${plural(status.free, ['урок', 'уроки', 'уроків'])}`
+            : 'Перерва'}
         </p>
         <h2 className="status__subject">{subjectOf(status.next)}</h2>
         <Where lesson={status.next} />

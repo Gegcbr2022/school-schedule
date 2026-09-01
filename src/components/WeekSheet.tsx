@@ -21,6 +21,8 @@ type Props = {
   currentWeek: WeekParity
   /** Сьогоднішній день (ISO 1…5), щоб підсвітити; вихідні — не передавати. */
   todayIso?: number
+  /** Парність сьогоднішнього тижня: підсвічуємо день лише в ній. */
+  todayWeek: WeekParity
   onClose: () => void
 }
 
@@ -37,6 +39,7 @@ export function WeekSheet({
   teacher,
   currentWeek,
   todayIso,
+  todayWeek,
   onClose,
 }: Props) {
   const headingId = useId()
@@ -105,7 +108,8 @@ export function WeekSheet({
           </button>
         </div>
 
-        <WeekGrid days={days} todayIso={week === currentWeek ? todayIso : undefined} />
+        {/* Сьогодні підсвічуємо лише тоді, коли на екрані саме його тиждень. */}
+        <WeekGrid days={days} todayIso={week === todayWeek ? todayIso : undefined} />
 
         <div className="sheet__actions">
           <button type="button" className="btn btn--wide" onClick={onClose}>

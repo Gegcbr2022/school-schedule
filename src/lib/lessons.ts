@@ -227,7 +227,17 @@ export type DayStatus =
       /** 0…1 — скільки уроку вже минуло. */
       progress: number
     }
-  | { kind: 'break'; next: DisplayLesson; inMin: number }
+  | {
+      kind: 'break'
+      next: DisplayLesson
+      inMin: number
+      /**
+       * Скільки цілих уроків пропущено. Більше нуля — це вікно, а не
+       * перерва: у вчителя таке буває на пів дня, і називати це перервою
+       * не можна.
+       */
+      free: number
+    }
   | { kind: 'done'; total: number }
 
 export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStatus {
@@ -257,7 +267,12 @@ export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStat
         progress: (nowMin - lesson.start) / (lesson.end - lesson.start),
       }
     }
-    return { kind: 'break', next: lesson, inMin: Math.ceil(lesson.start - nowMin) }
+    return {
+      kind: 'break',
+      next: lesson,
+      inMin: Math.ceil(lesson.start - nowMin),
+      free: lesson.period - lessons[i - 1].period - 1,
+    }
   }
 
   // Недосяжно: випадок «після останнього уроку» вже оброблено вище.

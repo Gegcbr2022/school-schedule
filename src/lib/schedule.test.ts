@@ -5,6 +5,7 @@ import { BOOKS, booksForClass } from '../data/books'
 import { specialDayOn } from '../data/special'
 import { TIMETABLE } from '../data/timetable'
 import { addDays, formatDuration, kyivNow, parseTime, plural, weekParity } from './clock'
+import type { DisplayLesson } from './lessons'
 import {
   buildDay,
   classById,
@@ -17,6 +18,7 @@ import {
   offWeekNote,
   roomLabel,
 } from './lessons'
+import { allNotes, datesWithNotes, setNote } from './notes'
 import type { Prefs } from './prefs'
 import { loadPrefs, savePrefs } from './prefs'
 
@@ -418,6 +420,72 @@ describe('перехід між днями', () => {
       month: 9,
       day: 1,
     })
+  })
+})
+
+describe('вікно проти перерви', () => {
+  const lesson = (period: number, n: number): DisplayLesson => ({
+    n,
+    period,
+    ...BELLS[period as Period],
+    items: [{ subject: 'Математика' }],
+  })
+
+  it('пропущені цілі уроки — це вікно, а не перерва', () => {
+    // 1-й і 4-й уроки: між ними два порожні.
+    const day = [lesson(1, 1), lesson(4, 2)]
+    const status = computeStatus(day, at(9, 0))
+    expect(status.kind).toBe('break')
+    if (status.kind === 'break') expect(status.free).toBe(2)
+  })
+
+  it('сусідні уроки — звичайна перерва', () => {
+    const day = [lesson(1, 1), lesson(2, 2)]
+    const status = computeStatus(day, at(8, 45))
+    expect(status.kind).toBe('break')
+    if (status.kind === 'break') expect(status.free).toBe(0)
+  })
+})
+
+describe('записані завдання', () => {
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    })
+  })
+
+  it('віддає лише свій клас, за датою і уроком', () => {
+    setNote({ classId: '10б', date: '2026-09-04', period: 2 }, 'контрольна')
+    setNote({ classId: '10б', date: '2026-09-03', period: 4 }, 'вивчити теорему')
+    setNote({ classId: '10б', date: '2026-09-03', period: 1 }, 'атлас')
+    setNote({ classId: '9а', date: '2026-09-03', period: 1 }, 'чуже')
+
+    expect(allNotes('10б')).toEqual([
+      { date: '2026-09-03', period: 1, text: 'атлас' },
+      { date: '2026-09-03', period: 4, text: 'вивчити теорему' },
+      { date: '2026-09-04', period: 2, text: 'контрольна' },
+    ])
+    expect(datesWithNotes('10б')).toEqual(new Set(['2026-09-03', '2026-09-04']))
+  })
+
+  it('порожній текст стирає запис, а не лишає пустий', () => {
+    setNote({ classId: '10б', date: '2026-09-03', period: 1 }, 'щось')
+    setNote({ classId: '10б', date: '2026-09-03', period: 1 }, '   ')
+    expect(allNotes('10б')).toEqual([])
+  })
+
+  // Вчитель пише нотатки до своїх уроків, а не до класу, — простір ключів свій.
+  it('вчительські записи не змішуються з класними', () => {
+    setNote({ classId: '10б', date: '2026-09-03', period: 1 }, 'учнівське')
+    setNote({ classId: 'вч123', date: '2026-09-03', period: 1 }, 'вчительське')
+    expect(allNotes('10б').map((n) => n.text)).toEqual(['учнівське'])
+    expect(allNotes('вч123').map((n) => n.text)).toEqual(['вчительське'])
   })
 })
 

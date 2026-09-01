@@ -55,18 +55,34 @@ export function setNote(key: NoteKey, text: string): void {
   write(store)
 }
 
-/** Дати (`рррр-мм-дд`), у яких для цього класу є хоч одна нотатка. */
-export function datesWithNotes(classId: string): Set<string> {
-  const out = new Set<string>()
-  for (const k of Object.keys(read())) {
-    const [cls, date] = k.split('|')
-    if (cls === classId) out.add(date)
-  }
-  return out
+/** Один запис у списку завдань. */
+export type SavedNote = {
+  /** `рррр-мм-дд` за київським календарем. */
+  date: string
+  period: number
+  text: string
 }
 
-/** Скільки нотаток збережено для дня — щоб підписати вкладку чи картку. */
-export function noteCountOn(classId: string, date: string): number {
-  const prefix = `${classId}|${date}|`
-  return Object.keys(read()).filter((k) => k.startsWith(prefix)).length
+/**
+ * Усі нотатки цього класу (чи вчителя) — за датою, потім за уроком.
+ * Це і є «щоденник»: те, що записали, але ще не зробили.
+ */
+export function allNotes(classId: string): SavedNote[] {
+  const prefix = `${classId}|`
+  const out: SavedNote[] = []
+
+  for (const [key, text] of Object.entries(read())) {
+    if (!key.startsWith(prefix)) continue
+    const [, date, period] = key.split('|')
+    const n = Number(period)
+    if (!date || !Number.isFinite(n)) continue
+    out.push({ date, period: n, text })
+  }
+
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period)
+}
+
+/** Дати (`рррр-мм-дд`), у яких для цього класу є хоч одна нотатка. */
+export function datesWithNotes(classId: string): Set<string> {
+  return new Set(allNotes(classId).map((note) => note.date))
 }

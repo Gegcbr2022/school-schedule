@@ -20,6 +20,18 @@ const FOCUSABLE =
 export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> {
   const ref = useRef<HTMLDivElement>(null)
 
+  /*
+   * `onClose` майже завжди прилітає новою стрілкою на кожен рендер батька,
+   * а батько перемальовується хоча б раз на пів хвилини — від годинника.
+   * Якби ефект від неї залежав, він щоразу перезапускався б і повертав
+   * фокус на сам аркуш: на телефоні клавіатура зачинялась би просто під
+   * час набору. Тому тримаємо колбек у ref, а ефект чіпляємо один раз.
+   */
+  const close = useRef(onClose)
+  useEffect(() => {
+    close.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const root = ref.current
@@ -32,7 +44,7 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose()
+        close.current()
         return
       }
       if (event.key !== 'Tab' || !root) return
@@ -74,7 +86,7 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
       document.removeEventListener('pointerup', end)
       document.removeEventListener('pointercancel', end)
       // Пройшов чверть екрана — відпускаємо; менше — аркуш стає на місце.
-      if (shift > Math.min(140, window.innerHeight * 0.18)) onClose()
+      if (shift > Math.min(140, window.innerHeight * 0.18)) close.current()
     }
 
     const start = (event: PointerEvent) => {
@@ -102,7 +114,7 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
       // Повертаємо фокус туди, звідки прийшли, — інакше він завис би в нікуди.
       opener?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   return ref
 }

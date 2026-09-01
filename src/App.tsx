@@ -15,6 +15,7 @@ import { LessonList } from './components/LessonList'
 import type { NoteTarget } from './components/NoteSheet'
 import { NoteSheet } from './components/NoteSheet'
 import { SettingsSheet } from './components/SettingsSheet'
+import { TasksSheet } from './components/TasksSheet'
 import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
 import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
@@ -49,7 +50,7 @@ import {
 import { buildTeacherDay } from './lib/teacherSchedule'
 import { politeName, teacherById } from './lib/teachers'
 import type { Prefs } from './lib/prefs'
-import { getNote, setNote } from './lib/notes'
+import { allNotes, getNote, setNote } from './lib/notes'
 import { DEFAULT_PREFS, clearPrefs, loadPrefs, savePrefs } from './lib/prefs'
 
 const IS_IOS =
@@ -73,6 +74,7 @@ export default function App() {
   const [booksOpen, setBooksOpen] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [weekOpen, setWeekOpen] = useState(false)
+  const [tasksOpen, setTasksOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
@@ -190,6 +192,17 @@ export default function App() {
     void notesVersion
     return getNote({ classId: noteScope, date: dateStr, period })
   }
+  /** Записані завдання: крапки в стрічці днів і лічильник на чіпі. */
+  const tasks = useMemo(() => {
+    void notesVersion
+    const all = allNotes(noteScope)
+    return {
+      dates: new Set(all.map((note) => note.date)),
+      // На чіпі — скільки ще попереду; минуле не смикає око щодня.
+      ahead: all.filter((note) => note.date >= dateKey(view.today)).length,
+    }
+  }, [noteScope, notesVersion, view.today])
+
   const openNote = (lesson: DisplayLesson) =>
     setNoteTarget({
       lesson,
@@ -258,7 +271,12 @@ export default function App() {
           </button>
         </div>
 
-        <DateStrip today={view.today} selected={view.selected} onSelect={setPicked} />
+        <DateStrip
+          today={view.today}
+          selected={view.selected}
+          onSelect={setPicked}
+          marked={tasks.dates}
+        />
       </header>
 
       <main>
@@ -292,6 +310,17 @@ export default function App() {
           <button type="button" className="chip chip--button" onClick={() => setWeekOpen(true)}>
             Весь тиждень
           </button>
+
+          {tasks.dates.size > 0 && (
+            <button
+              type="button"
+              className="chip chip--button chip--task"
+              onClick={() => setTasksOpen(true)}
+            >
+              Завдання
+              {tasks.ahead > 0 && <span className="chip__count">{tasks.ahead}</span>}
+            </button>
+          )}
         </div>
 
         <div className={showStatus ? 'layout' : 'layout layout--solo'}>
@@ -304,6 +333,7 @@ export default function App() {
                   status={status}
                   todayName={DAY_NAME[view.todayIso]}
                   nextUp={nextUp}
+                  teacher={Boolean(view.teacher)}
                 />
               ))}
           </div>
@@ -413,6 +443,21 @@ export default function App() {
         </footer>
       </main>
 
+      {tasksOpen && (
+        <TasksSheet
+          scope={noteScope}
+          cls={view.cls}
+          prefs={view.active}
+          teacher={view.teacher}
+          today={view.today}
+          onOpenDay={(date) => {
+            setPicked(date)
+            setTasksOpen(false)
+          }}
+          onClose={() => setTasksOpen(false)}
+        />
+      )}
+
       {weekOpen && (
         <WeekSheet
           cls={view.cls}
@@ -421,6 +466,7 @@ export default function App() {
           teacher={view.teacher}
           currentWeek={view.week}
           todayIso={view.todayIso <= 5 ? view.todayIso : undefined}
+          todayWeek={view.currentWeek}
           onClose={() => setWeekOpen(false)}
         />
       )}

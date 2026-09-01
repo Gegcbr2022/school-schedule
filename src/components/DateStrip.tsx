@@ -9,6 +9,8 @@ type Props = {
   today: CalendarDate
   selected: CalendarDate
   onSelect: (date: CalendarDate) => void
+  /** Дати (`рррр-мм-дд`), де є записані завдання, — позначаємо їх. */
+  marked?: Set<string>
 }
 
 /**
@@ -16,7 +18,7 @@ type Props = {
  * Вибраний день підсвічено, сьогоднішній має крапку, смуга сама доводить
  * вибраний день у видиму зону.
  */
-export function DateStrip({ today, selected, onSelect }: Props) {
+export function DateStrip({ today, selected, onSelect, marked }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectedRef = useRef<HTMLButtonElement>(null)
 
@@ -39,6 +41,7 @@ export function DateStrip({ today, selected, onSelect }: Props) {
         const isToday = key === todayKey
         const isSelected = key === selectedKey
         const weekend = iso > 5
+        const hasTask = marked?.has(key) ?? false
 
         return (
           <button
@@ -47,12 +50,15 @@ export function DateStrip({ today, selected, onSelect }: Props) {
             type="button"
             className={`daycol${weekend ? ' daycol--weekend' : ''}`}
             aria-pressed={isSelected}
-            aria-label={`${WEEKDAY_SHORT[iso - 1]} ${date.day}${isToday ? ', сьогодні' : ''}`}
+            aria-label={`${WEEKDAY_SHORT[iso - 1]} ${date.day}${isToday ? ', сьогодні' : ''}${
+              hasTask ? ', є завдання' : ''
+            }`}
             onClick={() => onSelect(date)}
           >
             <span className="daycol__wd">{WEEKDAY_SHORT[iso - 1]}</span>
             <span className="daycol__num">{date.day}</span>
             {isToday && <span className="daycol__today" aria-hidden="true" />}
+            {hasTask && <span className="daycol__task" aria-hidden="true" />}
           </button>
         )
       })}
