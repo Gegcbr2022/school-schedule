@@ -11,7 +11,7 @@ import {
 } from '../data/schedule'
 import { useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
-import { formalName, scheduleTeachers, teacherOf } from '../lib/teachers'
+import { formalName, scheduleName, scheduleTeachers, teacherOf } from '../lib/teachers'
 import type { Prefs, Theme } from '../lib/prefs'
 import { CloseIcon } from './Icons'
 
@@ -132,7 +132,7 @@ export function SettingsSheet({
       .flatMap((l) => l.c)
       .find((c) => c.g === g)?.t
     const who = code ? teacherOf(code, 'ам', draft.classId) : undefined
-    return { value: g, label: g.toUpperCase(), sub: who?.last ?? code }
+    return { value: g, label: g.toUpperCase(), sub: who ? scheduleName(who) : code }
   })
 
   return (

@@ -116,7 +116,6 @@ export default function App() {
     const todayWeek = weekParity(addDays(today, 1 - todayIso))
     const todayLessons =
       todayWeekend || todaySpecial?.noLessons ? [] : dayFor(todayIso, todayWeek, 'my')
-    const status = todayWeekend ? null : computeStatus(todayLessons, now.minutes)
     const currentWeek = todayWeek
 
     // Найближчий навчальний день (для картки й переходу).
@@ -137,7 +136,7 @@ export default function App() {
       week,
       isToday,
       lessons,
-      status,
+      todayWeekend,
       todayLessons,
       upcomingIso,
       upcomingDate,
@@ -146,7 +145,13 @@ export default function App() {
       todaySpecial,
       currentWeek,
     }
-  }, [now, picked, mode, prefs])
+    // Хвилини навмисно не в залежностях: розклад дня від них не залежить,
+    // а перерахунок раз на пів хвилини змушував би заново будувати всі дні —
+    // для вчителя це прохід по всіх 24 класах.
+  }, [now.year, now.month, now.day, now.iso, picked, mode, prefs])
+
+  /** Що відбувається просто зараз — єдине, що змінюється з ходом часу. */
+  const status = view.todayWeekend ? null : computeStatus(view.todayLessons, now.minutes)
 
   const alreadyOnUpcoming = dateKey(view.selected) === dateKey(view.upcomingDate)
 
@@ -289,7 +294,7 @@ export default function App() {
                 <SpecialCard day={view.todaySpecial} nowMin={now.minutes} />
               ) : (
                 <StatusCard
-                  status={view.status}
+                  status={status}
                   todayName={DAY_NAME[view.todayIso]}
                   nextUp={nextUp}
                 />

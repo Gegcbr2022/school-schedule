@@ -262,12 +262,31 @@ describe('групи 10-Б', () => {
     expect(at10b(G2, WED, 3)?.items[0].subject).toBe('Французька мова')
   })
 
+  // Вчителя підписуємо так, як до нього звертаються: ім'я, по батькові
+  // і рівно стільки прізвища, щоб не сплутати тезок.
   it('вчителі підказують, яка група твоя', () => {
-    expect(at10b(G1, MON, 4)?.items[0].teacher).toBe('Желяк')
-    expect(at10b(G2, TUE, 5)?.items[0].teacher).toBe('Дрогомирецька')
-    expect(at10b({ ...G1, english: 'а' }, MON, 5)?.items[0].teacher).toBe('Андрішак')
-    expect(at10b({ ...G1, english: 'б' }, MON, 5)?.items[0].teacher).toBe('Пташник')
-    expect(at10b({ ...G1, english: 'в' }, MON, 5)?.items[0].teacher).toBe('Горін')
+    expect(at10b(G1, MON, 4)?.items[0].teacher).toBe('Галина Богданівна Ж.')
+    expect(at10b(G2, TUE, 5)?.items[0].teacher).toBe('Оксана Василівна Д.')
+    expect(at10b({ ...G1, english: 'а' }, MON, 5)?.items[0].teacher).toBe('Надія Володимирівна А.')
+    expect(at10b({ ...G1, english: 'б' }, MON, 5)?.items[0].teacher).toBe('Галина Василівна П.')
+    expect(at10b({ ...G1, english: 'в' }, MON, 5)?.items[0].teacher).toBe('Анастасія Євгенівна Г.')
+  })
+
+  // Хімія в середу 8-м уроком стоїть тільки на другому тижні й на весь клас,
+  // без жодного поділу. У повному розкладі її видно завжди — тож підпис про
+  // тиждень тут обов'язковий, інакше вона мовчки висить у першому.
+  it('урок «через тиждень» у повному розкладі підписаний навіть без поділу', () => {
+    const wk1 = day(G1, WED, 1, 'full').find((l) => l.period === 8)
+    expect(wk1?.items[0].subject).toBe('Хімія')
+    expect(wk1?.note).toBe('Наступного тижня · 2 тиждень')
+
+    const wk2 = day(G1, WED, 2, 'full').find((l) => l.period === 8)
+    expect(wk2?.note).toBe('Цього тижня · 2 тиждень')
+  })
+
+  it('у «моєму» розкладі цієї хімії першого тижня немає зовсім', () => {
+    expect(day(G1, WED, 1, 'my').some((l) => l.period === 8)).toBe(false)
+    expect(day(G1, WED, 2, 'my').some((l) => l.period === 8)).toBe(true)
   })
 
   it('повний розклад показує всі варіанти з підписами', () => {

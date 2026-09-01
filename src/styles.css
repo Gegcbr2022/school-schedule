@@ -153,8 +153,14 @@ button {
   margin: 0 -16px;
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
   background: var(--bar-bg);
-  backdrop-filter: saturate(180%) blur(16px);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  /*
+   * Розмиття шапки — найдорожче, що є в цьому інтерфейсі на телефоні:
+   * воно перераховується щоразу, коли під ним щось перемальовується.
+   * Тло й так на 82% непрозоре, тож другий прохід (saturate) прибрано,
+   * а радіус зменшено — на око різниці немає, скролу помітно легше.
+   */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
@@ -827,12 +833,17 @@ button {
   color: var(--accent);
 }
 
+/*
+ * Вчитель — окремим рядком під предметом: підписуємо його так, як до
+ * нього звертаються («Іван Миколайович Г.»), і в рядок із предметом
+ * та кабінетом це вже не влазить.
+ */
 .lesson__teacher {
-  margin-left: 8px;
+  display: block;
+  margin-top: 2px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-3);
-  white-space: nowrap;
 }
 
 .lesson__variants {
@@ -1656,17 +1667,35 @@ button {
   animation: card-in 0.36s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 
-/* Поточний урок легко «дихає» рамкою — ледь помітно, лише щоб знайти оком. */
+/*
+ * Поточний урок легко «дихає» рамкою — ледь помітно, лише щоб знайти оком.
+ *
+ * Пульсуємо прозорістю окремого шару, а не box-shadow: тінь браузер
+ * перемальовує щокадру, і поки урок іде, під напівпрозорою шапкою
+ * безперервно йшов перемальовок — саме через це смикався скрол.
+ * Прозорість натомість рахує композитор, не чіпаючи пікселі.
+ */
 @keyframes now-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 transparent;
+  0%,
+  100% {
+    opacity: 0;
   }
   50% {
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    opacity: 1;
   }
 }
 
 .lesson--current .lesson__card {
+  position: relative;
+}
+
+.lesson--current .lesson__card::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius) + 3px);
+  border: 3px solid var(--accent-soft);
+  pointer-events: none;
   animation: now-glow 3.2s ease-in-out infinite;
 }
 

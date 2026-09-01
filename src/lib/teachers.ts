@@ -40,6 +40,45 @@ export function initialsOf(t: Teacher): string {
   return `${t.last[0] ?? ''}${t.first[0] ?? ''}`
 }
 
+/**
+ * Прізвище, скорочене рівно настільки, щоб відрізнити тезок за іменем
+ * і по батькові. Здебільшого це одна літера («Ж.»), але Світлана
+ * Степанівна в школі не одна, і обидві на «М» — тоді «Ма.» і «Ми.».
+ */
+const shortLast = new Map<number, string>()
+{
+  const namesakes = new Map<string, Teacher[]>()
+  for (const t of TEACHERS) {
+    const key = politeName(t)
+    const list = namesakes.get(key)
+    if (list) list.push(t)
+    else namesakes.set(key, [t])
+  }
+  for (const group of namesakes.values()) {
+    for (const t of group) {
+      let n = 1
+      while (
+        n < t.last.length &&
+        group.some((other) => other !== t && other.last.startsWith(t.last.slice(0, n)))
+      ) {
+        n += 1
+      }
+      shortLast.set(t.id, n < t.last.length ? `${t.last.slice(0, n)}.` : t.last)
+    }
+  }
+}
+
+/**
+ * Як підписати вчителя в розкладі: «Галина Богданівна Ж.».
+ *
+ * До вчителя звертаються на ім'я та по батькові — воно й головне;
+ * прізвище лишається настільки, щоб не сплутати тезок.
+ */
+export function scheduleName(t: Teacher): string {
+  const polite = politeName(t)
+  return polite ? `${polite} ${shortLast.get(t.id) ?? t.last}` : t.last
+}
+
 /* ── Пошук ───────────────────────────────────────────────────────────── */
 
 export function teacherById(id: number): Teacher | undefined {
@@ -100,8 +139,9 @@ function claimsFit(t: Teacher, subject?: string, classId?: string): boolean {
 }
 
 /**
- * Підпис учителя для картки уроку: прізвище; обидва прізвища через «/»,
- * якщо код спільний і розвести не вдалось; сам код, якщо він невідомий.
+ * Підпис учителя для картки уроку: «Галина Богданівна Ж.»; обидва прізвища
+ * через «/», якщо код спільний і розвести не вдалось; сам код, якщо він
+ * невідомий.
  */
 export function teacherLabel(
   code: string | undefined,
@@ -112,5 +152,5 @@ export function teacherLabel(
   const holders = codeHolders(code)
   if (holders.length === 0) return code
   const one = teacherOf(code, subject, classId)
-  return one ? one.last : holders.map((t) => t.last).join(' / ')
+  return one ? scheduleName(one) : holders.map((t) => t.last).join(' / ')
 }

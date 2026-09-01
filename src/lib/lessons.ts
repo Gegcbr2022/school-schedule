@@ -134,8 +134,8 @@ function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode, classId: string): Disp
 /** Підпис під уроком: чому він такий, а не інший. */
 function noteOf(cells: Cell[], prefs: Prefs, mode: ViewMode, week: WeekParity): string | undefined {
   const first = cells[0]
-  if (!first?.g) return undefined
-  const dim = GROUP_DIM[first.g]
+  if (!first) return undefined
+  const dim = first.g ? GROUP_DIM[first.g] : undefined
 
   if (dim === 'english') {
     return mode === 'my' ? `Підгрупа ${prefs.english}` : undefined
@@ -143,6 +143,9 @@ function noteOf(cells: Cell[], prefs: Prefs, mode: ViewMode, week: WeekParity): 
   if (dim === 'week' && mode === 'my') {
     return `Чергується по тижнях · ${week} тиждень`
   }
+  // Урок «через тиждень» — підписуємо завжди, навіть коли він на весь клас
+  // без жодного поділу: інакше в повному розкладі хімія 2-го тижня мовчки
+  // стоїть у першому.
   if (first.w) {
     return `${first.w === week ? 'Цього' : 'Наступного'} тижня · ${first.w} тиждень`
   }

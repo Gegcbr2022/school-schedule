@@ -5,6 +5,7 @@ import type { Teacher } from './teachers'
 import {
   codeHolders,
   isSharedCode,
+  scheduleName,
   scheduleTeachers,
   teacherLabel,
   teacherOf,
@@ -70,6 +71,35 @@ describe('розшифровка кодів', () => {
     // Предмета, якого немає в жодної умови, вистачити не може.
     expect(teacherOf('ОК', 'фк', '7а')).toBeUndefined()
     expect(teacherLabel('ОК', 'фк', '7а')).toContain('/')
+  })
+})
+
+describe('як підписуємо вчителя', () => {
+  it("ім'я, по батькові й скорочене прізвище", () => {
+    expect(scheduleName(byLast('Желяк'))).toBe('Галина Богданівна Ж.')
+    expect(teacherLabel('ГЖ', 'ум', '10б')).toBe('Галина Богданівна Ж.')
+  })
+
+  it('тезкам прізвище доростає рівно до розрізнення', () => {
+    // Матійчук і Микитин — обидві Світлани Степанівни, обидві на «М».
+    expect(scheduleName(byLast('Матійчук'))).toBe('Світлана Степанівна Ма.')
+    expect(scheduleName(byLast('Микитин'))).toBe('Світлана Степанівна Ми.')
+  })
+
+  it('підписи всіх учителів розкладу різні', () => {
+    const names = scheduleTeachers().map(scheduleName)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('кожна комірка розкладу веде рівно до однієї людини', () => {
+    const undecoded = new Set(undecodedCodes().map((u) => u.code))
+    for (const cls of TIMETABLE)
+      for (const day of cls.days)
+        for (const lesson of day)
+          for (const cell of lesson.c) {
+            if (!cell.t || undecoded.has(cell.t)) continue
+            expect(teacherOf(cell.t, cell.s, cls.id), `${cls.id} ${cell.s} ${cell.t}`).toBeDefined()
+          }
   })
 })
 

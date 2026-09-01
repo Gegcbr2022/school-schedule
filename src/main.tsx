@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { watchForUpdates } from './lib/update'
 import './styles.css'
 
 const root = document.getElementById('root')
@@ -17,10 +18,6 @@ createRoot(root).render(
 
 // Service worker живе поруч із застосунком, тому й шлях беремо з BASE_URL —
 // так воно працює і на GitHub Pages у підпапці, і локально в корені.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
-      /* без офлайну теж жити можна */
-    })
-  })
+if (import.meta.env.PROD) {
+  window.addEventListener('load', () => watchForUpdates(`${import.meta.env.BASE_URL}sw.js`))
 }
