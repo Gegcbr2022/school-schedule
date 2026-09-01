@@ -288,8 +288,9 @@ export default function App() {
             </button>
           )}
 
+          {/* «Весь тиждень», а не «Тиждень»: поруч стоїть чіп парності («1 тиждень»). */}
           <button type="button" className="chip chip--button" onClick={() => setWeekOpen(true)}>
-            Тиждень
+            Весь тиждень
           </button>
         </div>
 
