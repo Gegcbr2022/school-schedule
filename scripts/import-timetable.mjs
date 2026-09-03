@@ -73,21 +73,26 @@ const OVERRIDES = {
  */
 const CLASS_FIXES = {
   /*
-   * Понеділок 6-А зібраний в іншому порядку, і додано нульову математику.
-   * Вона тут переконлива: у 6-А математика нульовим уроком стоїть кожного
-   * дня, крім понеділка, — тобто в PDF її просто забули.
+   * У 6-А PDF розійшовся з папером двічі, і в обидві сторони.
+   *
+   * Понеділок зібраний в іншому порядку, і нульової математики в PDF
+   * немає, хоч вона є. А в п'ятницю навпаки: нульового уроку немає, а в
+   * PDF математика стоїть двічі підряд — зайве.
    */
   '6а': (days) => {
     const mon = days[0]
     const at = (subject) => mon.find((l) => l.cells[0].s === subject)
     const order = ['іст', 'зл', 'ам', 'мпЗ', 'ум', 'фк']
-    const rebuilt = [{ n: 6, cells: [{ s: 'М', t: 'НО' }] }]
+    const monday = [{ n: 6, cells: [{ s: 'М', t: 'НО' }] }]
     order.forEach((subject, i) => {
       const lesson = at(subject)
-      if (lesson) rebuilt.push({ n: 7 + i, cells: lesson.cells })
+      if (lesson) monday.push({ n: 7 + i, cells: lesson.cells })
     })
-    // Перебудовуємо лише тоді, коли знайшли всі шість уроків.
-    return rebuilt.length === 7 ? [rebuilt, ...days.slice(1)] : days
+    // Перебудовуємо лише тоді, коли знайшли всі шість уроків понеділка.
+    if (monday.length !== 7) return days
+
+    const friday = days[4].filter((l) => l.n !== 6)
+    return [monday, days[1], days[2], days[3], friday]
   },
 
   /* У 7-А образотворче з музикою і математика стоять навпаки: */
