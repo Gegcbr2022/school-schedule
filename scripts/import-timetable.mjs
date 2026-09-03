@@ -53,12 +53,13 @@ const GROUP_KEY = {
 
 const GROUP_LABELS = new Set(Object.keys(GROUP_KEY))
 
-/** Ключ: `клас Дн період`. */
-const OVERRIDES = {
-  // Хімія 8-м уроком у середу — для всього класу, але лише на другому
-  // тижні (у PDF це видно тільки як половина комірки без підпису групи).
-  '10б Ср8': (cells) => cells.map((c) => ({ s: c.s, room: c.room, t: c.t, w: 2 })),
-}
+/**
+ * Ключ: `клас Дн період`. Правки однієї комірки, яких у PDF не видно.
+ *
+ * Хімія 10-Б у середу 8-м уроком колись жила тут; тепер її, як і решту
+ * уроків «через тиждень», розпізнає сам розбір — див. `halfOnly`.
+ */
+const OVERRIDES = {}
 
 /* ── Уточнення за паперовим розкладом із кабінетами ───────────────────── */
 
@@ -253,9 +254,18 @@ function parsePage(page) {
       const meta = metaItems.filter(inCol)
 
       let parts = Math.max(subjects.length, labels.length, 1)
-      // Один предмет, зміщений від центру — комірка поділена, зайнята одна половина.
+      /*
+       * Один предмет, зміщений від центру — комірка поділена, зайнята одна
+       * половина. Підпису групи немає, отже це не поділ класу, а чергування
+       * по тижнях: урок буває раз на два тижні. На паперовому розкладі його
+       * так і пишуть — «історія//» або «//хімія».
+       */
+      let halfOnly = false
       if (subjects.length === 1 && labels.length === 0) {
-        if (Math.abs(subjects[0].x + subjects[0].w / 2 - col.centre) > 18) parts = 2
+        if (Math.abs(subjects[0].x + subjects[0].w / 2 - col.centre) > 18) {
+          parts = 2
+          halfOnly = true
+        }
       }
 
       const width = (col.right - col.left) / parts
@@ -274,6 +284,8 @@ function parsePage(page) {
           room: own.find((i) => isRoom(i.s))?.s,
           t: own.find((i) => isTeacher(i.s))?.s,
           g: label ? GROUP_KEY[label.s] : undefined,
+          // Ліва половина — перший тиждень, права — другий.
+          w: halfOnly ? (slot === 0 ? 1 : 2) : undefined,
         }
         return { ...cell, s: resolveSubject(cell) }
       })

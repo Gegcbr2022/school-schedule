@@ -292,6 +292,9 @@ describe('групи 10-Б', () => {
   // Хімія в середу 8-м уроком стоїть тільки на другому тижні й на весь клас,
   // без жодного поділу. У повному розкладі її видно завжди — тож підпис про
   // тиждень тут обов'язковий, інакше вона мовчки висить у першому.
+  //
+  // Такі уроки в PDF намальовані половиною клітинки, а на паперовому
+  // розкладі підписані «//хімія» чи «історія//»; імпорт їх розпізнає сам.
   it('урок «через тиждень» у повному розкладі підписаний навіть без поділу', () => {
     const wk1 = day(G1, WED, 1, 'full').find((l) => l.period === 8)
     expect(wk1?.items[0].subject).toBe('Хімія')
@@ -304,6 +307,27 @@ describe('групи 10-Б', () => {
   it('у «моєму» розкладі цієї хімії першого тижня немає зовсім', () => {
     expect(day(G1, WED, 1, 'my').some((l) => l.period === 8)).toBe(false)
     expect(day(G1, WED, 2, 'my').some((l) => l.period === 8)).toBe(true)
+  })
+
+  /*
+   * Пів клітинки без підпису групи — це урок раз на два тижні. Таких у
+   * розкладі десять, і всі вони останні в дні; поки їх не розпізнавали,
+   * учні бачили їх щотижня. Тест не дасть цьому повторитись.
+   */
+  it('уроки «через тиждень» розпізнані в усіх класах, не лише в 10-Б', () => {
+    const fortnightly = []
+    for (const cls of TIMETABLE)
+      for (const [dayIndex, lessons] of cls.days.entries())
+        for (const lesson of lessons)
+          for (const cell of lesson.c)
+            if (cell.w) fortnightly.push(`${cls.id} ${dayIndex} ${lesson.p} ${cell.s} ${cell.w}`)
+
+    expect(fortnightly).toContain('8а 0 8 іст 2')
+    expect(fortnightly).toContain('9а 1 8 іст 1')
+    expect(fortnightly).toContain('10а 1 8 х 1')
+    expect(fortnightly).toContain('10б 2 8 х 2')
+    expect(fortnightly).toContain('11б 4 7 іст 1')
+    expect(fortnightly).toHaveLength(10)
   })
 
   it('повний розклад показує всі варіанти з підписами', () => {
