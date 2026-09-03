@@ -169,12 +169,26 @@ describe('предмети', () => {
     expect(subjectName('фк')).toBe('Фізична культура')
   })
 
+  // Після паперового розкладу з кабінетами нерозшифрованих не лишилось —
+  // цей тест не дасть новому імпорту тихо привести код без назви.
+  it('усі скорочення з розкладу розшифровані', () => {
+    const bare = new Set<string>()
+    for (const cls of TIMETABLE)
+      for (const day of cls.days)
+        for (const lesson of day) for (const cell of lesson.c) if (!SUBJECTS[cell.s]) bare.add(cell.s)
+    expect([...bare]).toEqual([])
+  })
+
   it('невідоме скорочення показуємо як є, а не вигадуємо', () => {
-    // Лишились тільки ці два: «да» в 11-х і «п» у 5-Д.
-    for (const code of ['да', 'п']) {
-      expect(SUBJECTS[code]).toBeUndefined()
-      expect(subjectName(code)).toBe(code)
-    }
+    expect(SUBJECTS['щось']).toBeUndefined()
+    expect(subjectName('щось')).toBe('щось')
+  })
+
+  it('розшифровки з паперового розкладу з кабінетами', () => {
+    expect(subjectName('п')).toBe('Природознавство')
+    expect(subjectName('да')).toBe('Ділова англійська')
+    // Раніше тут стояла «Хореографія» — здогад, і неправильний.
+    expect(subjectName('хе')).toBe('Християнська етика')
   })
 
   it('підказані в школі розшифровки на місці', () => {
