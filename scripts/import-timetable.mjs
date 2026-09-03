@@ -10,14 +10,16 @@
  *   вчитель      — знизу праворуч, дрібним
  *   назва групи  — рядком вище предмета, дрібним
  *
- * Ручні уточнення, яких у PDF не видно, живуть в OVERRIDES —
- * повторний імпорт їх не загубить.
+ * Ручні уточнення, яких у PDF не видно, живуть в OVERRIDES і
+ * CLASS_FIXES — повторний імпорт їх не загубить. Кабінети середи й
+ * четверга приходять із `kabinety.mjs`.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { ROOMS } from './kabinety.mjs'
 
 const SRC = process.argv[2]
 if (!SRC) {
@@ -56,6 +58,75 @@ const OVERRIDES = {
   // Хімія 8-м уроком у середу — для всього класу, але лише на другому
   // тижні (у PDF це видно тільки як половина комірки без підпису групи).
   '10б Ср8': (cells) => cells.map((c) => ({ s: c.s, room: c.room, t: c.t, w: 2 })),
+}
+
+/* ── Уточнення за паперовим розкладом із кабінетами ───────────────────── */
+
+/**
+ * Школа видала розклад із кабінетами вже після цього PDF. Предметну сітку
+ * він майже не змінює (697 уроків із 702 стоять там само), але в кількох
+ * класах порядок уроків інший — і ці правки живуть тут, бо в PDF їх немає.
+ *
+ * Функція отримує п'ять днів класу «сирими», ще до розмітки груп, і
+ * повертає їх виправленими. Дні — масиви `{ n, cells }`, `n` — глобальний
+ * період за BELLS.
+ */
+const CLASS_FIXES = {
+  /*
+   * Понеділок 6-А зібраний в іншому порядку, і додано нульову математику.
+   * Вона тут переконлива: у 6-А математика нульовим уроком стоїть кожного
+   * дня, крім понеділка, — тобто в PDF її просто забули.
+   */
+  '6а': (days) => {
+    const mon = days[0]
+    const at = (subject) => mon.find((l) => l.cells[0].s === subject)
+    const order = ['іст', 'зл', 'ам', 'мпЗ', 'ум', 'фк']
+    const rebuilt = [{ n: 6, cells: [{ s: 'М', t: 'НО' }] }]
+    order.forEach((subject, i) => {
+      const lesson = at(subject)
+      if (lesson) rebuilt.push({ n: 7 + i, cells: lesson.cells })
+    })
+    // Перебудовуємо лише тоді, коли знайшли всі шість уроків.
+    return rebuilt.length === 7 ? [rebuilt, ...days.slice(1)] : days
+  },
+
+  /* У 7-А образотворче з музикою і математика стоять навпаки: */
+  /* на папері обр/муз у вівторок 7-м, а математика в середу 4-м. */
+  '7а': (days) => {
+    const tue = days[1].find((l) => l.n === 7)
+    const wed = days[2].find((l) => l.n === 4)
+    if (!tue || !wed) return days
+    const swap = tue.cells
+    tue.cells = wed.cells
+    wed.cells = swap
+    return days
+  },
+
+  /* 5-Д, понеділок: англійська й українська місцями. */
+  '5д': (days) => {
+    const a = days[0].find((l) => l.n === 8)
+    const b = days[0].find((l) => l.n === 9)
+    if (!a || !b) return days
+    const swap = a.cells
+    a.cells = b.cells
+    b.cells = swap
+    return days
+  },
+
+  /*
+   * 5-Б, четвер, останній урок: на папері «укр/англ», а не українська
+   * література. Учителів папір не називає — беремо тих самих, що ведуть
+   * той самий поділ у цьому ж класі того ж дня (2-й урок).
+   */
+  '5б': (days) => {
+    const last = days[3].find((l) => l.n === 12)
+    if (!last || last.cells.length !== 1 || last.cells[0].s !== 'ул') return days
+    last.cells = [
+      { s: 'ум', t: 'ОД', g: '1' },
+      { s: 'ам', t: 'НГ', g: '2' },
+    ]
+    return days
+  },
 }
 
 /**
@@ -218,6 +289,16 @@ function markWeekAlternation(cells) {
   return cells.map((c, i) => ({ ...c, g: i === 0 ? 'т1' : 'т2' }))
 }
 
+/**
+ * Ставить кабінети з паперового розкладу (див. `kabinety.mjs`) — там, де
+ * він їх дає. Порожній рядок і відсутній номер лишають те, що в PDF.
+ */
+function withRooms(key, cells) {
+  const rooms = ROOMS[key]
+  if (!rooms) return cells
+  return cells.map((c, i) => (rooms[i] ? { ...c, room: rooms[i] } : c))
+}
+
 /* ── 3. Генерація TypeScript ──────────────────────────────────────────── */
 
 const esc = (s) => `'${String(s).replace(/'/g, "\\'")}'`
@@ -240,12 +321,14 @@ const blocks = []
 const stats = { lessons: 0, cells: 0, unnamed: [] }
 
 for (const p of parsed) {
-  const dayBlocks = p.days.map((day, di) => {
+  const days = CLASS_FIXES[p.cls] ? CLASS_FIXES[p.cls](p.days) : p.days
+  const dayBlocks = days.map((day, di) => {
     const lines = day.map((lesson) => {
       const key = `${p.cls} ${DAYS[di]}${lesson.n}`
-      const cells = OVERRIDES[key]
-        ? OVERRIDES[key](lesson.cells)
-        : markWeekAlternation(lesson.cells)
+      const cells = withRooms(
+        key,
+        OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+      )
 
       if (cells.length > 1 && cells.every((c) => !c.g)) stats.unnamed.push(key)
       stats.lessons += 1
