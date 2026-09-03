@@ -6,12 +6,14 @@ import {
   CloseIcon,
   InfoIcon,
   MoonIcon,
+  NoteIcon,
   SettingsIcon,
   ShareIcon,
   SunIcon,
   TeacherIcon,
 } from './components/Icons'
 import { LessonList } from './components/LessonList'
+import { MenuSheet } from './components/MenuSheet'
 import type { NoteTarget } from './components/NoteSheet'
 import { NoteSheet } from './components/NoteSheet'
 import { SettingsSheet } from './components/SettingsSheet'
@@ -50,7 +52,7 @@ import {
 import { buildTeacherDay } from './lib/teacherSchedule'
 import { politeName, teacherById } from './lib/teachers'
 import type { Prefs } from './lib/prefs'
-import { allNotes, getNote, setNote } from './lib/notes'
+import { DAY_PERIOD, allNotes, getNote, setNote } from './lib/notes'
 import { DEFAULT_PREFS, clearPrefs, loadPrefs, savePrefs } from './lib/prefs'
 
 const IS_IOS =
@@ -75,6 +77,7 @@ export default function App() {
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [weekOpen, setWeekOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
@@ -203,12 +206,13 @@ export default function App() {
     }
   }, [noteScope, notesVersion, view.today])
 
-  const openNote = (lesson: DisplayLesson) =>
-    setNoteTarget({
-      lesson,
-      date: dateStr,
-      when: `${DAY_NAME[view.selIso]}, ${formatDateUk(view.selected)}`,
-    })
+  const when = `${DAY_NAME[view.selIso]}, ${formatDateUk(view.selected)}`
+  const openNote = (lesson: DisplayLesson) => setNoteTarget({ lesson, date: dateStr, when })
+  /** Запис не до уроку, а до дня: чергування, прибирання, що взяти з собою. */
+  const openDayNote = () => setNoteTarget({ date: dateStr, when })
+  const dayNote = noteFor(DAY_PERIOD)
+  /** До якого уроку відкрито редактор; 0 — нотатка на весь день. */
+  const notePeriod = noteTarget?.lesson?.period ?? DAY_PERIOD
 
   return (
     <div className="app">
@@ -241,16 +245,14 @@ export default function App() {
             <TeacherIcon />
           </button>
 
-          {!view.teacher && (
-            <button
-              type="button"
-              className="iconbtn"
-              onClick={() => setBooksOpen(true)}
-              aria-label="Підручники"
-            >
-              <BooksIcon />
-            </button>
-          )}
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={() => setBooksOpen(true)}
+            aria-label="Підручники"
+          >
+            <BooksIcon />
+          </button>
 
           <button
             type="button"
@@ -311,6 +313,10 @@ export default function App() {
             Весь тиждень
           </button>
 
+          <button type="button" className="chip chip--button" onClick={() => setMenuOpen(true)}>
+            Меню
+          </button>
+
           {tasks.dates.size > 0 && (
             <button
               type="button"
@@ -359,6 +365,18 @@ export default function App() {
                 </button>
               </div>
             )}
+
+            {/* Запис на цілий день — те, що не належить жодному уроку. */}
+            <button
+              type="button"
+              className={dayNote ? 'daynote daynote--filled' : 'daynote'}
+              onClick={openDayNote}
+            >
+              <NoteIcon />
+              <span className="daynote__text">
+                {dayNote || 'Нотатка на день — чергування, прибирання…'}
+              </span>
+            </button>
 
             {view.selWeekend ? (
               <div className="weekend">
@@ -484,23 +502,23 @@ export default function App() {
         <BooksSheet
           classId={view.cls.id}
           className={view.cls.name}
+          teacher={view.teacher}
           onClose={() => setBooksOpen(false)}
         />
+      )}
+
+      {menuOpen && (
+        <MenuSheet iso={view.selIso} date={dateStr} onClose={() => setMenuOpen(false)} />
       )}
 
       {noteTarget && (
         <NoteSheet
           target={noteTarget}
-          initial={getNote({
-            classId: view.cls.id,
-            date: noteTarget.date,
-            period: noteTarget.lesson.period,
-          })}
+          // Простір ключів — той самий, що й при збереженні: у вчителя він свій,
+          // інакше запис зберігся б у нього, а відкрився порожнім.
+          initial={getNote({ classId: noteScope, date: noteTarget.date, period: notePeriod })}
           onSave={(text) => {
-            setNote(
-              { classId: noteScope, date: noteTarget.date, period: noteTarget.lesson.period },
-              text,
-            )
+            setNote({ classId: noteScope, date: noteTarget.date, period: notePeriod }, text)
             setNotesVersion((v) => v + 1)
           }}
           onClose={() => setNoteTarget(null)}

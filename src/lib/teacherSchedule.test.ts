@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { booksForGrade } from '../data/books'
 import { TIMETABLE } from '../data/timetable'
-import { buildTeacherDay, buildTeacherWeek, teacherFacts } from './teacherSchedule'
+import {
+  buildTeacherDay,
+  buildTeacherWeek,
+  teacherFacts,
+  teacherGrades,
+} from './teacherSchedule'
 import type { Teacher } from './teachers'
 import {
   codeHolders,
@@ -158,5 +164,32 @@ describe('розклад учителя', () => {
     const facts = teacherFacts(byLast('Романишин'))
     expect(facts.subjects).toEqual(['Математика'])
     expect(facts.classes).toEqual(['11-А', '11-Б'])
+  })
+})
+
+describe('підручники вчителя', () => {
+  it('предмети розкладено по паралелях, від молодшої до старшої', () => {
+    const grades = teacherGrades(byLast('Варварук')) // географія, 6–11
+    expect(grades.map((g) => g.grade)).toEqual(['6', '7', '8', '9', '10', '11'])
+    for (const { subjects } of grades) expect(subjects).toEqual(['г'])
+  })
+
+  // У розкладі це один код «М», а підручники окремі — алгебра й геометрія.
+  it('алгебру й геометрію вчитель математики бачить за кодом із розкладу', () => {
+    const seven = teacherGrades(byLast('Загаровська')).find((g) => g.grade === '7')
+    expect(seven?.subjects).toContain('М')
+    expect(booksForGrade('7', ['М']).map((g) => g.title)).toEqual(['Алгебра', 'Геометрія'])
+  })
+
+  it('чужі предмети на полицю не потрапляють', () => {
+    const geo = booksForGrade('9', ['г'])
+    expect(geo.length).toBeGreaterThan(0)
+    for (const group of geo) expect(group.subject).toBe('г')
+  })
+
+  it('паралель без підручників дає порожньо, а не помилку', () => {
+    // Географія в 11-х є, підручників у застосунку — ще ні.
+    expect(teacherGrades(byLast('Варварук')).at(-1)?.grade).toBe('11')
+    expect(booksForGrade('11', ['г'])).toEqual([])
   })
 })

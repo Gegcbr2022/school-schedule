@@ -153,6 +153,12 @@ export function dateKey(time: Pick<KyivTime, 'year' | 'month' | 'day'>): string 
   return `${time.year}-${m}-${d}`
 }
 
+/** «2026-08-31» → календарна дата. Зворотне до `dateKey`. */
+export function parseDateKey(key: string): CalendarDate {
+  const [year, month, day] = key.split('-').map(Number)
+  return { year, month, day }
+}
+
 /** 95 → «1 год 35 хв», 40 → «40 хв». */
 export function formatDuration(minutes: number): string {
   const total = Math.max(0, Math.ceil(minutes))

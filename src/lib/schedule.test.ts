@@ -18,7 +18,8 @@ import {
   offWeekNote,
   roomLabel,
 } from './lessons'
-import { allNotes, datesWithNotes, setNote } from './notes'
+import { MENU, menuCovers, menuFor, portion } from '../data/menu'
+import { DAY_PERIOD, allNotes, datesWithNotes, setNote } from './notes'
 import type { Prefs } from './prefs'
 import { loadPrefs, savePrefs } from './prefs'
 
@@ -480,6 +481,15 @@ describe('записані завдання', () => {
     expect(allNotes('10б')).toEqual([])
   })
 
+  // Чергування — не до уроку, а до дня: такий запис іде першим у своєму дні.
+  it('нотатка на весь день стоїть перед уроками того самого дня', () => {
+    setNote({ classId: '10б', date: '2026-09-03', period: 3 }, 'реферат')
+    setNote({ classId: '10б', date: '2026-09-03', period: DAY_PERIOD }, 'чергування')
+
+    expect(allNotes('10б').map((n) => n.text)).toEqual(['чергування', 'реферат'])
+    expect(datesWithNotes('10б')).toEqual(new Set(['2026-09-03']))
+  })
+
   // Вчитель пише нотатки до своїх уроків, а не до класу, — простір ключів свій.
   it('вчительські записи не змішуються з класними', () => {
     setNote({ classId: '10б', date: '2026-09-03', period: 1 }, 'учнівське')
@@ -596,6 +606,42 @@ describe('підручники', () => {
       .flatMap((g) => g.books)
       .map((b) => b.url)
     expect(new Set(urls).size).toBe(urls.length)
+  })
+})
+
+describe('меню їдальні', () => {
+  it('п’ять днів, у кожному сніданок і обід, у кожної страви вихід', () => {
+    expect(MENU).toHaveLength(5)
+    for (const day of MENU) {
+      expect(day.breakfast.length).toBeGreaterThan(0)
+      expect(day.lunch.length).toBeGreaterThan(0)
+      for (const dish of [...day.breakfast, ...day.lunch]) {
+        expect(dish.name.trim()).not.toBe('')
+        expect(dish.out.trim()).not.toBe('')
+      }
+    }
+  })
+
+  it('на вихідних меню немає', () => {
+    expect(menuFor(1)).toBe(MENU[0])
+    expect(menuFor(5)).toBe(MENU[4])
+    expect(menuFor(6)).toBeNull()
+    expect(menuFor(7)).toBeNull()
+  })
+
+  // Меню затверджують на період: коли він мине, чесніше сказати про це,
+  // ніж видавати старі страви за сьогоднішні.
+  it('діє лише в затверджений період', () => {
+    expect(menuCovers('2026-09-02')).toBe(true)
+    expect(menuCovers('2026-09-04')).toBe(true)
+    expect(menuCovers('2026-09-01')).toBe(false)
+    expect(menuCovers('2026-09-07')).toBe(false)
+  })
+
+  it('вихід — у грамах, окрім штук', () => {
+    expect(portion('150')).toBe('150 г')
+    expect(portion('120/5')).toBe('120/5 г')
+    expect(portion('1 шт')).toBe('1 шт')
   })
 })
 

@@ -39,10 +39,15 @@ export type Book = {
 
 export type BookGroup = {
   /**
-   * Код предмета з `SUBJECTS` — щоб назва збігалася з розкладом.
-   * Якщо предмета в розкладі немає, вкажіть `title`.
+   * Код предмета з `SUBJECTS` — щоб група знайшлась за розкладом
+   * (напр. у підручниках учителя). Якщо предмета в розкладі немає,
+   * досить самого `title`.
    */
   subject?: string
+  /**
+   * Заголовок групи, коли він точніший за назву предмета: алгебра й
+   * геометрія в розкладі стоять одним кодом «М», а підручники різні.
+   */
   title?: string
   books: Book[]
 }
@@ -896,6 +901,7 @@ export const BOOKS: Record<string, BookGroup[]> = {
       ],
     },
     {
+      subject: 'М',
       title: 'Алгебра',
       books: [
         {
@@ -914,6 +920,7 @@ export const BOOKS: Record<string, BookGroup[]> = {
       ],
     },
     {
+      subject: 'М',
       title: 'Геометрія',
       books: [
         {
@@ -1118,6 +1125,7 @@ export const BOOKS: Record<string, BookGroup[]> = {
       ],
     },
     {
+      subject: 'М',
       title: 'Алгебра',
       books: [
         {
@@ -1136,6 +1144,7 @@ export const BOOKS: Record<string, BookGroup[]> = {
       ],
     },
     {
+      subject: 'М',
       title: 'Геометрія',
       books: [
         {
@@ -1241,4 +1250,13 @@ export function gradeOf(classId: string): string {
 
 export function booksForClass(classId: string): BookGroup[] {
   return BOOKS[gradeOf(classId)] ?? []
+}
+
+/**
+ * Підручники паралелі — лише з цих предметів (коди як у `SUBJECTS`).
+ * Так учитель бачить свій предмет у кожній паралелі, де він викладає,
+ * а не весь перелік класу.
+ */
+export function booksForGrade(grade: string, subjects: string[]): BookGroup[] {
+  return (BOOKS[grade] ?? []).filter((g) => g.subject && subjects.includes(g.subject))
 }

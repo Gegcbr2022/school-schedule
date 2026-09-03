@@ -1251,6 +1251,14 @@ button {
 
 /* ── Підручники ──────────────────────────────────────────────────────── */
 
+/* Паралель у підручниках учителя: над нею його предмет у кожному класі. */
+.books__grade {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
 .books {
   margin-bottom: 22px;
 }
@@ -2234,4 +2242,108 @@ summary {
 
 .tasks__past[open] summary {
   margin-bottom: 6px;
+}
+
+/* ── Нотатка на весь день ────────────────────────────────────────────── */
+
+/*
+ * Не до уроку, а до дня: чергування, прибирання, що взяти з собою.
+ * Порожня — пунктирна й тиха; заповнена світиться тим самим теплим
+ * кольором, що й решта записаного (крапки в стрічці дат, чіп «Завдання»).
+ */
+.daynote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 13px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--text-3);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.daynote:hover {
+  border-color: var(--accent-line);
+  color: var(--text-2);
+}
+
+.daynote svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.daynote--filled {
+  background: var(--warm-soft);
+  border: 1px solid transparent;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.daynote--filled svg {
+  color: var(--warm);
+}
+
+.daynote__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Меню їдальні ────────────────────────────────────────────────────── */
+
+/* П'ять днів у перемикачі замість двох режимів. */
+.modeswitch--days {
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: 8px;
+}
+
+.menu {
+  margin-bottom: 20px;
+}
+
+.menu__meal {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dish {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 13px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.dish__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* «Вихід» — маса порції. Цифри однакової ширини, щоб стояли стовпчиком. */
+.dish__out {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

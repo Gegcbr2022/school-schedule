@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import type { Book, BookGroup } from '../data/books'
-import { booksForClass, gradeOf } from '../data/books'
+import { booksForClass, booksForGrade, gradeOf } from '../data/books'
 import { subjectName } from '../data/schedule'
+import { plural } from '../lib/clock'
 import { useModal } from '../lib/hooks'
 import { removeBook, saveBook, savedUrls } from '../lib/library'
+import { teacherGrades } from '../lib/teacherSchedule'
+import type { Teacher } from '../lib/teachers'
+import { politeName } from '../lib/teachers'
 import { BookViewer } from './BookViewer'
 import { ErrorBoundary } from './ErrorBoundary'
 import { CheckIcon, CloseIcon, DownloadIcon } from './Icons'
@@ -11,11 +15,39 @@ import { CheckIcon, CloseIcon, DownloadIcon } from './Icons'
 type Props = {
   classId: string
   className: string
+  /**
+   * Учитель — тоді показуємо не підручники класу, а його предмет у
+   * кожній паралелі, де він викладає.
+   */
+  teacher?: Teacher
   onClose: () => void
 }
 
+/** Полиця підручників: у класі вона одна, у вчителя — по одній на паралель. */
+type Shelf = {
+  key: string
+  /** Заголовок полиці; у класу його немає — полиця одна. */
+  title?: string
+  groups: BookGroup[]
+}
+
+/**
+ * Заголовок групи. `title` головніший за назву предмета: алгебра й
+ * геометрія стоять у розкладі одним кодом «М», а книжки різні.
+ */
 function groupTitle(group: BookGroup): string {
-  return group.subject ? subjectName(group.subject) : (group.title ?? 'Інше')
+  return group.title ?? (group.subject ? subjectName(group.subject) : 'Інше')
+}
+
+/** Паралелі вчителя, у яких для його предметів справді є книжки. */
+function teacherShelves(teacher: Teacher): Shelf[] {
+  return teacherGrades(teacher)
+    .map(({ grade, subjects }) => ({
+      key: grade,
+      title: `${grade} класи`,
+      groups: booksForGrade(grade, subjects),
+    }))
+    .filter((shelf) => shelf.groups.length > 0)
 }
 
 /**
@@ -31,10 +63,17 @@ function hrefOf(url: string): string {
   return new URL(url, base).href
 }
 
-export function BooksSheet({ classId, className, onClose }: Props) {
+export function BooksSheet({ classId, className, teacher, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
-  const groups = booksForClass(classId)
+
+  const shelves = useMemo<Shelf[]>(
+    () =>
+      teacher
+        ? teacherShelves(teacher)
+        : [{ key: classId, groups: booksForClass(classId) }],
+    [teacher, classId],
+  )
 
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState<string | null>(null)
@@ -61,8 +100,9 @@ export function BooksSheet({ classId, className, onClose }: Props) {
     else setFailed(href)
   }
 
-  const total = groups.reduce((n, g) => n + g.books.length, 0)
-  const withFiles = groups.reduce((n, g) => n + g.books.filter((b) => b.url).length, 0)
+  const all = shelves.flatMap((shelf) => shelf.groups).flatMap((group) => group.books)
+  const total = all.length
+  const withFiles = all.filter((book) => book.url).length
 
   const renderBook = (book: Book) => {
     const href = book.url ? hrefOf(book.url) : null
@@ -161,23 +201,40 @@ export function BooksSheet({ classId, className, onClose }: Props) {
           </div>
 
           {total === 0 ? (
-            <p className="empty">Для {gradeOf(classId)} класу підручників ще не додано.</p>
+            <p className="empty">
+              {teacher
+                ? 'Для ваших предметів підручників ще не додано.'
+                : `Для ${gradeOf(classId)} класу підручників ще не додано.`}
+            </p>
           ) : (
             <>
               <p className="sheet__intro">
-                {className} · {withFiles} з {total} книжок доступні для читання.
+                {teacher
+                  ? `${politeName(teacher)} · ${shelves.length} ${plural(shelves.length, ['паралель', 'паралелі', 'паралелей'])}`
+                  : className}{' '}
+                · {withFiles} з {total} книжок доступні для читання.
                 {saved.size > 0 && ` Збережено на пристрій: ${saved.size}.`}
                 <br />
                 «Інтелект України» викладає підручники частинами — файли з
                 позначкою «оновлюється щотижня» доростають протягом року.
               </p>
 
-              {groups.map((group) => (
-                <section className="books" key={groupTitle(group)}>
-                  <h3 className="books__subject">{groupTitle(group)}</h3>
-                  <ul className="books__list">{group.books.map(renderBook)}</ul>
-                </section>
-              ))}
+              {shelves.map((shelf) => {
+                // Поличка з назвою паралелі старша за предмет — тоді предмет
+                // на рівень нижче. У класу полиця одна, заголовка в неї немає.
+                const Subject = shelf.title ? 'h4' : 'h3'
+                return (
+                  <Fragment key={shelf.key}>
+                    {shelf.title && <h3 className="books__grade">{shelf.title}</h3>}
+                    {shelf.groups.map((group) => (
+                      <section className="books" key={groupTitle(group)}>
+                        <Subject className="books__subject">{groupTitle(group)}</Subject>
+                        <ul className="books__list">{group.books.map(renderBook)}</ul>
+                      </section>
+                    ))}
+                  </Fragment>
+                )
+              })}
             </>
           )}
 

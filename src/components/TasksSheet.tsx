@@ -8,13 +8,14 @@ import {
   formatDateUk,
   formatTime,
   isoOf,
+  parseDateKey,
   plural,
   weekParity,
 } from '../lib/clock'
 import { useModal } from '../lib/hooks'
 import { buildDay } from '../lib/lessons'
 import type { SavedNote } from '../lib/notes'
-import { allNotes } from '../lib/notes'
+import { DAY_PERIOD, allNotes } from '../lib/notes'
 import type { Prefs } from '../lib/prefs'
 import { buildTeacherDay } from '../lib/teacherSchedule'
 import type { Teacher } from '../lib/teachers'
@@ -36,12 +37,6 @@ type Entry = SavedNote & {
   date: string
   subject: string
   start: number | null
-}
-
-/** `рррр-мм-дд` → календарна дата. */
-function parseDate(key: string): CalendarDate {
-  const [year, month, day] = key.split('-').map(Number)
-  return { year, month, day }
 }
 
 export function TasksSheet({
@@ -68,7 +63,7 @@ export function TasksSheet({
     const dayOf = (key: string) => {
       const cached = cache.get(key)
       if (cached) return cached
-      const date = parseDate(key)
+      const date = parseDateKey(key)
       const iso = isoOf(date)
       if (iso > 5) return []
       const week: WeekParity = weekParity(addDays(date, 1 - iso))
@@ -82,6 +77,10 @@ export function TasksSheet({
     }
 
     return allNotes(scope).map((note) => {
+      // Запис на весь день ні до якого уроку не прив'язаний.
+      if (note.period === DAY_PERIOD) {
+        return { ...note, subject: 'На весь день', start: null }
+      }
       const lesson = dayOf(note.date).find((l) => l.period === note.period)
       return {
         ...note,
@@ -105,7 +104,7 @@ export function TasksSheet({
   }
 
   const renderGroup = ([key, items]: [string, Entry[]]) => {
-    const date = parseDate(key)
+    const date = parseDateKey(key)
     const iso = isoOf(date)
     return (
       <section className="tasks__day" key={key}>
@@ -118,7 +117,11 @@ export function TasksSheet({
           {items.map((entry) => (
             <li className="task" key={entry.period}>
               <span className="task__when">
-                {entry.start === null ? `${entry.period} урок` : formatTime(entry.start)}
+                {entry.period === DAY_PERIOD
+                  ? 'День'
+                  : entry.start === null
+                    ? `${entry.period} урок`
+                    : formatTime(entry.start)}
               </span>
               <span className="task__body">
                 <span className="task__subject">{entry.subject}</span>

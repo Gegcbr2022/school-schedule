@@ -4,7 +4,8 @@ import { useKeyboardInset, useModal } from '../lib/hooks'
 import type { DisplayLesson } from '../lib/lessons'
 
 export type NoteTarget = {
-  lesson: DisplayLesson
+  /** Урок, до якого запис. Немає — нотатка на весь день. */
+  lesson?: DisplayLesson
   /** `рррр-мм-дд` того дня, до якого належить нотатка. */
   date: string
   /** «Понеділок, 31 серпня» — щоб було видно, до чого запис. */
@@ -18,7 +19,10 @@ type Props = {
   onClose: () => void
 }
 
-/** Редактор нотатки до конкретного уроку: домашнє завдання, нагадування. */
+/**
+ * Редактор нотатки: домашнє завдання до уроку — або запис на весь день,
+ * як-от чергування. Різниця лише в шапці й підказці; сховище спільне.
+ */
 export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   const [text, setText] = useState(initial)
   const headingId = useId()
@@ -38,7 +42,8 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
     onClose()
   }
 
-  const subject = target.lesson.items.map((i) => i.subject).join(' / ')
+  const lesson = target.lesson
+  const subject = lesson ? lesson.items.map((i) => i.subject).join(' / ') : 'Нотатка на день'
 
   return (
     <div
@@ -65,8 +70,13 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
         </div>
 
         <p className="sheet__intro">
-          {target.when} · {target.lesson.n} урок ·{' '}
-          {formatTime(target.lesson.start)}–{formatTime(target.lesson.end)}
+          {target.when}
+          {lesson && (
+            <>
+              {' '}
+              · {lesson.n} урок · {formatTime(lesson.start)}–{formatTime(lesson.end)}
+            </>
+          )}
         </p>
 
         <textarea
@@ -74,7 +84,11 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
           className="note-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Домашнє завдання, що принести, нагадування…"
+          placeholder={
+            lesson
+              ? 'Домашнє завдання, що принести, нагадування…'
+              : 'Чергування, прибирання, що взяти з собою…'
+          }
           rows={4}
           aria-label="Текст нотатки"
         />

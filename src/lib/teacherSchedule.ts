@@ -192,3 +192,39 @@ export function teacherFacts(teacher: Teacher): TeacherFacts {
 export function windowsPerWeek(teacher: Teacher, week: WeekParity): number {
   return buildTeacherWeek(teacher, week).reduce((n, day) => n + day.windows, 0)
 }
+
+/** Що вчитель веде в одній паралелі. */
+export type GradeSubjects = {
+  /** Паралель: «7». */
+  grade: string
+  /** Коди предметів (ключі `SUBJECTS`), за абеткою. */
+  subjects: string[]
+}
+
+/**
+ * Предмети вчителя, розкладені по паралелях: «7» → [«М»], «9» → [«ум», «ул»].
+ *
+ * Саме коди, а не назви: за ними підбираються підручники — вони
+ * ключуються паралеллю, а не класом (9-А, 9-Б і 9-В читають одне й те саме).
+ */
+export function teacherGrades(teacher: Teacher): GradeSubjects[] {
+  const byGrade = new Map<string, Set<string>>()
+
+  for (const cls of TIMETABLE) {
+    const grade = String(parseInt(cls.id, 10))
+    for (const day of cls.days) {
+      for (const lesson of day) {
+        for (const cell of lesson.c) {
+          if (!cell.t || !teaches(teacher, cell.t, cell.s, cls.id)) continue
+          const subjects = byGrade.get(grade)
+          if (subjects) subjects.add(cell.s)
+          else byGrade.set(grade, new Set([cell.s]))
+        }
+      }
+    }
+  }
+
+  return [...byGrade.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([grade, subjects]) => ({ grade, subjects: [...subjects].sort() }))
+}
