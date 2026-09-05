@@ -253,12 +253,18 @@ describe('кабінети', () => {
     expect(at10b(G1, TUE, 1)?.items[0].room).toBe('9')
   })
 
-  it('10-Б: фізкультура — свій зал у кожного поділу', () => {
-    expect(at10b(G1, MON, 7)?.items[0].room).toBe('8')
+  /*
+   * На фізкультурі aSc інколи ставить хлопцям звичайний кабінет — той, що на
+   * цю годину вільний, поки дівчата в залі. Паперовий розклад залу для
+   * фізкультури не пише взагалі, а «каб. 2» на фізкультурі читається як
+   * помилка — тож номери прибираємо й лишаємо самі зали.
+   */
+  it('10-Б: на фізкультурі зал або нічого, але не номер кабінету', () => {
+    expect(at10b(G1, MON, 7)?.items[0].room).toBeUndefined()
     expect(at10b(G2, MON, 7)?.items[0].room).toBe('тз')
-    expect(at10b(G1, TUE, 8)?.items[0].room).toBe('2')
+    expect(at10b(G1, TUE, 8)?.items[0].room).toBeUndefined()
     expect(at10b(G2, TUE, 8)?.items[0].room).toBe('тз')
-    expect(at10b(G1, WED, 5)?.items[0].room).toBe('25')
+    expect(at10b(G1, WED, 5)?.items[0].room).toBeUndefined()
     expect(at10b(G2, WED, 5)?.items[0].room).toBe('сз')
   })
 

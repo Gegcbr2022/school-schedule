@@ -291,6 +291,19 @@ function markWeekAlternation(cells) {
 }
 
 /**
+ * Фізкультурі aSc інколи ставить звичайний кабінет — той, що на цю годину
+ * вільний, поки друга група в залі. Паперовий розклад залу для фізкультури не
+ * пише взагалі, а «каб. 2» на уроці фізкультури читається як помилка, тож
+ * лишаємо самі зали: `сз`, `тз`.
+ */
+function withoutFakeGyms(cells) {
+  const numeric = /^[0-9]+$/
+  return cells.map((c) =>
+    c.s === 'фк' && numeric.test(c.room ?? '') ? { ...c, room: undefined } : c,
+  )
+}
+
+/**
  * Накладає те, що видно лише в учительському розкладі (`vchyteli.mjs`):
  * домашні кабінети класів, коди вчителів, яких класний PDF не друкує, і
  * чергування по тижнях, якого в класному вигляді не розпізнати.
@@ -340,11 +353,13 @@ for (const p of parsed) {
   const dayBlocks = days.map((day, di) => {
     const lines = day.map((lesson) => {
       const key = `${p.cls} ${DAYS[di]}${lesson.n}`
-      const cells = withRooms(
-        key,
-        fromTeachers(
+      const cells = withoutFakeGyms(
+        withRooms(
           key,
-          OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+          fromTeachers(
+            key,
+            OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+          ),
         ),
       )
 
