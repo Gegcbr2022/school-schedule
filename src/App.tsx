@@ -4,6 +4,7 @@ import { DateStrip } from './components/DateStrip'
 import {
   BooksIcon,
   CloseIcon,
+  DoorIcon,
   InfoIcon,
   MoonIcon,
   NoteIcon,
@@ -16,6 +17,7 @@ import { LessonList } from './components/LessonList'
 import { MenuSheet } from './components/MenuSheet'
 import type { NoteTarget } from './components/NoteSheet'
 import { NoteSheet } from './components/NoteSheet'
+import { RoomsSheet } from './components/RoomsSheet'
 import { SettingsSheet } from './components/SettingsSheet'
 import { TasksSheet } from './components/TasksSheet'
 import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
@@ -75,6 +77,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
+  const [roomsOpen, setRoomsOpen] = useState(false)
   const [weekOpen, setWeekOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -243,6 +246,15 @@ export default function App() {
             aria-label="Вчителі"
           >
             <TeacherIcon />
+          </button>
+
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={() => setRoomsOpen(true)}
+            aria-label="Кабінети — хто де зараз"
+          >
+            <DoorIcon />
           </button>
 
           <button
@@ -495,6 +507,16 @@ export default function App() {
           pinnedId={view.active.teacherId}
           onPin={(teacherId) => savePreferences({ ...view.active, teacherId })}
           onClose={() => setTeachersOpen(false)}
+        />
+      )}
+
+      {roomsOpen && (
+        <RoomsSheet
+          iso={view.selIso}
+          week={view.week}
+          minutes={now.minutes}
+          isToday={view.isToday}
+          onClose={() => setRoomsOpen(false)}
         />
       )}
 

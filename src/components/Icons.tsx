@@ -109,6 +109,16 @@ export function TeacherIcon() {
   )
 }
 
+export function DoorIcon() {
+  return (
+    <svg {...base}>
+      <path d="M5 20h14" />
+      <path d="M7.5 20V4.8a.8.8 0 0 1 .95-.79l6 1.1a.8.8 0 0 1 .65.79V20" />
+      <circle cx="12.6" cy="12.4" r=".9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 export function SearchIcon() {
   return (
     <svg {...base}>
