@@ -13,8 +13,11 @@ type Props = {
   marked?: Set<string>
 }
 
+/** Скільки тижнів наперед видно у смузі — від понеділка поточного. */
+const WEEKS = 4
+
 /**
- * Горизонтальна смуга днів: цей тиждень і наступний, з числами й вихідними.
+ * Горизонтальна смуга днів: чотири тижні поспіль, з числами й вихідними.
  * Вибраний день підсвічено, сьогоднішній має крапку, смуга сама доводить
  * вибраний день у видиму зону.
  */
@@ -22,9 +25,8 @@ export function DateStrip({ today, selected, onSelect, marked }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectedRef = useRef<HTMLButtonElement>(null)
 
-  // Від понеділка поточного тижня — два тижні поспіль (14 днів).
   const start = addDays(today, 1 - isoOf(today))
-  const days = Array.from({ length: 14 }, (_, i) => addDays(start, i))
+  const days = Array.from({ length: WEEKS * 7 }, (_, i) => addDays(start, i))
 
   const todayKey = dateKey(today)
   const selectedKey = dateKey(selected)
