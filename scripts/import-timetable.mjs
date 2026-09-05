@@ -11,8 +11,10 @@
  *   назва групи  — рядком вище предмета, дрібним
  *
  * Ручні уточнення, яких у PDF не видно, живуть в OVERRIDES і
- * CLASS_FIXES — повторний імпорт їх не загубить. Кабінети середи й
- * четверга приходять із `kabinety.mjs`.
+ * CLASS_FIXES — повторний імпорт їх не загубить. Далі накладаються два
+ * зовнішні джерела: `vchyteli.mjs` (учительський вивантаж aSc — домашні
+ * кабінети, коди вчителів, чергування по тижнях) і `kabinety.mjs`
+ * (паперовий розклад зі школи, він же й останнє слово).
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
@@ -20,6 +22,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { ROOMS } from './kabinety.mjs'
+import { FROM_TEACHERS } from './vchyteli.mjs'
 
 const SRC = process.argv[2]
 if (!SRC) {
@@ -76,18 +79,24 @@ const CLASS_FIXES = {
   /*
    * У 6-А PDF розійшовся з папером двічі, і в обидві сторони.
    *
-   * Понеділок зібраний в іншому порядку, і нульової математики в PDF
-   * немає, хоч вона є. А в п'ятницю навпаки: нульового уроку немає, а в
-   * PDF математика стоїть двічі підряд — зайве.
+   * Понеділок зібраний в іншому порядку, і математики в PDF на сім уроків
+   * лише шість. А в п'ятницю навпаки: нульового уроку немає (це видно на
+   * фото стенду), а PDF ставить математику двічі підряд — зайве.
+   *
+   * Порядок понеділка — з паперу, і починається він не з нульового уроку, а
+   * на урок раніше: математика стоїть «мінус першим», о 11:55 (підтверджено
+   * у школі). Поки весь день стояв на урок пізніше, шість уроків 6-А
+   * накладались на інші класи — та сама Наталія Овчар мала б водночас вести
+   * математику в 5-В.
    */
   '6а': (days) => {
     const mon = days[0]
     const at = (subject) => mon.find((l) => l.cells[0].s === subject)
     const order = ['іст', 'зл', 'ам', 'мпЗ', 'ум', 'фк']
-    const monday = [{ n: 6, cells: [{ s: 'М', t: 'НО' }] }]
+    const monday = [{ n: 5, cells: [{ s: 'М', t: 'НО' }] }]
     order.forEach((subject, i) => {
       const lesson = at(subject)
-      if (lesson) monday.push({ n: 7 + i, cells: lesson.cells })
+      if (lesson) monday.push({ n: 6 + i, cells: lesson.cells })
     })
     // Перебудовуємо лише тоді, коли знайшли всі шість уроків понеділка.
     if (monday.length !== 7) return days
@@ -108,31 +117,6 @@ const CLASS_FIXES = {
     return days
   },
 
-  /* 5-Д, понеділок: англійська й українська місцями. */
-  '5д': (days) => {
-    const a = days[0].find((l) => l.n === 8)
-    const b = days[0].find((l) => l.n === 9)
-    if (!a || !b) return days
-    const swap = a.cells
-    a.cells = b.cells
-    b.cells = swap
-    return days
-  },
-
-  /*
-   * 5-Б, четвер, останній урок: на папері «укр/англ», а не українська
-   * література. Учителів папір не називає — беремо тих самих, що ведуть
-   * той самий поділ у цьому ж класі того ж дня (2-й урок).
-   */
-  '5б': (days) => {
-    const last = days[3].find((l) => l.n === 12)
-    if (!last || last.cells.length !== 1 || last.cells[0].s !== 'ул') return days
-    last.cells = [
-      { s: 'ум', t: 'ОД', g: '1' },
-      { s: 'ам', t: 'НГ', g: '2' },
-    ]
-    return days
-  },
 }
 
 /**
@@ -307,6 +291,20 @@ function markWeekAlternation(cells) {
 }
 
 /**
+ * Накладає те, що видно лише в учительському розкладі (`vchyteli.mjs`):
+ * домашні кабінети класів, коди вчителів, яких класний PDF не друкує, і
+ * чергування по тижнях, якого в класному вигляді не розпізнати.
+ */
+function fromTeachers(key, cells) {
+  const fixes = FROM_TEACHERS[key]
+  if (!fixes) return cells
+  return cells.map((c, i) => {
+    const { r, ...rest } = fixes[i] ?? {}
+    return r ? { ...c, ...rest, room: r } : { ...c, ...rest }
+  })
+}
+
+/**
  * Ставить кабінети з паперового розкладу (див. `kabinety.mjs`) — там, де
  * він їх дає. Порожній рядок і відсутній номер лишають те, що в PDF.
  */
@@ -344,7 +342,10 @@ for (const p of parsed) {
       const key = `${p.cls} ${DAYS[di]}${lesson.n}`
       const cells = withRooms(
         key,
-        OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+        fromTeachers(
+          key,
+          OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+        ),
       )
 
       if (cells.length > 1 && cells.every((c) => !c.g)) stats.unnamed.push(key)

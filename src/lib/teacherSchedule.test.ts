@@ -46,11 +46,17 @@ describe('розшифровка кодів', () => {
     }
   })
 
-  it('нерозгаданий код показуємо ним самим, а не чужим прізвищем', () => {
-    for (const { code } of undecodedCodes()) {
+  it('код без запису в журналі не віддаємо чужому прізвищу', () => {
+    for (const { code, last, first } of undecodedCodes()) {
       expect(codeHolders(code)).toHaveLength(0)
-      expect(teacherLabel(code)).toBe(code)
+      // Ім'я з учительського розкладу — якщо його немає, лишається код.
+      expect(teacherLabel(code)).toBe(last ? `${first} ${last}` : code)
     }
+  })
+
+  it('ОГ — це Орест Горбатий, хоч у журналі його й немає', () => {
+    expect(teacherOf('ОГ')).toBeUndefined()
+    expect(teacherLabel('ОГ', 'фк', '9б')).toBe('Орест Горбатий')
   })
 
   it('трилітерний код розводить тезок: СВС — Савчук Світлана Василівна', () => {
@@ -59,10 +65,11 @@ describe('розшифровка кодів', () => {
     expect(savchuk?.patronymic).toBe('Василівна')
   })
 
-  it('спільний код ОК — це англійська Кравчишин і українська Козак', () => {
+  it('під кодом ОК троє: англійську ведуть двоє, і їх розводить клас', () => {
     expect(isSharedCode('ОК')).toBe(true)
     expect(who('ОК', 'ам', '7а')).toBe('Кравчишин')
-    expect(who('ОК', 'ум', '5а')).toBe('Козак')
+    expect(who('ОК', 'ам', '6б')).toBe('Козак')
+    expect(who('ОК', 'ум', '5а')).toBe('Курман')
   })
 
   it('ЛЧ розводиться і предметом, і класом', () => {

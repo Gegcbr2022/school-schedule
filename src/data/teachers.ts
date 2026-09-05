@@ -59,11 +59,12 @@ export const TEACHERS: Teacher[] = [
   { id: 1193250, code: 'НЗ', last: 'Запухляк', first: 'Наталія', patronymic: 'Михайлівна' },
   { id: 1193267, code: 'МК', last: 'Канцак', first: "Мар'яна", patronymic: 'Миколаївна' },
   { id: 1193239, code: 'ЛК', last: 'Кобута', first: 'Лариса', patronymic: 'Петрівна' },
-  { id: 1193253, code: 'ОК', last: 'Козак', first: 'Ольга', patronymic: 'Ігорівна', when: [{s: ['ум']}] },
+  { id: 1193253, code: 'ОК', last: 'Козак', first: 'Ольга', patronymic: 'Ігорівна', when: [{s: ['ам'], in: ['4б', '4в', '6а', '6б']}] },
   { id: 1193233, code: 'ГК', last: 'Колос', first: 'Галина', patronymic: 'Василівна' },
   { id: 1193264, code: 'СК', last: 'Король', first: 'Світлана', patronymic: 'Іванівна' },
-  { id: 1193262, code: 'ОК', last: 'Кравчишин', first: 'Ольга', patronymic: 'Петрівна', when: [{s: ['ам']}] },
+  { id: 1193262, code: 'ОК', last: 'Кравчишин', first: 'Ольга', patronymic: 'Петрівна', when: [{s: ['ам'], in: ['5д', '7а', '7б']}] },
   { id: 1362229, code: 'АК', last: 'Куневич', first: 'Анна', patronymic: 'Романівна' },
+  { id: 1362198, code: 'ОК', last: 'Курман', first: 'Ольга', patronymic: 'Михайлівна', when: [{s: ['ум']}] },
   { id: 1193243, code: 'МЛ', last: 'Лотоцька', first: 'Марія', patronymic: 'Володимирівна' },
   { id: 1201499, code: 'НЛ', last: 'Луцька', first: 'Наталія', patronymic: 'Іванівна' },
   { id: 1193229, code: 'ГЛ', last: 'Лялька', first: 'Галина', patronymic: 'Ярославівна' },
@@ -73,6 +74,7 @@ export const TEACHERS: Teacher[] = [
   { id: 1193261, code: 'НО', last: 'Овчар', first: 'Наталія', patronymic: 'Богданівна' },
   { id: 1193223, code: 'ТО', last: 'Остапенко', first: 'Тетяна', patronymic: 'Миколаївна' },
   { id: 1361152, code: 'ГП', last: 'Перцович', first: 'Галина', patronymic: 'Ігорівна', when: [{s: ['ум', 'ул']}] },
+  { id: 1361208, code: 'ГП', last: 'Пірановська', first: 'Ганна', patronymic: 'Василівна', when: [{s: ['М', 'і']}] },
   { id: 1193257, code: 'ОП', last: 'Побідинська', first: 'Оксана', patronymic: 'Богданівна' },
   { id: 1194220, code: 'НП', last: 'Протас', first: 'Наталія', patronymic: 'Володимирівна' },
   { id: 1193263, code: 'ГП', last: 'Пташник', first: 'Галина', patronymic: 'Василівна', when: [{s: ['ам']}] },
@@ -93,9 +95,20 @@ export const TEACHERS: Teacher[] = [
 ]
 
 /**
- * Коди, під якими людину впізнати не вдалося: показуємо їх так, як на
- * папері. Значення — предмет, який під цим кодом стоїть у розкладі.
+ * Код із розкладу, за яким у журналі ліцею людини немає.
  */
-export const UNDECODED_CODES: Record<string, string> = {
-  ОГ: 'фізична культура',
+export type Undecoded = {
+  /** Предмет, який під цим кодом стоїть у розкладі. */
+  subject: string
+  /** Прізвище й ім'я, якщо їх видно деінде — скажімо, в розкладі вчителів. */
+  last?: string
+  first?: string
+}
+
+/**
+ * Коди, яких немає кому віддати: у журналі такого запису немає, тож і в
+ * довіднику вони йдуть окремо — без телефона й без «мого розкладу».
+ */
+export const UNDECODED_CODES: Record<string, Undecoded> = {
+  ОГ: { subject: 'фізична культура', last: 'Горбатий', first: 'Орест' },
 }

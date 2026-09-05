@@ -6,10 +6,10 @@
  * через `when`-умови з даних.
  */
 
-import type { Claim, Teacher } from '../data/teachers'
+import type { Claim, Teacher, Undecoded } from '../data/teachers'
 import { TEACHERS, UNDECODED_CODES } from '../data/teachers'
 
-export type { Teacher } from '../data/teachers'
+export type { Teacher, Undecoded } from '../data/teachers'
 
 const holdersByCode = new Map<string, Teacher[]>()
 for (const t of TEACHERS) {
@@ -100,9 +100,18 @@ export function isSharedCode(code: string): boolean {
   return codeHolders(code).length > 1
 }
 
-/** Коди, які так і не розшифрували: показуємо їх, як на папері. */
-export function undecodedCodes(): { code: string; subject: string }[] {
-  return Object.entries(UNDECODED_CODES).map(([code, subject]) => ({ code, subject }))
+/** Коди, за якими в журналі ліцею запису немає. */
+export function undecodedCodes(): (Undecoded & { code: string })[] {
+  return Object.entries(UNDECODED_CODES).map(([code, u]) => ({ code, ...u }))
+}
+
+/**
+ * Ім'я під нерозшифрованим кодом. У журналі такої людини немає, зате її
+ * називає учительський розклад — цього досить, щоб підписати урок.
+ */
+function undecodedName(code: string): string | undefined {
+  const u = UNDECODED_CODES[code]
+  return u?.last ? [u.first, u.last].filter(Boolean).join(' ') : undefined
 }
 
 /* ── Хто веде цей урок ───────────────────────────────────────────────── */
@@ -150,7 +159,7 @@ export function teacherLabel(
 ): string | undefined {
   if (!code) return undefined
   const holders = codeHolders(code)
-  if (holders.length === 0) return code
+  if (holders.length === 0) return undecodedName(code) ?? code
   const one = teacherOf(code, subject, classId)
   return one ? scheduleName(one) : holders.map((t) => t.last).join(' / ')
 }

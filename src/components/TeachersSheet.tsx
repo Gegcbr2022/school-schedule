@@ -31,19 +31,22 @@ type Props = {
 type Entry = {
   key: string
   teacher: Teacher
-  /** Прізвище відоме, а не самий лише код із паперу. */
+  /** Є запис у журналі: телефон, «мій розклад», закріплення. */
   known: boolean
+  /** Прізвище відоме — з журналу або з учительського розкладу. */
+  named: boolean
   facts: TeacherFacts
   /** Усе, за чим шукаємо, одним рядком у нижньому регістрі. */
   haystack: string
 }
 
-function entryOf(teacher: Teacher, known: boolean): Entry {
+function entryOf(teacher: Teacher, known: boolean, named = known): Entry {
   const facts = teacherFacts(teacher)
   return {
     key: known ? `id${teacher.id}` : `code${teacher.code}`,
     teacher,
     known,
+    named,
     facts,
     haystack: [formalName(teacher), teacher.code, ...facts.subjects, ...facts.classes]
       .join(' ')
@@ -57,10 +60,11 @@ function entryOf(teacher: Teacher, known: boolean): Entry {
  */
 function buildDirectory(): Entry[] {
   const known = scheduleTeachers().map((t) => entryOf(t, true))
-  const unknown = undecodedCodes().map(({ code }) =>
-    // Псевдо-вчитель: без `when` під код підпадають усі його уроки —
-    // саме те, що треба, поки ми не знаємо, хто це.
-    entryOf({ id: -1, code, last: code, first: '' }, false),
+  const unknown = undecodedCodes().map(({ code, last, first }) =>
+    // Псевдо-вчитель: без `when` під код підпадають усі його уроки — саме
+    // те, що треба, поки в журналі його немає. Прізвище буває відоме й без
+    // журналу: його називає учительський розклад.
+    entryOf({ id: -1, code, last: last ?? code, first: first ?? '' }, false, Boolean(last)),
   )
   return [...known, ...unknown]
 }
@@ -149,11 +153,11 @@ export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) 
                     onClick={() => setSelected(entry.key)}
                   >
                     <span className="tdir__avatar" aria-hidden="true">
-                      {entry.known ? initialsOf(entry.teacher) : '?'}
+                      {entry.named ? initialsOf(entry.teacher) : '?'}
                     </span>
                     <span className="tdir__body">
                       <span className="tdir__name">
-                        {entry.known ? formalName(entry.teacher) : `Код «${entry.teacher.code}»`}
+                        {entry.named ? formalName(entry.teacher) : `Код «${entry.teacher.code}»`}
                         <span className="tdir__code">{entry.teacher.code}</span>
                       </span>
                       {entry.facts.subjects.length > 0 && (
@@ -165,7 +169,11 @@ export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) 
                         </span>
                       )}
                       {!entry.known && (
-                        <span className="tdir__hr">Кого позначено цим кодом — не з'ясували</span>
+                        <span className="tdir__hr">
+                          {entry.named
+                            ? 'У журналі ліцею запису немає'
+                            : "Кого позначено цим кодом — не з'ясували"}
+                        </span>
                       )}
                     </span>
                   </button>
@@ -220,7 +228,7 @@ function TeacherCard({
   onClose: () => void
 }) {
   const [week, setWeek] = useState<WeekParity>(currentWeek)
-  const { teacher, facts, known } = entry
+  const { teacher, facts, known, named } = entry
   const days = useMemo(() => buildTeacherWeek(teacher, week), [teacher, week])
   const windows = days.reduce((n, day) => n + day.windows, 0)
   const phone = known ? phoneOf(teacher.id) : undefined
@@ -251,7 +259,9 @@ function TeacherCard({
         {!known && (
           <>
             <br />
-            У паперовому розкладі стоїть лише код. Нижче — всі уроки під ним.
+            {named
+              ? 'У журналі ліцею такого запису немає — лишились ім’я з учительського розкладу й уроки під цим кодом.'
+              : 'У паперовому розкладі стоїть лише код. Нижче — всі уроки під ним.'}
           </>
         )}
       </p>
