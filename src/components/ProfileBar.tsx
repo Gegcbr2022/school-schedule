@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { centerInStrip } from '../lib/hooks'
 import type { Profile, Role } from '../lib/prefs'
 import { ROLE_ADD_LABEL, ROLE_LIST_TITLE, profileName, profileTone } from '../lib/profiles'
 import { PlusIcon } from './Icons'
@@ -19,13 +21,24 @@ type Props = {
  * перемикатись нема між чим, і зайвий рядок йому ні до чого.
  */
 export function ProfileBar({ role, profiles, activeId, onPick, onManage }: Props) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLButtonElement>(null)
+
+  // У завуча профілів буває більше, ніж влазить у рядок. Смуга гортається,
+  // і активний чип має лишатись видимим — інакше зникає єдина відповідь на
+  // питання «чий це зараз екран».
+  useEffect(() => {
+    centerInStrip(barRef.current, activeRef.current)
+  }, [activeId])
+
   if (profiles.length < 2) return null
 
   return (
-    <div className="pbar" role="group" aria-label={ROLE_LIST_TITLE[role]}>
+    <div className="pbar" role="group" aria-label={ROLE_LIST_TITLE[role]} ref={barRef}>
       {profiles.map((profile) => (
         <button
           key={profile.id}
+          ref={profile.id === activeId ? activeRef : undefined}
           type="button"
           className={`pchip pchip--t${profileTone(profile)}`}
           aria-pressed={profile.id === activeId}

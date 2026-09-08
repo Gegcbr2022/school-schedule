@@ -2563,8 +2563,11 @@ summary {
   background: var(--tone, var(--accent));
 }
 
+/* Два оголошення фону навмисно: браузери без color-mix (iOS до 16.2)
+   візьмуть перше, і активний чип усе одно лишиться помітним. */
 .pchip[aria-pressed='true'] {
   border-color: var(--tone, var(--accent));
+  background: var(--surface-2);
   background: color-mix(in srgb, var(--tone, var(--accent)) 12%, var(--surface));
   color: var(--text);
 }
@@ -2629,6 +2632,7 @@ summary {
 
 .plist__pick[aria-pressed='true'] {
   border-color: var(--tone, var(--accent));
+  background: var(--surface-2);
   background: color-mix(in srgb, var(--tone, var(--accent)) 10%, var(--surface));
 }
 

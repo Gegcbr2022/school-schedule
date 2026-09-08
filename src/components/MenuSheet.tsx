@@ -10,7 +10,7 @@ import {
   portion,
 } from '../data/menu'
 import { DAY_NAME, formatDateUk, parseDateKey } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import { DAY_SHORT } from '../lib/lessons'
 import { CloseIcon } from './Icons'
 
@@ -42,6 +42,7 @@ function Meal({ title, dishes }: { title: string; dishes: Dish[] }) {
 export function MenuSheet({ iso, date, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
   // На вихідних меню немає — відкриваємо понеділок.
   const [day, setDay] = useState(() => (iso >= 1 && iso <= 5 ? iso : 1))
 
@@ -51,9 +52,7 @@ export function MenuSheet({ iso, date, onClose }: Props) {
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

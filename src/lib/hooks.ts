@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  RefObject,
+} from 'react'
 import type { KyivTime } from './clock'
 import { kyivNow } from './clock'
 import type { Theme } from './prefs'
@@ -117,6 +121,47 @@ export function useModal(onClose: () => void): RefObject<HTMLDivElement | null> 
   }, [])
 
   return ref
+}
+
+/**
+ * Закриття аркуша дотиком по темному тлу.
+ *
+ * Свідомо не на `pointerdown`: аркуш зникає ще до того, як браузер обере
+ * ціль для `click`, і той клік прилітає вже на картку уроку під ним —
+ * щойно закрив нотатку, а вона одразу відкрилась знову, вже для іншого
+ * уроку. Тому чекаємо на `click` і переконуємось, що і натиснули, і
+ * відпустили саме на тлі: жест, початий усередині аркуша, теж нічого не
+ * закриє — а такий буває щоразу, коли виділяють текст і ведуть палець за
+ * межі поля.
+ */
+export function useBackdropClose(onClose: () => void): {
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  onClick: (event: ReactMouseEvent<HTMLElement>) => void
+} {
+  const armed = useRef(false)
+
+  return {
+    onPointerDown: (event) => {
+      armed.current = event.target === event.currentTarget
+    },
+    onClick: (event) => {
+      const onBackdrop = armed.current && event.target === event.currentTarget
+      armed.current = false
+      if (onBackdrop) onClose()
+    },
+  }
+}
+
+/**
+ * Доводить елемент у видиму частину горизонтальної смуги — і тільки по
+ * горизонталі. `scrollIntoView` заразом тягне вгору й саму сторінку, і
+ * тоді назва дня ховається під липкою шапкою.
+ */
+export function centerInStrip(strip: HTMLElement | null, item: HTMLElement | null): void {
+  if (!strip || !item) return
+  const bar = strip.getBoundingClientRect()
+  const box = item.getBoundingClientRect()
+  strip.scrollLeft += box.left - bar.left - (bar.width - box.width) / 2
 }
 
 /**

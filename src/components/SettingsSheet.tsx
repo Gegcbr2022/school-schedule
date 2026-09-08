@@ -9,7 +9,7 @@ import {
   LANGUAGE_GROUPS,
   LANGUAGE_LABEL,
 } from '../data/schedule'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Profile, Role, Theme } from '../lib/prefs'
 import {
@@ -242,6 +242,7 @@ export function SettingsSheet({
   const onboarding = mode === 'onboarding'
   // Під час знайомства Escape не закриває — клас треба обрати обов'язково.
   const sheetRef = useModal(onboarding ? () => {} : onClose)
+  const backdrop = useBackdropClose(onboarding ? () => {} : onClose)
 
   // Під час знайомства зміни ще не збережені — чекаємо на «Готово».
   const commit = (next: Prefs) => {
@@ -252,7 +253,12 @@ export function SettingsSheet({
   const profile = activeProfile(draft)
   const update = (patch: Partial<Profile>) => commit(withProfile(draft, { ...profile, ...patch }))
 
-  const multi = isMulti(draft.role)
+  /*
+   * Список профілів показуємо не лише в «багатопрофільних» ролях, а й
+   * усюди, де профілів справді кілька: інакше той, хто повернув роль
+   * назад на «Учня», більше не дістанеться до заведених профілів.
+   */
+  const multi = isMulti(draft.role) || draft.profiles.length > 1
   const teacherMode = profile.teacherId !== null
   /*
    * Ким саме є профіль, питаємо там, де профілів кілька: учителька з
@@ -301,9 +307,7 @@ export function SettingsSheet({
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (!onboarding && event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

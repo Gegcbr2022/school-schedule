@@ -192,6 +192,7 @@ export function pinTeacher(prefs: Prefs, teacherId: number | null): Prefs {
     teacherId,
     clubs: [],
   }
+  keepStorage()
   return { ...prefs, profiles: [...prefs.profiles, added], activeId: added.id }
 }
 

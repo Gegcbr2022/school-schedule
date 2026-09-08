@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Period, WeekParity } from '../data/schedule'
 import { BELLS, PERIODS } from '../data/schedule'
 import { DAY_NAME } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import { DAY_SHORT } from '../lib/lessons'
 import { periodAfter, periodAt, roomsAt } from '../lib/rooms'
 import { CloseIcon, InfoIcon } from './Icons'
@@ -25,6 +25,7 @@ const hhmm = (m: number): string =>
 export function RoomsSheet({ iso, week, minutes, isToday, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
 
   // На вихідних показувати «зараз» нічого — відкриваємось на понеділку.
   const weekday = iso >= 1 && iso <= 5 ? iso : null
@@ -51,9 +52,7 @@ export function RoomsSheet({ iso, week, minutes, isToday, onClose }: Props) {
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

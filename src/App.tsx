@@ -96,7 +96,11 @@ export default function App() {
   const [weekOpen, setWeekOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [clubsOpen, setClubsOpen] = useState(false)
+  /**
+   * Звідки відкрито гуртки: з налаштувань чи дотиком по картці в дні.
+   * Від цього залежить, куди повернутись, коли їх закрити.
+   */
+  const [clubsFrom, setClubsFrom] = useState<'settings' | 'day' | null>(null)
   const [allOpen, setAllOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
@@ -482,7 +486,7 @@ export default function App() {
                     nowMin={view.isToday ? now.minutes : null}
                     noteFor={noteFor}
                     onOpenNote={openNote}
-                    onOpenClub={() => setClubsOpen(true)}
+                    onOpenClub={() => setClubsFrom('day')}
                   />
                 ) : (
                   !noSchool && (
@@ -544,7 +548,7 @@ export default function App() {
         />
       )}
 
-      {clubsOpen && (
+      {clubsFrom && (
         <ClubsSheet
           profile={view.profile}
           onSave={(clubs) => {
@@ -552,7 +556,11 @@ export default function App() {
             if (clubs.length > 0) keepStorage()
             savePreferences(withProfile(view.active, { ...view.profile, clubs }))
           }}
-          onClose={() => setClubsOpen(false)}
+          onClose={() => {
+            const back = clubsFrom === 'settings'
+            setClubsFrom(null)
+            if (back) setSettingsOpen(true)
+          }}
         />
       )}
 
@@ -625,7 +633,7 @@ export default function App() {
           onTheme={setTheme}
           onClubs={() => {
             setSettingsOpen(false)
-            setClubsOpen(true)
+            setClubsFrom('settings')
           }}
           onClose={() => setSettingsOpen(false)}
           onReset={() => {

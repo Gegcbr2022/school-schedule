@@ -145,20 +145,24 @@ export function StatusCard({ status, todayName, nextUp, teacher }: Props) {
 
   if (status.kind === 'break') {
     // Пропущено цілі уроки — це вікно. У вчителя воно буває на пів дня,
-    // і називати таке перервою було б неправдою.
+    // і називати таке перервою було б неправдою. А попереду гуртка не
+    // буває ні перерви, ні вікна: між ним і уроками може лежати година.
+    const club = Boolean(status.next.club)
     const window = status.free > 0
     return (
       <section className="status status--break" aria-label="Що зараз">
         <p className="status__label">
           <span className="status__pulse" aria-hidden="true" />
-          {window
-            ? `Вікно · ${status.free} ${plural(status.free, ['урок', 'уроки', 'уроків'])}`
-            : 'Перерва'}
+          {club
+            ? 'Далі — гурток'
+            : window
+              ? `Вікно · ${status.free} ${plural(status.free, ['урок', 'уроки', 'уроків'])}`
+              : 'Перерва'}
         </p>
         <h2 className="status__subject">{subjectOf(status.next)}</h2>
         <Where lesson={status.next} />
         <p className="status__count">
-          Наступний урок через <b>{formatDuration(status.inMin)}</b>
+          {club ? 'Початок через' : 'Наступний урок через'} <b>{formatDuration(status.inMin)}</b>
         </p>
       </section>
     )
@@ -167,7 +171,7 @@ export function StatusCard({ status, todayName, nextUp, teacher }: Props) {
   if (status.kind === 'before') {
     return (
       <section className="status" aria-label="Що зараз">
-        <p className="status__label">Перший урок</p>
+        <p className="status__label">{status.next.club ? 'Гурток' : 'Перший урок'}</p>
         <h2 className="status__subject">{subjectOf(status.next)}</h2>
         <Where lesson={status.next} />
         <p className="status__count">

@@ -152,15 +152,23 @@ export function clubsOn(profile: Profile, iso: number, week: WeekParity): Club[]
 export function withClubs(lessons: DisplayLesson[], clubs: Club[]): DisplayLesson[] {
   if (clubs.length === 0) return lessons
 
+  const lastLesson = lessons[lessons.length - 1]
+
   const rows = clubs.map((club) => {
     const leave = leaveAt(club)
     // Накладка рахується від виходу, а не від початку: якщо на дорогу
     // закладено пів години, то й піти треба на пів години раніше.
-    const clash = lessons.find((l) => leave < l.end && club.end > l.start)
-    const notes = [
-      clash ? `Накладається на ${clash.n}-й урок — він до ${formatTime(clash.end)}` : null,
-      club.travel ? `Вийти о ${formatTime(leave)}` : null,
-    ].filter(Boolean)
+    const clash = lessons.some((l) => leave < l.end && club.end > l.start)
+    // Важливо не те, на який саме урок припала накладка, а коли уроки
+    // взагалі закінчуються: раніше дитина зі школи все одно не піде.
+    const until = lastLesson ? formatTime(lastLesson.end) : null
+    const note = clash
+      ? club.travel
+        ? `Уроки до ${until}, а вийти треба о ${formatTime(leave)}`
+        : `Накладається на уроки — вони до ${until}`
+      : club.travel
+        ? `Вийти о ${formatTime(leave)}`
+        : null
 
     const row: DisplayLesson = {
       n: 0,
@@ -168,7 +176,7 @@ export function withClubs(lessons: DisplayLesson[], clubs: Club[]): DisplayLesso
       start: club.start,
       end: club.end,
       items: [{ subject: club.name, room: club.place, teacher: club.note }],
-      note: notes.length > 0 ? notes.join(' · ') : undefined,
+      note: note ?? undefined,
       club: club.id,
     }
     return row

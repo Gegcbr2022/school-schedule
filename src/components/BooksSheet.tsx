@@ -3,7 +3,7 @@ import type { Book, BookGroup } from '../data/books'
 import { booksForClass, booksForGrade, gradeOf } from '../data/books'
 import { subjectName } from '../data/schedule'
 import { plural } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import { removeBook, saveBook, savedUrls } from '../lib/library'
 import { teacherGrades } from '../lib/teacherSchedule'
 import type { Teacher } from '../lib/teachers'
@@ -66,6 +66,7 @@ function hrefOf(url: string): string {
 export function BooksSheet({ classId, className, teacher, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
 
   const shelves = useMemo<Shelf[]>(
     () =>
@@ -177,9 +178,7 @@ export function BooksSheet({ classId, className, teacher, onClose }: Props) {
     <>
       <div
         className="sheet-backdrop"
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) onClose()
-        }}
+        {...backdrop}
       >
         <div
           className="sheet"

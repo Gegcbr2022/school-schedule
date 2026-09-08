@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
 import { DAY_SHORT_NAME, formatTime, parseTime, plural } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import type { Club, Profile } from '../lib/prefs'
 import { nextClubId } from '../lib/prefs'
 import { leaveAt, profileName } from '../lib/profiles'
@@ -231,6 +231,7 @@ function ClubForm({
 export function ClubsSheet({ profile, onSave, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
   const [editing, setEditing] = useState<Club | null>(null)
 
   const clubs = profile.clubs
@@ -244,9 +245,7 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"
@@ -314,7 +313,13 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
                     <button
                       type="button"
                       className="iconbtn iconbtn--small"
-                      onClick={() => onSave(clubs.filter((c) => c.id !== club.id))}
+                      onClick={() => {
+                        // Кошик стоїть упритул до картки — питаємо, щоб
+                        // невлучний дотик не стирав розклад секції.
+                        if (window.confirm(`Прибрати «${club.name}»?`)) {
+                          onSave(clubs.filter((c) => c.id !== club.id))
+                        }
+                      }}
                       aria-label={`Прибрати ${club.name}`}
                     >
                       <TrashIcon />

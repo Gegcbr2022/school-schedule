@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
 import { plural } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import type { ViewMode } from '../lib/lessons'
 import type { Profile } from '../lib/prefs'
 import { clubsOn, profileDay, profileName, profileTeacher, withClubs } from '../lib/profiles'
@@ -30,6 +30,7 @@ const DAYS = [0, 1, 2, 3, 4]
 export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
   const [week, setWeek] = useState<WeekParity>(currentWeek)
 
   const days = useMemo(
@@ -50,9 +51,7 @@ export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onC
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
 import { formatTime, kyivNow, plural } from '../lib/clock'
 import { HAS_CONTACTS, formatPhone, phoneOf, telHref } from '../lib/contacts'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import type { TeacherFacts } from '../lib/teacherSchedule'
 import { computeStatus, roomLabel } from '../lib/lessons'
 import { buildTeacherDay, buildTeacherWeek, teacherFacts } from '../lib/teacherSchedule'
@@ -72,6 +72,7 @@ function buildDirectory(): Entry[] {
 export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
 
   const directory = useMemo(() => buildDirectory(), [])
   const [selected, setSelected] = useState<string | null>(null)
@@ -84,9 +85,7 @@ export function TeachersSheet({ currentWeek, pinnedId, onPin, onClose }: Props) 
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

@@ -5,7 +5,7 @@ import { BOOKS, booksForClass } from '../data/books'
 import { specialDayOn } from '../data/special'
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
-import { addDays, formatDuration, kyivNow, parseTime, plural, weekParity } from './clock'
+import { addDays, formatDuration, formatTime, kyivNow, parseTime, plural, weekParity } from './clock'
 import type { DisplayLesson } from './lessons'
 import {
   buildDay,
@@ -742,8 +742,10 @@ describe('гуртки', () => {
     // Той самий гурток, але з дорогою — виходити треба ще з уроку.
     const withRoad: Club = { ...after, travel: 45 }
     const note = withClubs(lessons, [withRoad]).at(-1)?.note
-    expect(note).toContain('Накладається')
-    expect(note).toContain('Вийти о')
+    // Кажемо не «на який урок припало», а коли уроки взагалі закінчаться:
+    // раніше дитина зі школи все одно не піде.
+    expect(note).toContain(`Уроки до ${formatTime(last.end)}`)
+    expect(note).toContain('вийти треба')
   })
 
   it('гурток не рахується уроком і не робить вікна', () => {

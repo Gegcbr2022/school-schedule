@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarDate } from '../lib/clock'
 import { DAY_SHORT_NAME, addDays, dateKey, isoOf } from '../lib/clock'
+import { centerInStrip } from '../lib/hooks'
 
 type Props = {
   today: CalendarDate
@@ -29,7 +30,7 @@ export function DateStrip({ today, selected, onSelect, marked }: Props) {
   const selectedKey = dateKey(selected)
 
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+    centerInStrip(scrollRef.current, selectedRef.current)
   }, [selectedKey])
 
   return (

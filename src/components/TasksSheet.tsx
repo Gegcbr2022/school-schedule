@@ -12,7 +12,7 @@ import {
   plural,
   weekParity,
 } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import type { DisplayLesson } from '../lib/lessons'
 import type { SavedNote } from '../lib/notes'
 import { DAY_PERIOD, allNotes } from '../lib/notes'
@@ -37,6 +37,7 @@ type Entry = SavedNote & {
 export function TasksSheet({ profile, today, onOpenDay, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
   const todayKey = dateKey(today)
 
   /**
@@ -122,9 +123,7 @@ export function TasksSheet({ profile, today, onOpenDay, onClose }: Props) {
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"

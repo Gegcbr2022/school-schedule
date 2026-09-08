@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { formatTime } from '../lib/clock'
-import { useKeyboardInset, useModal } from '../lib/hooks'
+import { useBackdropClose, useKeyboardInset, useModal } from '../lib/hooks'
 import type { DisplayLesson } from '../lib/lessons'
 
 export type NoteTarget = {
@@ -27,6 +27,7 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   const [text, setText] = useState(initial)
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const keyboard = useKeyboardInset()
 
@@ -49,9 +50,7 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
     <div
       className="sheet-backdrop"
       style={{ paddingBottom: keyboard }}
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet sheet--note"

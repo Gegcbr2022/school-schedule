@@ -1,7 +1,7 @@
-import { useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
 import { formatDuration, formatTime, plural } from '../lib/clock'
-import { useModal } from '../lib/hooks'
+import { useBackdropClose, useModal } from '../lib/hooks'
 import type { DayStatus, DisplayLesson } from '../lib/lessons'
 import { computeStatus, roomLabel } from '../lib/lessons'
 import type { Profile, Role } from '../lib/prefs'
@@ -15,7 +15,7 @@ import {
   profileTone,
   withClubs,
 } from '../lib/profiles'
-import { CloseIcon } from './Icons'
+import { CheckIcon, CloseIcon } from './Icons'
 
 type Props = {
   role: Role
@@ -106,6 +106,14 @@ export function AllDaySheet({
 }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
+  const backdrop = useBackdropClose(onClose)
+  const [copied, setCopied] = useState<'idle' | 'done' | 'fail'>('idle')
+
+  useEffect(() => {
+    if (copied === 'idle') return
+    const id = window.setTimeout(() => setCopied('idle'), 2500)
+    return () => window.clearTimeout(id)
+  }, [copied])
 
   const lines: Line[] = profiles.map((profile) => {
     const lessons = noLessons ? [] : schoolDay(profile, iso, week)
@@ -120,12 +128,48 @@ export function AllDaySheet({
 
   const soon = nowMin === null ? null : nextUpAll(lines, nowMin)
 
+  /**
+   * Той самий день звичайним текстом. Розіслати ми нічого не можемо —
+   * сервера немає, — але бабусі, няні чи у групу школи це відправляють
+   * однаково: скопіювали й вставили.
+   */
+  const asText = () => {
+    const out = [when]
+    for (const { profile, rows } of lines) {
+      const tag = profileTag(profile)
+      out.push('', tag ? `${profileName(profile)} · ${tag}` : profileName(profile))
+      if (rows.length === 0) {
+        out.push(noLessons ? '  вихідний' : '  нічого немає')
+        continue
+      }
+      for (const row of rows) {
+        const where = whereOf(row)
+        out.push(
+          `  ${formatTime(row.start)} ${subjectOf(row)}${where ? `, ${where}` : ''}` +
+            (row.club ? ` (гурток${row.note ? `, ${row.note.toLowerCase()}` : ''})` : ''),
+        )
+      }
+    }
+    return out.join('\n')
+  }
+
+  const copy = () => {
+    // Без захищеного з'єднання буфера в браузері немає зовсім — тоді
+    // кнопка має сказати про це, а не промовчати.
+    if (!navigator.clipboard) {
+      setCopied('fail')
+      return
+    }
+    navigator.clipboard
+      .writeText(asText())
+      .then(() => setCopied('done'))
+      .catch(() => setCopied('fail'))
+  }
+
   return (
     <div
       className="sheet-backdrop"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...backdrop}
     >
       <div
         className="sheet"
@@ -219,6 +263,14 @@ export function AllDaySheet({
         </p>
 
         <div className="sheet__actions">
+          <button type="button" className="btn btn--quiet btn--wide" onClick={copy}>
+            {copied === 'done' && <CheckIcon />}
+            {copied === 'done'
+              ? 'Скопійовано'
+              : copied === 'fail'
+                ? 'Не вдалося скопіювати'
+                : 'Скопіювати як текст'}
+          </button>
           <button type="button" className="btn btn--wide" onClick={onClose}>
             Закрити
           </button>
