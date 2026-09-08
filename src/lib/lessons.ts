@@ -270,7 +270,9 @@ export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStat
     return { kind: 'before', next: first, inMin: Math.ceil(first.start - nowMin) }
   }
   if (nowMin >= last.end) {
-    return { kind: 'done', total: lessons.length }
+    // Рахуємо саме уроки: гурток у «сьогодні було стільки-то» не входить,
+    // інакше картка розходиться з чіпом над розкладом.
+    return { kind: 'done', total: lessons.filter((l) => !l.club).length }
   }
 
   for (let i = 0; i < lessons.length; i += 1) {
@@ -296,7 +298,7 @@ export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStat
   }
 
   // Недосяжно: випадок «після останнього уроку» вже оброблено вище.
-  return { kind: 'done', total: lessons.length }
+  return { kind: 'done', total: lessons.filter((l) => !l.club).length }
 }
 
 /** Скільки уроків уже позаду. */

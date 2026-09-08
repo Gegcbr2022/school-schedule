@@ -755,6 +755,17 @@ describe('гуртки', () => {
     expect(finishedCount(lessonsOnly(rows), 6 * 60 + 30)).toBe(0)
   })
 
+  it('«сьогодні було стільки-то» рахує уроки, а не гуртки', () => {
+    const lessons = day(G1, TUE)
+    const evening: Club = { ...football, start: 20 * 60, end: 21 * 60 }
+    const rows = withClubs(lessons, [evening])
+
+    // Після гуртка день закінчився — але уроків було стільки, скільки було.
+    const after = computeStatus(rows, 22 * 60)
+    expect(after.kind).toBe('done')
+    if (after.kind === 'done') expect(after.total).toBe(lessons.length)
+  })
+
   it('колір профілю не перескакує від перейменування', () => {
     expect(profileTone(profile)).toBe(profileTone({ ...profile, name: 'Софійка' }))
   })

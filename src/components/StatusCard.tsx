@@ -177,14 +177,19 @@ export function StatusCard({ status, todayName, nextUp, teacher }: Props) {
     )
   }
 
-  // status.kind === 'done'
+  // status.kind === 'done'.
+  // Уроків могло не бути зовсім — коли день тримався на самих гуртках.
   return (
     <section className="status" aria-label="Що зараз">
       <p className="status__label">На сьогодні все</p>
-      <h2 className="status__subject">Уроки закінчилися 🎉</h2>
-      <p className="status__range">
-        Сьогодні було {status.total} {plural(status.total, ['урок', 'уроки', 'уроків'])}.
-      </p>
+      <h2 className="status__subject">
+        {status.total > 0 ? 'Уроки закінчилися 🎉' : 'На сьогодні все 🎉'}
+      </h2>
+      {status.total > 0 && (
+        <p className="status__range">
+          Сьогодні було {status.total} {plural(status.total, ['урок', 'уроки', 'уроків'])}.
+        </p>
+      )}
       <JumpBlock nextUp={nextUp} />
     </section>
   )
