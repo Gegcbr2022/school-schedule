@@ -27,8 +27,8 @@ function Meal({ title, dishes }: { title: string; dishes: Dish[] }) {
     <section className="menu">
       <h3 className="menu__meal">{title}</h3>
       <ul className="menu__list">
-        {dishes.map((dish) => (
-          <li className="dish" key={dish.name}>
+        {dishes.map((dish, index) => (
+          <li className="dish" key={index}>
             <span className="dish__name">{dish.name}</span>
             <span className="dish__out">{portion(dish.out)}</span>
           </li>

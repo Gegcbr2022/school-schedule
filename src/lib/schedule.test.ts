@@ -5,7 +5,17 @@ import { BOOKS, booksForClass } from '../data/books'
 import { specialDayOn } from '../data/special'
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
-import { addDays, formatDuration, formatTime, kyivNow, parseTime, plural, weekParity } from './clock'
+import {
+  addDays,
+  dateKey as dateKeyOf,
+  formatDuration,
+  formatTime,
+  kyivNow,
+  parseDateKey,
+  parseTime,
+  plural,
+  weekParity,
+} from './clock'
 import type { DisplayLesson } from './lessons'
 import {
   buildDay,
@@ -19,7 +29,7 @@ import {
   offWeekNote,
   roomLabel,
 } from './lessons'
-import { MENU, menuCovers, menuFor, portion } from '../data/menu'
+import { MENU, MENU_FROM, MENU_TO, menuCovers, menuFor, portion } from '../data/menu'
 import { DAY_PERIOD, allNotes, datesWithNotes, setNote } from './notes'
 import type { Club, Groups } from './prefs'
 import { loadPrefs, savePrefs } from './prefs'
@@ -831,6 +841,9 @@ describe('підручники', () => {
   })
 })
 
+const dayBefore = (key: string) => dateKeyOf(addDays(parseDateKey(key), -1))
+const dayAfter = (key: string) => dateKeyOf(addDays(parseDateKey(key), 1))
+
 describe('меню їдальні', () => {
   it('п’ять днів, у кожному сніданок і обід, у кожної страви вихід', () => {
     expect(MENU).toHaveLength(5)
@@ -852,17 +865,22 @@ describe('меню їдальні', () => {
   })
 
   // Меню затверджують на період: коли він мине, чесніше сказати про це,
-  // ніж видавати старі страви за сьогоднішні.
+  // ніж видавати старі страви за сьогоднішні. Межі беремо з самих даних —
+  // інакше тест доводилось би правити з кожним новим меню.
   it('діє лише в затверджений період', () => {
-    expect(menuCovers('2026-09-02')).toBe(true)
-    expect(menuCovers('2026-09-04')).toBe(true)
-    expect(menuCovers('2026-09-01')).toBe(false)
-    expect(menuCovers('2026-09-07')).toBe(false)
+    expect(MENU_FROM <= MENU_TO).toBe(true)
+    expect(menuCovers(MENU_FROM)).toBe(true)
+    expect(menuCovers(MENU_TO)).toBe(true)
+    expect(menuCovers(dayBefore(MENU_FROM))).toBe(false)
+    expect(menuCovers(dayAfter(MENU_TO))).toBe(false)
   })
 
   it('вихід — у грамах, окрім штук', () => {
     expect(portion('150')).toBe('150 г')
     expect(portion('120/5')).toBe('120/5 г')
+    // Масло в меню важать десятими: «150/4.5» — теж грами.
+    expect(portion('150/4.5')).toBe('150/4.5 г')
+    expect(portion('150/4.5/15')).toBe('150/4.5/15 г')
     expect(portion('1 шт')).toBe('1 шт')
   })
 })
