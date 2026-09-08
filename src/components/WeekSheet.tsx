@@ -1,22 +1,17 @@
 import { useId, useMemo, useState } from 'react'
-import type { ClassTimetable, WeekParity } from '../data/schedule'
+import type { WeekParity } from '../data/schedule'
 import { plural } from '../lib/clock'
 import { useModal } from '../lib/hooks'
 import type { ViewMode } from '../lib/lessons'
-import { buildDay } from '../lib/lessons'
-import type { Prefs } from '../lib/prefs'
-import { buildTeacherDay, weekFrom } from '../lib/teacherSchedule'
-import type { Teacher } from '../lib/teachers'
-import { politeName } from '../lib/teachers'
+import type { Profile } from '../lib/prefs'
+import { clubsOn, profileDay, profileName, profileTeacher, withClubs } from '../lib/profiles'
+import { weekFrom } from '../lib/teacherSchedule'
 import { CloseIcon } from './Icons'
 import { WeekGrid } from './WeekGrid'
 
 type Props = {
-  cls: ClassTimetable
-  prefs: Prefs
+  profile: Profile
   mode: ViewMode
-  /** Якщо стоїть — показуємо тиждень цього вчителя, а не класу. */
-  teacher?: Teacher
   /** Парність поточного тижня — з неї й починаємо. */
   currentWeek: WeekParity
   /** Сьогоднішній день (ISO 1…5), щоб підсвітити; вихідні — не передавати. */
@@ -32,16 +27,7 @@ const DAYS = [0, 1, 2, 3, 4]
  * Увесь тиждень одним екраном — те, чого в застосунку бракувало найбільше:
  * у стрічці днів видно лише один день за раз, а планують тиждень.
  */
-export function WeekSheet({
-  cls,
-  prefs,
-  mode,
-  teacher,
-  currentWeek,
-  todayIso,
-  todayWeek,
-  onClose,
-}: Props) {
+export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
   const [week, setWeek] = useState<WeekParity>(currentWeek)
@@ -50,16 +36,16 @@ export function WeekSheet({
     () =>
       weekFrom(
         DAYS.map((day) =>
-          teacher
-            ? buildTeacherDay(teacher, day, week)
-            : buildDay(cls, day, prefs, mode, week),
+          withClubs(profileDay(profile, day, week, mode), clubsOn(profile, day + 1, week)),
         ),
       ),
-    [cls, prefs, mode, teacher, week],
+    [profile, mode, week],
   )
 
   const lessons = days.reduce((n, day) => n + day.count, 0)
   const windows = days.reduce((n, day) => n + day.windows, 0)
+  const clubs = days.reduce((n, day) => n + day.clubs, 0)
+  const teacher = profileTeacher(profile)
 
   return (
     <div
@@ -88,13 +74,19 @@ export function WeekSheet({
         </div>
 
         <p className="sheet__intro">
-          {teacher ? politeName(teacher) : cls.name}
+          {profileName(profile)}
           {!teacher && mode === 'full' && ' · усі групи'} · {lessons}{' '}
           {plural(lessons, ['урок', 'уроки', 'уроків'])}
           {windows > 0 && (
             <>
               {' '}
               · {windows} {plural(windows, ['вікно', 'вікна', 'вікон'])}
+            </>
+          )}
+          {clubs > 0 && (
+            <>
+              {' '}
+              · {clubs} {plural(clubs, ['гурток', 'гуртки', 'гуртків'])}
             </>
           )}
         </p>

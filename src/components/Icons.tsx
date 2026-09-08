@@ -143,3 +143,40 @@ export function PhoneIcon() {
     </svg>
   )
 }
+
+export function PlusIcon() {
+  return (
+    <svg {...base}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+export function TrashIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 6.5h16M9.5 6.5V4.8a.8.8 0 0 1 .8-.8h3.4a.8.8 0 0 1 .8.8v1.7" />
+      <path d="M6.5 6.5 7.4 19a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9l.9-12.5" />
+    </svg>
+  )
+}
+
+/** Кілька людей — профілі, діти, огляд дня. */
+export function PeopleIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 19a6 6 0 0 1 12 0" />
+      <path d="M16.5 6.2a3 3 0 0 1 0 5.6M17 14.2a6 6 0 0 1 4 4.8" />
+    </svg>
+  )
+}
+
+/** Гурток, секція — те, що поза уроками. */
+export function StarIcon() {
+  return (
+    <svg {...base}>
+      <path d="m12 4.5 2.3 4.9 5.2.7-3.8 3.7.9 5.2-4.6-2.5-4.6 2.5.9-5.2L4.5 10l5.2-.7z" />
+    </svg>
+  )
+}

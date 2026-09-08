@@ -3,6 +3,7 @@ import type { Period } from '../data/schedule'
 import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
 import { BOOKS, booksForClass } from '../data/books'
 import { specialDayOn } from '../data/special'
+import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 import { addDays, formatDuration, kyivNow, parseTime, plural, weekParity } from './clock'
 import type { DisplayLesson } from './lessons'
@@ -20,21 +21,15 @@ import {
 } from './lessons'
 import { MENU, menuCovers, menuFor, portion } from '../data/menu'
 import { DAY_PERIOD, allNotes, datesWithNotes, setNote } from './notes'
-import type { Prefs } from './prefs'
+import type { Club, Groups } from './prefs'
 import { loadPrefs, savePrefs } from './prefs'
+import { clubsOn, lessonsOnly, profileTone, withClubs } from './profiles'
 
 const at = (h: number, m: number) => h * 60 + m
 
-const G1: Prefs = {
-  classId: '10б',
-  classGroup: '1',
-  language: 'н',
-  english: 'а',
-  gender: 'х',
-  teacherId: null,
-}
-const G2: Prefs = { ...G1, classGroup: '2', language: 'ф', english: 'б', gender: 'д' }
-const NO_GENDER: Prefs = { ...G1, gender: null }
+const G1: Groups = { classGroup: '1', language: 'н', english: 'а', gender: 'х' }
+const G2: Groups = { ...G1, classGroup: '2', language: 'ф', english: 'б', gender: 'д' }
+const NO_GENDER: Groups = { ...G1, gender: null }
 
 const TEN_B = classById('10б')!
 const MON = 0
@@ -42,11 +37,11 @@ const TUE = 1
 const WED = 2
 const FRI = 4
 
-const day = (prefs: Prefs, index: number, week: 1 | 2 = 1, mode: 'my' | 'full' = 'my') =>
-  buildDay(TEN_B, index, prefs, mode, week)
+const day = (groups: Groups, index: number, week: 1 | 2 = 1, mode: 'my' | 'full' = 'my') =>
+  buildDay(TEN_B, index, groups, mode, week)
 
-const at10b = (prefs: Prefs, index: number, period: number, week: 1 | 2 = 1) =>
-  day(prefs, index, week).find((l) => l.period === period)
+const at10b = (groups: Groups, index: number, period: number, week: 1 | 2 = 1) =>
+  day(groups, index, week).find((l) => l.period === period)
 
 describe('дзвінки', () => {
   it('усі дванадцять уроків по 40 хвилин', () => {
@@ -139,11 +134,10 @@ describe('розклад усієї школи', () => {
 
   it('кожен учень бачить хоч один урок у будь-який день і тиждень', () => {
     for (const cls of TIMETABLE) {
-      const prefs: Prefs = { ...G1, classId: cls.id }
       for (let d = 0; d < 5; d += 1) {
         if (cls.days[d].length === 0) continue
         for (const week of [1, 2] as const) {
-          expect(buildDay(cls, d, prefs, 'my', week).length).toBeGreaterThan(0)
+          expect(buildDay(cls, d, G1, 'my', week).length).toBeGreaterThan(0)
         }
       }
     }
@@ -151,13 +145,13 @@ describe('розклад усієї школи', () => {
 
   it('друга зміна справді починається по обіді', () => {
     const fifth = classById('5а')!
-    const first = buildDay(fifth, 1, { ...G1, classId: '5а' }, 'my', 1)[0]
+    const first = buildDay(fifth, 1, G1, 'my', 1)[0]
     expect(first.start).toBeGreaterThanOrEqual(at(12, 45))
   })
 
   it('уроки нумеруються по порядку дня, а не за періодом', () => {
     const fifth = classById('5а')!
-    const lessons = buildDay(fifth, 1, { ...G1, classId: '5а' }, 'my', 1)
+    const lessons = buildDay(fifth, 1, G1, 'my', 1)
     expect(lessons.map((l) => l.n)).toEqual(lessons.map((_, i) => i + 1))
     expect(lessons[0].period).toBeGreaterThan(1)
   })
@@ -573,12 +567,21 @@ describe('налаштування зі старої версії', () => {
     )
 
     expect(loadPrefs()).toEqual({
-      teacherId: null,
-      classId: '10б',
-      classGroup: '2',
-      language: 'ф',
-      english: 'б',
-      gender: 'д',
+      role: 'student',
+      activeId: '10б',
+      profiles: [
+        {
+          id: '10б',
+          name: '',
+          classId: '10б',
+          teacherId: null,
+          classGroup: '2',
+          language: 'ф',
+          english: 'б',
+          gender: 'д',
+          clubs: [],
+        },
+      ],
     })
   })
 
@@ -588,11 +591,57 @@ describe('налаштування зі старої версії', () => {
       JSON.stringify({ classGroup: '1', language: 'de', english: 'А', gender: null }),
     )
     loadPrefs()
-    expect(JSON.parse(localStorage.getItem('rozklad:prefs:v2')!)).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('rozklad:prefs:v3')!).profiles[0]).toMatchObject({
       classId: '10б',
       english: 'а',
       language: 'н',
     })
+  })
+
+  /*
+   * Найдорожча помилка оновлення — викинути наявного користувача в
+   * онбординг або відірвати його від власних нотаток. Ключ профілю
+   * мусить лишитись тим самим рядком, яким нотатки підписувались досі.
+   */
+  it('один розклад на пристрій стає першим профілем із тим самим ключем', () => {
+    localStorage.setItem(
+      'rozklad:prefs:v2',
+      JSON.stringify({
+        classId: '9а',
+        classGroup: '2',
+        language: 'ф',
+        english: 'в',
+        gender: null,
+        teacherId: null,
+      }),
+    )
+
+    const prefs = loadPrefs()!
+    expect(prefs.role).toBe('student')
+    expect(prefs.profiles).toHaveLength(1)
+    expect(prefs.profiles[0]).toMatchObject({ id: '9а', classId: '9а', english: 'в' })
+    expect(prefs.activeId).toBe('9а')
+  })
+
+  it('розклад учителя переїжджає під своїм ключем нотаток', () => {
+    localStorage.setItem(
+      'rozklad:prefs:v2',
+      JSON.stringify({ classId: '10б', classGroup: '1', teacherId: TEACHERS[0].id }),
+    )
+
+    const prefs = loadPrefs()!
+    expect(prefs.role).toBe('teacher')
+    expect(prefs.profiles[0].id).toBe(`вч${TEACHERS[0].id}`)
+    expect(prefs.profiles[0].teacherId).toBe(TEACHERS[0].id)
+  })
+
+  it('старий ключ лишається на місці — це весь наш відкат', () => {
+    localStorage.setItem(
+      'rozklad:prefs:v2',
+      JSON.stringify({ classId: '9а', classGroup: '1', teacherId: null }),
+    )
+    loadPrefs()
+    expect(localStorage.getItem('rozklad:prefs:v2')).not.toBeNull()
   })
 
   it('порожньо — значить, питаємо клас', () => {
@@ -600,8 +649,114 @@ describe('налаштування зі старої версії', () => {
   })
 
   it('невідомий клас у сховищі не ламає застосунок', () => {
-    savePrefs({ ...G1, classId: '12я' })
+    localStorage.setItem(
+      'rozklad:prefs:v3',
+      JSON.stringify({ role: 'student', activeId: 'x', profiles: [{ id: 'x', classId: '12я' }] }),
+    )
     expect(loadPrefs()).toBeNull()
+  })
+
+  it('зниклий активний профіль не лишає екран порожнім', () => {
+    savePrefs({
+      role: 'parent',
+      activeId: 'п9',
+      profiles: [{ ...G1, id: '10б', name: '', classId: '10б', teacherId: null, clubs: [] }],
+    })
+    expect(loadPrefs()!.activeId).toBe('10б')
+  })
+
+  it('криві гуртки в сховищі просто не читаються', () => {
+    savePrefs({
+      role: 'parent',
+      activeId: '10б',
+      profiles: [
+        {
+          ...G1,
+          id: '10б',
+          name: 'Марійка',
+          classId: '10б',
+          teacherId: null,
+          clubs: [
+            { id: 'г1', name: 'Футбол', days: [2, 4], start: 17 * 60, end: 18 * 60 + 30 },
+            { id: 'г2', name: '', days: [1], start: 60, end: 120 },
+            { id: 'г3', name: 'Плавання', days: [1], start: 600, end: 500 },
+            { id: 'г4', name: 'Шахи', days: [], start: 600, end: 700 },
+          ],
+        },
+      ],
+    })
+
+    const clubs = loadPrefs()!.profiles[0].clubs
+    expect(clubs.map((c) => c.name)).toEqual(['Футбол'])
+  })
+})
+
+describe('гуртки', () => {
+  const football: Club = {
+    id: 'г1',
+    name: 'Футбол',
+    days: [2, 4],
+    start: 17 * 60,
+    end: 18 * 60 + 30,
+    place: 'ДЮСШ',
+  }
+  const profile = {
+    ...G1,
+    id: 'п2',
+    name: 'Марійка',
+    classId: '10б',
+    teacherId: null,
+    clubs: [football],
+  }
+
+  it('стоять лише у свої дні', () => {
+    expect(clubsOn(profile, 2, 1)).toHaveLength(1)
+    expect(clubsOn(profile, 3, 1)).toHaveLength(0)
+  })
+
+  it('через тиждень рахується так само, як в уроків', () => {
+    const odd = { ...profile, clubs: [{ ...football, week: 2 as const }] }
+    expect(clubsOn(odd, 2, 1)).toHaveLength(0)
+    expect(clubsOn(odd, 2, 2)).toHaveLength(1)
+  })
+
+  it('стають у стрічку дня за часом, а не окремим списком', () => {
+    const lessons = day(G1, TUE)
+    const rows = withClubs(lessons, [football])
+    expect(rows).toHaveLength(lessons.length + 1)
+    // Час іде вперед: гурток стоїть на своєму місці, а не в кінці масиву.
+    for (let i = 1; i < rows.length; i += 1) {
+      expect(rows[i].start).toBeGreaterThanOrEqual(rows[i - 1].start)
+    }
+    expect(lessonsOnly(rows)).toEqual(lessons)
+  })
+
+  it('накладку видно ще звечора, і рахується вона від виходу', () => {
+    const lessons = day(G1, TUE)
+    const last = lessons[lessons.length - 1]
+
+    // Гурток через пів години після останнього уроку — встигаємо.
+    const after: Club = { ...football, start: last.end + 30, end: last.end + 90 }
+    expect(withClubs(lessons, [after]).at(-1)?.note).toBeUndefined()
+
+    // Той самий гурток, але з дорогою — виходити треба ще з уроку.
+    const withRoad: Club = { ...after, travel: 45 }
+    const note = withClubs(lessons, [withRoad]).at(-1)?.note
+    expect(note).toContain('Накладається')
+    expect(note).toContain('Вийти о')
+  })
+
+  it('гурток не рахується уроком і не робить вікна', () => {
+    const lessons = day(G1, TUE)
+    const morning: Club = { ...football, start: 6 * 60, end: 7 * 60 }
+    const rows = withClubs(lessons, [morning])
+    const status = computeStatus(rows, 6 * 60 + 30)
+    expect(status.kind).toBe('lesson')
+    expect(finishedCount(lessonsOnly(rows), 6 * 60 + 30)).toBe(0)
+  })
+
+  it('колір профілю не перескакує від перейменування', () => {
+    expect(profileTone(profile)).toBe(profileTone({ ...profile, name: 'Софійка' }))
   })
 })
 

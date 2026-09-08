@@ -20,8 +20,16 @@ import type { Teacher } from './teachers'
 import { teaches } from './teachers'
 
 export type WeekRow =
-  | { kind: 'lesson'; period: Period; start: number; end: number; items: DisplayItem[] }
-  | { kind: 'window'; period: Period; start: number; end: number }
+  | {
+      kind: 'lesson'
+      period: number
+      start: number
+      end: number
+      items: DisplayItem[]
+      /** Стоїть — це гурток, а не урок. */
+      club?: string
+    }
+  | { kind: 'window'; period: number; start: number; end: number }
 
 export type WeekDay = {
   /** ISO-номер дня, 1 (Пн) … 5 (Пт). */
@@ -31,6 +39,8 @@ export type WeekDay = {
   windows: number
   /** Скільки уроків цього дня. */
   count: number
+  /** Скільки гуртків цього дня. */
+  clubs: number
 }
 
 /**
@@ -39,7 +49,12 @@ export type WeekDay = {
  * у цей час у школі бути не обов'язково.
  */
 export function weekFrom(days: DisplayLesson[][]): WeekDay[] {
-  return days.map((lessons, index) => {
+  return days.map((all, index) => {
+    // Гурток дзвінкам не підпорядкований: у сітку періодів він не лягає,
+    // тому спершу будуємо шкільний день, а вже потім вставляємо гуртки
+    // за годиною початку.
+    const lessons = all.filter((l) => !l.club)
+    const clubs = all.filter((l) => l.club)
     const byPeriod = new Map<number, DisplayLesson>()
     for (const lesson of lessons) byPeriod.set(lesson.period, lesson)
 
@@ -62,7 +77,21 @@ export function weekFrom(days: DisplayLesson[][]): WeekDay[] {
       }
     }
 
-    return { iso: index + 1, rows, windows, count: lessons.length }
+    for (const club of clubs) {
+      const row: WeekRow = {
+        kind: 'lesson',
+        period: club.period,
+        start: club.start,
+        end: club.end,
+        items: club.items,
+        club: club.club,
+      }
+      const at = rows.findIndex((r) => r.start > club.start)
+      if (at === -1) rows.push(row)
+      else rows.splice(at, 0, row)
+    }
+
+    return { iso: index + 1, rows, windows, count: lessons.length, clubs: clubs.length }
   })
 }
 

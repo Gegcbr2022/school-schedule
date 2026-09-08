@@ -189,6 +189,17 @@ export const DAY_NAME: Record<number, string> = {
   7: 'Неділя',
 }
 
+/** Короткі назви днів за ISO-номером — для смуги дат і вибору днів гуртка. */
+export const DAY_SHORT_NAME: Record<number, string> = {
+  1: 'Пн',
+  2: 'Вт',
+  3: 'Ср',
+  4: 'Чт',
+  5: 'Пт',
+  6: 'Сб',
+  7: 'Нд',
+}
+
 /** Знахідний відмінок — для кнопки «Переглянути середу». */
 export const DAY_NAME_ACCUSATIVE: Record<number, string> = {
   1: 'понеділок',

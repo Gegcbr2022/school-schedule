@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AllDaySheet } from './components/AllDaySheet'
 import { BooksSheet } from './components/BooksSheet'
+import { ClubsSheet } from './components/ClubsSheet'
 import { DateStrip } from './components/DateStrip'
 import {
   BooksIcon,
   CloseIcon,
-  DoorIcon,
   InfoIcon,
   MoonIcon,
   NoteIcon,
@@ -17,7 +18,7 @@ import { LessonList } from './components/LessonList'
 import { MenuSheet } from './components/MenuSheet'
 import type { NoteTarget } from './components/NoteSheet'
 import { NoteSheet } from './components/NoteSheet'
-import { RoomsSheet } from './components/RoomsSheet'
+import { ProfileBar } from './components/ProfileBar'
 import { SettingsSheet } from './components/SettingsSheet'
 import { TasksSheet } from './components/TasksSheet'
 import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
@@ -27,7 +28,6 @@ import { TeachersSheet } from './components/TeachersSheet'
 import { WeekSheet } from './components/WeekSheet'
 import { SCHOOL_NAME } from './data/schedule'
 import { specialDayOn } from './data/special'
-import { TIMETABLE } from './data/timetable'
 import type { CalendarDate } from './lib/clock'
 import {
   DAY_NAME,
@@ -43,19 +43,35 @@ import {
 import { isStandalone, useInstallPrompt, useNow, useTheme } from './lib/hooks'
 import type { DisplayLesson, ViewMode } from './lib/lessons'
 import {
-  buildDay,
-  classById,
   computeStatus,
   daysUntil,
   finishedCount,
   nextSchoolIso,
   offWeekNote,
 } from './lib/lessons'
-import { buildTeacherDay } from './lib/teacherSchedule'
-import { politeName, teacherById } from './lib/teachers'
 import type { Prefs } from './lib/prefs'
 import { DAY_PERIOD, allNotes, getNote, setNote } from './lib/notes'
-import { DEFAULT_PREFS, clearPrefs, loadPrefs, savePrefs } from './lib/prefs'
+import {
+  DEFAULT_PREFS,
+  activeProfile,
+  clearPrefs,
+  keepStorage,
+  loadPrefs,
+  pinTeacher,
+  savePrefs,
+  withProfile,
+} from './lib/prefs'
+import {
+  ROLE_ALL_TITLE,
+  clubsOn,
+  lessonsOnly,
+  profileClass,
+  profileDay,
+  profileName,
+  profileSub,
+  profileTeacher,
+  withClubs,
+} from './lib/profiles'
 
 const IS_IOS =
   /iP(hone|od|ad)/.test(navigator.userAgent) ||
@@ -77,10 +93,11 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [booksOpen, setBooksOpen] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
-  const [roomsOpen, setRoomsOpen] = useState(false)
   const [weekOpen, setWeekOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [clubsOpen, setClubsOpen] = useState(false)
+  const [allOpen, setAllOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
@@ -95,8 +112,8 @@ export default function App() {
 
   const view = useMemo(() => {
     const active = prefs ?? DEFAULT_PREFS
-    // Клас за замовчуванням може зникнути з даних — тоді беремо перший наявний.
-    const cls = classById(active.classId) ?? classById(DEFAULT_PREFS.classId) ?? TIMETABLE[0]
+    const profile = activeProfile(active)
+    const cls = profileClass(profile)
     const today: CalendarDate = { year: now.year, month: now.month, day: now.day }
     const todayIso = now.iso
 
@@ -112,30 +129,36 @@ export default function App() {
     const todaySpecial = specialDayOn(today)
 
     // Учитель бачить свій день по всіх класах; учень — свій клас.
-    const teacher = active.teacherId === null ? undefined : teacherById(active.teacherId)
-    const dayFor = (dayIso: number, forWeek: typeof week, viewMode: ViewMode) =>
-      teacher
-        ? buildTeacherDay(teacher, dayIso - 1, forWeek)
-        : buildDay(cls, dayIso - 1, active, viewMode, forWeek)
+    const teacher = profileTeacher(profile)
+    /** Уроки цього профілю плюс його гуртки — одним списком за часом. */
+    const dayFor = (date: CalendarDate, dayIso: number, forWeek: typeof week, viewMode: ViewMode) =>
+      withClubs(
+        dayIso > 5 || specialDayOn(date)?.noLessons
+          ? []
+          : profileDay(profile, dayIso - 1, forWeek, viewMode),
+        clubsOn(profile, dayIso, forWeek),
+      )
 
-    const lessons =
-      selWeekend || viewedSpecial?.noLessons ? [] : dayFor(selIso, week, mode)
+    const lessons = dayFor(selected, selIso, week, mode)
 
     // Стан «що зараз» — завжди про сьогодні, незалежно від вибраного дня.
-    const todayWeekend = todayIso > 5
     const todayWeek = weekParity(addDays(today, 1 - todayIso))
-    const todayLessons =
-      todayWeekend || todaySpecial?.noLessons ? [] : dayFor(todayIso, todayWeek, 'my')
-    const currentWeek = todayWeek
+    const todayLessons = dayFor(today, todayIso, todayWeek, 'my')
 
     // Найближчий навчальний день (для картки й переходу).
     const upcomingIso = nextSchoolIso(todayIso)
     const upcomingDate = addDays(today, daysUntil(todayIso, upcomingIso))
     const upcomingFirst =
-      dayFor(upcomingIso, weekParity(addDays(upcomingDate, 1 - upcomingIso)), 'my')[0] ?? null
+      dayFor(
+        upcomingDate,
+        upcomingIso,
+        weekParity(addDays(upcomingDate, 1 - upcomingIso)),
+        'my',
+      )[0] ?? null
 
     return {
       active,
+      profile,
       cls,
       teacher,
       today,
@@ -146,22 +169,28 @@ export default function App() {
       week,
       isToday,
       lessons,
-      todayWeekend,
       todayLessons,
       upcomingIso,
       upcomingDate,
       upcomingFirst,
       viewedSpecial,
       todaySpecial,
-      currentWeek,
+      currentWeek: todayWeek,
     }
     // Хвилини навмисно не в залежностях: розклад дня від них не залежить,
     // а перерахунок раз на пів хвилини змушував би заново будувати всі дні —
     // для вчителя це прохід по всіх 24 класах.
   }, [now.year, now.month, now.day, now.iso, picked, mode, prefs])
 
-  /** Що відбувається просто зараз — єдине, що змінюється з ходом часу. */
-  const status = view.todayWeekend ? null : computeStatus(view.todayLessons, now.minutes)
+  /**
+   * Що відбувається просто зараз — єдине, що змінюється з ходом часу.
+   * `null` лише у справжній вихідний: у будній день без уроків картка
+   * має сказати «уроків немає», а не «відпочивайте».
+   */
+  const status =
+    view.todayIso > 5 && view.todayLessons.length === 0
+      ? null
+      : computeStatus(view.todayLessons, now.minutes)
 
   const alreadyOnUpcoming = dateKey(view.selected) === dateKey(view.upcomingDate)
 
@@ -172,15 +201,20 @@ export default function App() {
     onJump: alreadyOnUpcoming ? null : () => setPicked(view.upcomingDate),
   }
 
-  const done = finishedCount(view.todayLessons, now.minutes)
-  const total = view.todayLessons.length
+  // Лічильник — про уроки; гурток у «3 з 6 уроків» не рахується.
+  const todaySchool = lessonsOnly(view.todayLessons)
+  const done = finishedCount(todaySchool, now.minutes)
+  const total = todaySchool.length
+  const noSchool = view.selWeekend || Boolean(view.viewedSpecial?.noLessons)
   const skipped =
-    mode === 'my' && !view.selWeekend && !view.teacher
-      ? offWeekNote(view.cls, view.selIso - 1, view.active, view.week)
+    mode === 'my' && !noSchool && !view.teacher
+      ? offWeekNote(view.cls, view.selIso - 1, view.profile, view.week)
       : null
   const showTodayChip = !view.isToday
   /** Бічна картка «що зараз» стосується саме сьогодні — лише коли його й відкрито. */
   const showStatus = view.isToday
+  /** Профілів кілька — з'являються і перемикач, і зведення по всіх одразу. */
+  const many = view.active.profiles.length > 1
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
@@ -188,11 +222,8 @@ export default function App() {
   }
 
   const dateStr = dateKey(view.selected)
-  /**
-   * До чого прив'язані нотатки. У вчителя це не клас, а він сам: уроки
-   * в нього з різних класів, а нотатка — про його власний урок.
-   */
-  const noteScope = view.teacher ? `вч${view.teacher.id}` : view.cls.id
+  /** До чого прив'язані нотатки — до профілю, а не до класу: клас можуть змінити. */
+  const noteScope = view.profile.id
   // notesVersion у залежностях, щоб після збереження текст оновився.
   const noteFor = (period: number) => {
     void notesVersion
@@ -225,18 +256,18 @@ export default function App() {
             type="button"
             className="brand"
             onClick={() => setSettingsOpen(true)}
-            aria-label={
-              view.teacher
-                ? `Розклад: ${view.teacher.last}. Змінити`
-                : `Клас ${view.cls.name}. Змінити клас`
-            }
+            aria-label={`Розклад: ${profileName(view.profile)}. Змінити`}
           >
-            <span className={view.teacher ? 'brand__class brand__class--name' : 'brand__class'}>
-              {view.teacher ? view.teacher.last : view.cls.name}
+            <span
+              className={
+                view.teacher || view.profile.name
+                  ? 'brand__class brand__class--name'
+                  : 'brand__class'
+              }
+            >
+              {profileName(view.profile)}
             </span>
-            <span className="brand__sub">
-              {view.teacher ? politeName(view.teacher) : 'Розклад уроків'}
-            </span>
+            <span className="brand__sub">{profileSub(view.profile)}</span>
           </button>
 
           <button
@@ -248,14 +279,12 @@ export default function App() {
             <TeacherIcon />
           </button>
 
-          <button
-            type="button"
-            className="iconbtn"
-            onClick={() => setRoomsOpen(true)}
-            aria-label="Кабінети — хто де зараз"
-          >
-            <DoorIcon />
-          </button>
+          {/*
+            Карти кабінетів у шапці поки немає: номери в ній бета, а про
+            заміни й позаурочні заходи розклад не знає — «вільний» означав
+            би не те, що читається. Сам екран лишився в
+            `components/RoomsSheet.tsx`: повернути його — це кнопка тут.
+          */}
 
           <button
             type="button"
@@ -284,6 +313,14 @@ export default function App() {
             <SettingsIcon />
           </button>
         </div>
+
+        <ProfileBar
+          role={view.active.role}
+          profiles={view.active.profiles}
+          activeId={view.profile.id}
+          onPick={(id) => savePreferences({ ...view.active, activeId: id })}
+          onManage={() => setSettingsOpen(true)}
+        />
 
         <DateStrip
           today={view.today}
@@ -324,6 +361,12 @@ export default function App() {
           <button type="button" className="chip chip--button" onClick={() => setWeekOpen(true)}>
             Весь тиждень
           </button>
+
+          {many && (
+            <button type="button" className="chip chip--button" onClick={() => setAllOpen(true)}>
+              {ROLE_ALL_TITLE[view.active.role]}
+            </button>
+          )}
 
           <button type="button" className="chip chip--button" onClick={() => setMenuOpen(true)}>
             Меню
@@ -390,7 +433,7 @@ export default function App() {
               </span>
             </button>
 
-            {view.selWeekend ? (
+            {view.selWeekend && view.lessons.length === 0 ? (
               <div className="weekend">
                 <p className="weekend__title">{DAY_NAME[view.selIso]} — вихідний 🌤️</p>
                 <div className="status__actions">
@@ -406,23 +449,31 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            ) : view.viewedSpecial?.noLessons ? (
-              <SpecialDayAgenda day={view.viewedSpecial} />
             ) : (
               <>
-                {!view.teacher && (
-                  <div className="modeswitch" role="group" aria-label="Режим перегляду">
-                    <button type="button" aria-pressed={mode === 'my'} onClick={() => setMode('my')}>
-                      Мій розклад
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={mode === 'full'}
-                      onClick={() => setMode('full')}
-                    >
-                      Повний розклад
-                    </button>
-                  </div>
+                {/* Свято зі своїм планом дня; гуртки стануть під ним. */}
+                {view.viewedSpecial?.noLessons ? (
+                  <SpecialDayAgenda day={view.viewedSpecial} />
+                ) : (
+                  !view.teacher &&
+                  !view.selWeekend && (
+                    <div className="modeswitch" role="group" aria-label="Режим перегляду">
+                      <button
+                        type="button"
+                        aria-pressed={mode === 'my'}
+                        onClick={() => setMode('my')}
+                      >
+                        Мій розклад
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={mode === 'full'}
+                        onClick={() => setMode('full')}
+                      >
+                        Повний розклад
+                      </button>
+                    </div>
+                  )
                 )}
 
                 {view.lessons.length > 0 ? (
@@ -431,13 +482,16 @@ export default function App() {
                     nowMin={view.isToday ? now.minutes : null}
                     noteFor={noteFor}
                     onOpenNote={openNote}
+                    onOpenClub={() => setClubsOpen(true)}
                   />
                 ) : (
-                  <p className="empty">
-                    {view.teacher
-                      ? 'Цього дня уроків немає — день вільний.'
-                      : 'Цього дня у вас уроків немає.'}
-                  </p>
+                  !noSchool && (
+                    <p className="empty">
+                      {view.teacher
+                        ? 'Цього дня уроків немає — день вільний.'
+                        : 'Цього дня у вас уроків немає.'}
+                    </p>
+                  )
                 )}
 
                 {skipped && (
@@ -473,12 +527,38 @@ export default function App() {
         </footer>
       </main>
 
+      {allOpen && (
+        <AllDaySheet
+          role={view.active.role}
+          profiles={view.active.profiles}
+          when={when}
+          iso={view.selIso}
+          week={view.week}
+          noLessons={noSchool}
+          nowMin={view.isToday ? now.minutes : null}
+          onPick={(id) => {
+            savePreferences({ ...view.active, activeId: id })
+            setAllOpen(false)
+          }}
+          onClose={() => setAllOpen(false)}
+        />
+      )}
+
+      {clubsOpen && (
+        <ClubsSheet
+          profile={view.profile}
+          onSave={(clubs) => {
+            // Перший гурток — це вже вкладена праця; просимо берегти сховище.
+            if (clubs.length > 0) keepStorage()
+            savePreferences(withProfile(view.active, { ...view.profile, clubs }))
+          }}
+          onClose={() => setClubsOpen(false)}
+        />
+      )}
+
       {tasksOpen && (
         <TasksSheet
-          scope={noteScope}
-          cls={view.cls}
-          prefs={view.active}
-          teacher={view.teacher}
+          profile={view.profile}
           today={view.today}
           onOpenDay={(date) => {
             setPicked(date)
@@ -490,10 +570,8 @@ export default function App() {
 
       {weekOpen && (
         <WeekSheet
-          cls={view.cls}
-          prefs={view.active}
+          profile={view.profile}
           mode={mode}
-          teacher={view.teacher}
           currentWeek={view.week}
           todayIso={view.todayIso <= 5 ? view.todayIso : undefined}
           todayWeek={view.currentWeek}
@@ -504,19 +582,9 @@ export default function App() {
       {teachersOpen && (
         <TeachersSheet
           currentWeek={view.currentWeek}
-          pinnedId={view.active.teacherId}
-          onPin={(teacherId) => savePreferences({ ...view.active, teacherId })}
+          pinnedId={view.profile.teacherId}
+          onPin={(teacherId) => savePreferences(pinTeacher(view.active, teacherId))}
           onClose={() => setTeachersOpen(false)}
-        />
-      )}
-
-      {roomsOpen && (
-        <RoomsSheet
-          iso={view.selIso}
-          week={view.week}
-          minutes={now.minutes}
-          isToday={view.isToday}
-          onClose={() => setRoomsOpen(false)}
         />
       )}
 
@@ -536,8 +604,9 @@ export default function App() {
       {noteTarget && (
         <NoteSheet
           target={noteTarget}
-          // Простір ключів — той самий, що й при збереженні: у вчителя він свій,
-          // інакше запис зберігся б у нього, а відкрився порожнім.
+          // Простір ключів — той самий, що й при збереженні: у кожного
+          // профілю він свій, інакше запис зберігся б в одного, а
+          // відкрився порожнім в іншого.
           initial={getNote({ classId: noteScope, date: noteTarget.date, period: notePeriod })}
           onSave={(text) => {
             setNote({ classId: noteScope, date: noteTarget.date, period: notePeriod }, text)
@@ -554,6 +623,10 @@ export default function App() {
           theme={theme}
           onPrefs={savePreferences}
           onTheme={setTheme}
+          onClubs={() => {
+            setSettingsOpen(false)
+            setClubsOpen(true)
+          }}
           onClose={() => setSettingsOpen(false)}
           onReset={() => {
             clearPrefs()

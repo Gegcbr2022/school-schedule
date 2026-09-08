@@ -1,5 +1,5 @@
 import { useId, useMemo } from 'react'
-import type { ClassTimetable, WeekParity } from '../data/schedule'
+import type { WeekParity } from '../data/schedule'
 import type { CalendarDate } from '../lib/clock'
 import {
   DAY_NAME,
@@ -13,20 +13,15 @@ import {
   weekParity,
 } from '../lib/clock'
 import { useModal } from '../lib/hooks'
-import { buildDay } from '../lib/lessons'
+import type { DisplayLesson } from '../lib/lessons'
 import type { SavedNote } from '../lib/notes'
 import { DAY_PERIOD, allNotes } from '../lib/notes'
-import type { Prefs } from '../lib/prefs'
-import { buildTeacherDay } from '../lib/teacherSchedule'
-import type { Teacher } from '../lib/teachers'
+import type { Profile } from '../lib/prefs'
+import { profileDay } from '../lib/profiles'
 import { CloseIcon, NoteIcon } from './Icons'
 
 type Props = {
-  /** Простір ключів нотаток: клас або вчитель. */
-  scope: string
-  cls: ClassTimetable
-  prefs: Prefs
-  teacher?: Teacher
+  profile: Profile
   today: CalendarDate
   /** Відкрити цей день у розкладі. */
   onOpenDay: (date: CalendarDate) => void
@@ -39,15 +34,7 @@ type Entry = SavedNote & {
   start: number | null
 }
 
-export function TasksSheet({
-  scope,
-  cls,
-  prefs,
-  teacher,
-  today,
-  onOpenDay,
-  onClose,
-}: Props) {
+export function TasksSheet({ profile, today, onOpenDay, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
   const todayKey = dateKey(today)
@@ -58,7 +45,7 @@ export function TasksSheet({
    * одно показуємо: викидати написане не можна.
    */
   const entries = useMemo<Entry[]>(() => {
-    const cache = new Map<string, ReturnType<typeof buildDay>>()
+    const cache = new Map<string, DisplayLesson[]>()
 
     const dayOf = (key: string) => {
       const cached = cache.get(key)
@@ -69,14 +56,12 @@ export function TasksSheet({
       const week: WeekParity = weekParity(addDays(date, 1 - iso))
       // Завжди «мій» розклад: запис особистий, і предмет має бути свій,
       // навіть якщо застосунок зараз відкрито в повному розкладі.
-      const built = teacher
-        ? buildTeacherDay(teacher, iso - 1, week)
-        : buildDay(cls, iso - 1, prefs, 'my', week)
+      const built = profileDay(profile, iso - 1, week, 'my')
       cache.set(key, built)
       return built
     }
 
-    return allNotes(scope).map((note) => {
+    return allNotes(profile.id).map((note) => {
       // Запис на весь день ні до якого уроку не прив'язаний.
       if (note.period === DAY_PERIOD) {
         return { ...note, subject: 'На весь день', start: null }
@@ -88,7 +73,7 @@ export function TasksSheet({
         start: lesson ? lesson.start : null,
       }
     })
-  }, [scope, cls, prefs, teacher])
+  }, [profile])
 
   const upcoming = entries.filter((entry) => entry.date >= todayKey)
   const past = entries.filter((entry) => entry.date < todayKey).reverse()

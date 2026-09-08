@@ -11,9 +11,25 @@ import {
 } from '../data/schedule'
 import { useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
+import type { Prefs, Profile, Role, Theme } from '../lib/prefs'
+import {
+  DEFAULT_CLASS_ID,
+  DEFAULT_GROUPS,
+  activeProfile,
+  isMulti,
+  keepStorage,
+  nextProfileId,
+  withProfile,
+} from '../lib/prefs'
+import {
+  ROLE_ADD_LABEL,
+  ROLE_LIST_TITLE,
+  profileName,
+  profileTag,
+  profileTone,
+} from '../lib/profiles'
 import { formalName, scheduleName, scheduleTeachers, teacherOf } from '../lib/teachers'
-import type { Prefs, Theme } from '../lib/prefs'
-import { CloseIcon } from './Icons'
+import { CloseIcon, PlusIcon, StarIcon, TrashIcon } from './Icons'
 
 type Props = {
   /** Перше знайомство показуємо без хрестика і з кнопкою «Готово». */
@@ -22,6 +38,8 @@ type Props = {
   theme: Theme
   onPrefs: (prefs: Prefs) => void
   onTheme: (theme: Theme) => void
+  /** Відкрити гуртки цього профілю. */
+  onClubs: () => void
   onClose: () => void
   onReset: () => void
 }
@@ -72,10 +90,19 @@ function Radios<T extends string>({
 
 const TEACHER_LIST = scheduleTeachers()
 
-const ROLE_OPTIONS: Option<'student' | 'teacher'>[] = [
+const ROLE_OPTIONS: Option<Role>[] = [
   { value: 'student', label: 'Учня' },
   { value: 'teacher', label: 'Вчителя' },
+  { value: 'parent', label: 'Батьків' },
+  { value: 'head', label: 'Завуча' },
 ]
+
+const ROLE_HINT: Record<Role, string> = {
+  student: 'Свій клас і свої групи.',
+  teacher: 'Уроки по всіх класах, з вікнами між ними.',
+  parent: 'Кілька дітей, у кожної свій клас і свої гуртки. Перемикач — під шапкою.',
+  head: 'Кілька вчителів і класів під оком, з переходом між ними в один дотик.',
+}
 
 const THEME_OPTIONS: Option<Theme>[] = [
   { value: 'system', label: 'Системна' },
@@ -83,12 +110,12 @@ const THEME_OPTIONS: Option<Theme>[] = [
   { value: 'dark', label: 'Темна' },
 ]
 
-const CLASS_OPTIONS: Option<Prefs['classGroup']>[] = CLASS_GROUPS.map((g) => ({
+const CLASS_OPTIONS: Option<Profile['classGroup']>[] = CLASS_GROUPS.map((g) => ({
   value: g,
   label: GROUP_LABEL[g],
 }))
 
-const LANGUAGE_OPTIONS: Option<Prefs['language']>[] = LANGUAGE_GROUPS.map((g) => ({
+const LANGUAGE_OPTIONS: Option<Profile['language']>[] = LANGUAGE_GROUPS.map((g) => ({
   value: g,
   label: LANGUAGE_LABEL[g],
 }))
@@ -98,12 +125,115 @@ const GENDER_OPTIONS: Option<string>[] = [
   { value: 'none', label: 'Не вказувати' },
 ]
 
+const KIND_OPTIONS: Option<'class' | 'teacher'>[] = [
+  { value: 'class', label: 'Клас' },
+  { value: 'teacher', label: 'Вчитель' },
+]
+
+/** Клас і групи одного профілю — те саме поле для учня, дитини й завуча. */
+function ClassFields({
+  profile,
+  onChange,
+}: {
+  profile: Profile
+  onChange: (patch: Partial<Profile>) => void
+}) {
+  const cls = classById(profile.classId)
+  // Питаємо лише про ті поділи, які в цьому класі справді є.
+  const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
+
+  // Підгрупи англійської підписуємо вчителем, якщо він відомий.
+  const englishOptions: Option<Profile['english']>[] = ENGLISH_GROUPS.map((g) => {
+    const code = cls?.days
+      .flat()
+      .flatMap((l) => l.c)
+      .find((c) => c.g === g)?.t
+    const who = code ? teacherOf(code, 'ам', profile.classId) : undefined
+    return { value: g, label: g.toUpperCase(), sub: who ? scheduleName(who) : code }
+  })
+
+  return (
+    <>
+      <fieldset className="field">
+        <legend className="field__label">Клас</legend>
+        {classesByGrade().map(({ grade, classes }) => (
+          <div className="grade" key={grade}>
+            <span className="grade__label">{grade}</span>
+            <div className="grade__classes">
+              {classes.map((item) => (
+                <label className="option option--tight" key={item.id}>
+                  <input
+                    type="radio"
+                    className="visually-hidden"
+                    name="classId"
+                    value={item.id}
+                    aria-label={`Клас ${item.name}`}
+                    checked={profile.classId === item.id}
+                    onChange={() => onChange({ classId: item.id })}
+                  />
+                  <span>{item.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        {cls?.homeroom && <p className="field__hint">Класний керівник: {cls.homeroom}</p>}
+      </fieldset>
+
+      {dims.has('classGroup') && (
+        <Radios
+          name="classGroup"
+          legend="Навчальна група"
+          options={CLASS_OPTIONS}
+          value={profile.classGroup}
+          onChange={(classGroup) => onChange({ classGroup })}
+          hint="Ділить клас на спарених уроках — українській, інформатиці, технологіях."
+        />
+      )}
+
+      {dims.has('language') && (
+        <Radios
+          name="language"
+          legend="Друга іноземна"
+          options={LANGUAGE_OPTIONS}
+          value={profile.language}
+          onChange={(language) => onChange({ language })}
+        />
+      )}
+
+      {dims.has('english') && (
+        <Radios
+          name="english"
+          legend="Англійська підгрупа"
+          options={englishOptions}
+          value={profile.english}
+          onChange={(english) => onChange({ english })}
+        />
+      )}
+
+      {dims.has('gender') && (
+        <Radios
+          name="gender"
+          legend="Фізкультура"
+          options={GENDER_OPTIONS}
+          value={profile.gender ?? 'none'}
+          onChange={(value) =>
+            onChange({ gender: value === 'none' ? null : (value as Profile['gender']) })
+          }
+          hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
+        />
+      )}
+    </>
+  )
+}
+
 export function SettingsSheet({
   mode,
   prefs,
   theme,
   onPrefs,
   onTheme,
+  onClubs,
   onClose,
   onReset,
 }: Props) {
@@ -114,26 +244,59 @@ export function SettingsSheet({
   const sheetRef = useModal(onboarding ? () => {} : onClose)
 
   // Під час знайомства зміни ще не збережені — чекаємо на «Готово».
-  const update = (patch: Partial<Prefs>) => {
-    const next = { ...draft, ...patch }
+  const commit = (next: Prefs) => {
     setDraft(next)
     if (!onboarding) onPrefs(next)
   }
 
-  const teacherMode = draft.teacherId !== null
-  const cls = classById(draft.classId)
-  // Питаємо лише про ті поділи, які в цьому класі справді є.
-  const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
+  const profile = activeProfile(draft)
+  const update = (patch: Partial<Profile>) => commit(withProfile(draft, { ...profile, ...patch }))
 
-  // Підгрупи англійської підписуємо вчителем, якщо він відомий.
-  const englishOptions: Option<Prefs['english']>[] = ENGLISH_GROUPS.map((g) => {
-    const code = cls?.days
-      .flat()
-      .flatMap((l) => l.c)
-      .find((c) => c.g === g)?.t
-    const who = code ? teacherOf(code, 'ам', draft.classId) : undefined
-    return { value: g, label: g.toUpperCase(), sub: who ? scheduleName(who) : code }
-  })
+  const multi = isMulti(draft.role)
+  const teacherMode = profile.teacherId !== null
+  /*
+   * Ким саме є профіль, питаємо там, де профілів кілька: учителька з
+   * двома дітьми в цій же школі має тримати поруч і свій розклад, і
+   * їхній, а не перемикати роль по колу десять разів на день.
+   */
+  const askKind = multi
+
+  const setRole = (role: Role) => {
+    // Роль не переписує чужі профілі — лише той, що зараз відкрито, і лише
+    // тоді, коли в новій ролі він інакше не має сенсу.
+    let fixed = profile
+    if (role === 'teacher' && profile.teacherId === null) {
+      fixed = { ...profile, teacherId: TEACHER_LIST[0].id }
+    } else if (role === 'student' && profile.teacherId !== null) {
+      fixed = { ...profile, teacherId: null }
+    }
+    commit({ ...withProfile(draft, fixed), role })
+  }
+
+  const addProfile = () => {
+    const added: Profile = {
+      ...DEFAULT_GROUPS,
+      id: nextProfileId(draft),
+      name: '',
+      classId: DEFAULT_CLASS_ID,
+      teacherId: null,
+      clubs: [],
+    }
+    // Друга дитина — це вже вкладена праця; просимо браузер берегти сховище.
+    keepStorage()
+    commit({ ...draft, profiles: [...draft.profiles, added], activeId: added.id })
+  }
+
+  const removeProfile = (victim: Profile) => {
+    if (draft.profiles.length < 2) return
+    if (!window.confirm(`Прибрати ${profileName(victim)}? Гуртки цього профілю зникнуть.`)) return
+    const rest = draft.profiles.filter((p) => p.id !== victim.id)
+    commit({
+      ...draft,
+      profiles: rest,
+      activeId: draft.activeId === victim.id ? rest[0].id : draft.activeId,
+    })
+  }
 
   return (
     <div
@@ -166,7 +329,7 @@ export function SettingsSheet({
 
         <p className="sheet__intro">
           {onboarding
-            ? 'Оберіть свій клас — і побачите саме свій розклад. Учителі можуть увімкнути свій. Змінити можна будь-коли.'
+            ? 'Оберіть свій клас — і побачите саме свій розклад. Учителі, батьки й завучі можуть увімкнути свій режим. Змінити можна будь-коли.'
             : 'Налаштування зберігаються лише на цьому пристрої.'}
         </p>
 
@@ -174,20 +337,89 @@ export function SettingsSheet({
           name="role"
           legend="Чий розклад показувати"
           options={ROLE_OPTIONS}
-          value={teacherMode ? 'teacher' : 'student'}
-          onChange={(role) =>
-            update({
-              teacherId: role === 'teacher' ? (draft.teacherId ?? TEACHER_LIST[0].id) : null,
-            })
-          }
+          value={draft.role}
+          onChange={setRole}
+          hint={ROLE_HINT[draft.role]}
         />
+
+        {multi && (
+          <fieldset className="field">
+            <legend className="field__label">{ROLE_LIST_TITLE[draft.role]}</legend>
+            <ul className="plist">
+              {draft.profiles.map((item) => (
+                <li className="plist__item" key={item.id}>
+                  <button
+                    type="button"
+                    className={`plist__pick plist__pick--t${profileTone(item)}`}
+                    aria-pressed={item.id === draft.activeId}
+                    onClick={() => commit({ ...draft, activeId: item.id })}
+                  >
+                    <span className="plist__dot" aria-hidden="true" />
+                    <span className="plist__name">{profileName(item)}</span>
+                    <span className="plist__sub">{profileTag(item)}</span>
+                  </button>
+                  {draft.profiles.length > 1 && (
+                    <button
+                      type="button"
+                      className="iconbtn iconbtn--small"
+                      onClick={() => removeProfile(item)}
+                      aria-label={`Прибрати ${profileName(item)}`}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn btn--quiet btn--wide" onClick={addProfile}>
+              <PlusIcon />
+              {ROLE_ADD_LABEL[draft.role]}
+            </button>
+            <p className="field__hint">
+              Нижче — налаштування того, кого обрано. Перемикати на головному екрані можна
+              смугою під шапкою.
+            </p>
+          </fieldset>
+        )}
+
+        {multi && (
+          <fieldset className="field">
+            <legend className="field__label">Як звати</legend>
+            <input
+              className="textinput"
+              type="text"
+              value={profile.name}
+              maxLength={40}
+              placeholder={profileName(profile)}
+              aria-label="Ім'я профілю"
+              onChange={(event) => update({ name: event.target.value })}
+            />
+            <p className="field__hint">
+              Можна лишити порожнім — тоді профіль підписаний назвою класу.
+            </p>
+          </fieldset>
+        )}
+
+        {askKind && (
+          <Radios
+            name="kind"
+            legend="Це розклад"
+            options={KIND_OPTIONS}
+            value={teacherMode ? 'teacher' : 'class'}
+            onChange={(kind) =>
+              update({
+                teacherId: kind === 'teacher' ? (profile.teacherId ?? TEACHER_LIST[0].id) : null,
+              })
+            }
+          />
+        )}
 
         {teacherMode ? (
           <fieldset className="field">
             <legend className="field__label">Вчитель</legend>
             <select
               className="select"
-              value={draft.teacherId ?? ''}
+              value={profile.teacherId ?? ''}
               aria-label="Вчитель"
               onChange={(event) => update({ teacherId: Number(event.target.value) })}
             >
@@ -203,77 +435,20 @@ export function SettingsSheet({
             </p>
           </fieldset>
         ) : (
-          <>
-        <fieldset className="field">
-          <legend className="field__label">Клас</legend>
-          {classesByGrade().map(({ grade, classes }) => (
-            <div className="grade" key={grade}>
-              <span className="grade__label">{grade}</span>
-              <div className="grade__classes">
-                {classes.map((item) => (
-                  <label className="option option--tight" key={item.id}>
-                    <input
-                      type="radio"
-                      className="visually-hidden"
-                      name="classId"
-                      value={item.id}
-                      aria-label={`Клас ${item.name}`}
-                      checked={draft.classId === item.id}
-                      onChange={() => update({ classId: item.id })}
-                    />
-                    <span>{item.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-          {cls?.homeroom && <p className="field__hint">Класний керівник: {cls.homeroom}</p>}
-        </fieldset>
-
-        {dims.has('classGroup') && (
-          <Radios
-            name="classGroup"
-            legend="Навчальна група"
-            options={CLASS_OPTIONS}
-            value={draft.classGroup}
-            onChange={(classGroup) => update({ classGroup })}
-            hint="Ділить клас на спарених уроках — українській, інформатиці, технологіях."
-          />
+          <ClassFields profile={profile} onChange={update} />
         )}
 
-        {dims.has('language') && (
-          <Radios
-            name="language"
-            legend="Друга іноземна"
-            options={LANGUAGE_OPTIONS}
-            value={draft.language}
-            onChange={(language) => update({ language })}
-          />
-        )}
-
-        {dims.has('english') && (
-          <Radios
-            name="english"
-            legend="Англійська підгрупа"
-            options={englishOptions}
-            value={draft.english}
-            onChange={(english) => update({ english })}
-          />
-        )}
-
-        {dims.has('gender') && (
-          <Radios
-            name="gender"
-            legend="Фізкультура"
-            options={GENDER_OPTIONS}
-            value={draft.gender ?? 'none'}
-            onChange={(value) =>
-              update({ gender: value === 'none' ? null : (value as Prefs['gender']) })
-            }
-            hint="Предмет однаковий для всіх — від цього залежить лише номер залу."
-          />
-        )}
-          </>
+        {!onboarding && (
+          <fieldset className="field">
+            <legend className="field__label">Поза уроками</legend>
+            <button type="button" className="btn btn--quiet btn--wide" onClick={onClubs}>
+              <StarIcon />
+              Гуртки {profile.clubs.length > 0 && `(${profile.clubs.length})`}
+            </button>
+            <p className="field__hint">
+              Секції, музична школа, репетитор — стануть у стрічку дня разом з уроками.
+            </p>
+          </fieldset>
         )}
 
         {!onboarding && (

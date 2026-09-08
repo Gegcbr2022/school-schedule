@@ -18,7 +18,7 @@ import {
 } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
 import { teacherLabel } from './teachers'
-import type { Prefs } from './prefs'
+import type { Groups } from './prefs'
 
 /**
  * Один предмет у картці уроку.
@@ -45,7 +45,18 @@ export type DisplayLesson = {
   items: DisplayItem[]
   /** Дрібний підпис під предметом. */
   note?: string
+  /**
+   * Стоїть — це не урок, а гурток (`id` гуртка). Дзвінків у нього немає,
+   * тож ні номера уроку, ні вікон до сусідів рахувати не можна.
+   */
+  club?: string
 }
+
+/**
+ * Псевдоперіод гуртка. Уроків із таким номером не буває, а від'ємне
+ * число не сплутається з нотаткою на день (вона під нулем).
+ */
+export const CLUB_PERIOD = -1
 
 export type ViewMode = 'my' | 'full'
 
@@ -92,29 +103,29 @@ export function classesByGrade(): { grade: number; classes: ClassTimetable[] }[]
 /* ── Розклад дня ─────────────────────────────────────────────────────── */
 
 /** Чи належить ця комірка саме мені. */
-function isMine(cell: Cell, prefs: Prefs, week: WeekParity): boolean {
+function isMine(cell: Cell, groups: Groups, week: WeekParity): boolean {
   if (!cell.g) return true
   switch (GROUP_DIM[cell.g]) {
     case 'classGroup':
-      return cell.g === prefs.classGroup
+      return cell.g === groups.classGroup
     case 'english':
-      return cell.g === prefs.english
+      return cell.g === groups.english
     case 'language':
-      return cell.g === prefs.language
+      return cell.g === groups.language
     case 'week':
       return cell.g === `т${week}`
     case 'gender':
       // Поділ не вказаний — беремо перший варіант, але без кабінету:
       // предмет однаковий, а зал вгадувати не можна.
-      return prefs.gender ? cell.g === prefs.gender : cell.g === 'х'
+      return groups.gender ? cell.g === groups.gender : cell.g === 'х'
     default:
       return true
   }
 }
 
-function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode, classId: string): DisplayItem {
+function itemOf(cell: Cell, groups: Groups, mode: ViewMode, classId: string): DisplayItem {
   const dim = cell.g ? GROUP_DIM[cell.g] : undefined
-  const unknownGender = dim === 'gender' && !prefs.gender
+  const unknownGender = dim === 'gender' && !groups.gender
 
   return {
     subject: subjectName(cell.s),
@@ -132,13 +143,13 @@ function itemOf(cell: Cell, prefs: Prefs, mode: ViewMode, classId: string): Disp
 }
 
 /** Підпис під уроком: чому він такий, а не інший. */
-function noteOf(cells: Cell[], prefs: Prefs, mode: ViewMode, week: WeekParity): string | undefined {
+function noteOf(cells: Cell[], groups: Groups, mode: ViewMode, week: WeekParity): string | undefined {
   const first = cells[0]
   if (!first) return undefined
   const dim = first.g ? GROUP_DIM[first.g] : undefined
 
   if (dim === 'english') {
-    return mode === 'my' ? `Підгрупа ${prefs.english}` : undefined
+    return mode === 'my' ? `Підгрупа ${groups.english}` : undefined
   }
   if (dim === 'week' && mode === 'my') {
     return `Чергується по тижнях · ${week} тиждень`
@@ -162,7 +173,7 @@ function noteOf(cells: Cell[], prefs: Prefs, mode: ViewMode, week: WeekParity): 
 export function buildDay(
   cls: ClassTimetable,
   dayIndex: number,
-  prefs: Prefs,
+  groups: Groups,
   mode: ViewMode,
   week: WeekParity,
 ): DisplayLesson[] {
@@ -176,7 +187,7 @@ export function buildDay(
     const cells =
       mode === 'full'
         ? lesson.c
-        : lesson.c.filter((c) => (!c.w || c.w === week) && isMine(c, prefs, week))
+        : lesson.c.filter((c) => (!c.w || c.w === week) && isMine(c, groups, week))
 
     if (cells.length === 0) continue
 
@@ -184,8 +195,8 @@ export function buildDay(
       n: out.length + 1,
       period: lesson.p,
       ...bell,
-      items: cells.map((c) => itemOf(c, prefs, mode, cls.id)),
-      note: noteOf(cells, prefs, mode, week),
+      items: cells.map((c) => itemOf(c, groups, mode, cls.id)),
+      note: noteOf(cells, groups, mode, week),
     })
   }
 
@@ -199,13 +210,13 @@ export function buildDay(
 export function offWeekNote(
   cls: ClassTimetable,
   dayIndex: number,
-  prefs: Prefs,
+  groups: Groups,
   week: WeekParity,
 ): string | null {
   for (const lesson of cls.days[dayIndex] ?? []) {
     for (const cell of lesson.c) {
       if (!cell.w || cell.w === week) continue
-      if (!isMine(cell, prefs, week)) continue
+      if (!isMine(cell, groups, week)) continue
       return `${subjectName(cell.s)} буває через тиждень — цього тижня немає.`
     }
   }
@@ -240,6 +251,15 @@ export type DayStatus =
     }
   | { kind: 'done'; total: number }
 
+/**
+ * Скільки цілих уроків між двома рядками стрічки. Гурток дзвінкам не
+ * підпорядкований, тож поруч із ним «вікон» не буває — лише проміжок.
+ */
+export function freeBetween(a: DisplayLesson, b: DisplayLesson): number {
+  if (a.club || b.club) return 0
+  return b.period - a.period - 1
+}
+
 export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStatus {
   if (lessons.length === 0) return { kind: 'empty' }
 
@@ -271,7 +291,7 @@ export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStat
       kind: 'break',
       next: lesson,
       inMin: Math.ceil(lesson.start - nowMin),
-      free: lesson.period - lessons[i - 1].period - 1,
+      free: freeBetween(lessons[i - 1], lesson),
     }
   }
 

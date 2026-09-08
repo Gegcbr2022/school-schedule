@@ -371,6 +371,8 @@ button {
   font-size: 15px;
   color: var(--text-3);
   flex: 1;
+  /* Чіпів у рядку побільшало — без цього «12 вересня» ламається навпіл. */
+  white-space: nowrap;
 }
 
 .chip {
@@ -2461,4 +2463,409 @@ summary {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Профілі, гуртки й зведення дня
+   Кілька дітей у батьків, кілька вчителів у завуча — і те, що поза
+   уроками. Колір профілю ніде не стоїть сам: поруч завжди ім'я.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Шість кольорів профілів. Свої на кожну тему — на темному тлі ті самі
+   значення читалися б як брудні плями. */
+:root {
+  --t0: #3b5bdb;
+  --t1: #0f766e;
+  --t2: #b45309;
+  --t3: #7e22ce;
+  --t4: #be123c;
+  --t5: #0369a1;
+}
+
+:root[data-theme='dark'] {
+  --t0: #7f9cff;
+  --t1: #2dd4bf;
+  --t2: #f0b429;
+  --t3: #c084fc;
+  --t4: #fb7185;
+  --t5: #38bdf8;
+}
+
+.pchip--t0,
+.pcard--t0,
+.plist__pick--t0 {
+  --tone: var(--t0);
+}
+.pchip--t1,
+.pcard--t1,
+.plist__pick--t1 {
+  --tone: var(--t1);
+}
+.pchip--t2,
+.pcard--t2,
+.plist__pick--t2 {
+  --tone: var(--t2);
+}
+.pchip--t3,
+.pcard--t3,
+.plist__pick--t3 {
+  --tone: var(--t3);
+}
+.pchip--t4,
+.pcard--t4,
+.plist__pick--t4 {
+  --tone: var(--t4);
+}
+.pchip--t5,
+.pcard--t5,
+.plist__pick--t5 {
+  --tone: var(--t5);
+}
+
+/* ── Перемикач профілів ──────────────────────────────────────────────── */
+
+/* Живе в потоці, під шапкою: активний профіль має бути видно без
+   відкривання меню. Гортається так само, як смуга дат, — тож п'ять
+   учителів у завуча поміщаються без другого рядка. */
+.pbar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 0 2px;
+}
+
+.pbar::-webkit-scrollbar {
+  display: none;
+}
+
+.pchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.pchip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone, var(--accent));
+}
+
+.pchip[aria-pressed='true'] {
+  border-color: var(--tone, var(--accent));
+  background: color-mix(in srgb, var(--tone, var(--accent)) 12%, var(--surface));
+  color: var(--text);
+}
+
+.pchip--add {
+  padding: 0 10px;
+  color: var(--text-3);
+}
+
+.pchip--add svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Список профілів у налаштуваннях ─────────────────────────────────── */
+
+.plist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.plist__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plist__pick {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: center;
+  gap: 4px 10px;
+  flex: 1 1 auto;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.plist__dot {
+  grid-row: span 2;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tone, var(--accent));
+}
+
+.plist__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.plist__sub {
+  grid-column: 2;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.plist__pick[aria-pressed='true'] {
+  border-color: var(--tone, var(--accent));
+  background: color-mix(in srgb, var(--tone, var(--accent)) 10%, var(--surface));
+}
+
+/* ── Зведення дня по всіх профілях ───────────────────────────────────── */
+
+.allday {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pcard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tone, var(--accent));
+  text-align: left;
+}
+
+.pcard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pcard__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone, var(--accent));
+  align-self: center;
+}
+
+.pcard__name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pcard__sub {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.pcard__span {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pcard__now {
+  font-size: 13px;
+  color: var(--tone, var(--accent));
+  font-weight: 600;
+}
+
+.pcard__club {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.pcard__warn {
+  color: var(--warm);
+  font-weight: 600;
+}
+
+/* ── Гуртки ──────────────────────────────────────────────────────────── */
+
+.clubs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.club {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.club__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.club__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.club__when {
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.club__where {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* Гурток у стрічці дня: те саме, що урок, але без номера — і смуга
+   збоку, щоб очима він не змішувався зі шкільним розкладом. */
+.lesson--club .lesson__card {
+  border-left: 3px solid var(--warm);
+}
+
+.lesson--club .lesson__num {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--warm);
+}
+
+.lesson--club .lesson__num svg {
+  width: 13px;
+  height: 13px;
+}
+
+.lesson--club .lesson__dot {
+  background: var(--warm);
+}
+
+.lesson--club .lesson__note {
+  color: var(--warm);
+}
+
+.trow--club .tentry__subject {
+  color: var(--warm);
+}
+
+/* ── Поля форми ──────────────────────────────────────────────────────── */
+
+.textinput {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.textinput::placeholder {
+  color: var(--text-3);
+}
+
+.textinput:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.textinput--time {
+  width: auto;
+  flex: 1 1 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.timepair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timepair__dash {
+  color: var(--text-3);
+}
+
+/* Іконка всередині кнопки: без розміру svg тягнеться на всю кнопку. */
+.btn svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.empty svg {
+  width: 26px;
+  height: 26px;
+  color: var(--text-3);
+}
+
+/* Дні гуртка — сім однакових квадратів, які влазять у рядок на 320px. */
+.daypick {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.daypick__day {
+  min-height: var(--tap);
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.daypick__day[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  filter: none;
+}
+
+.clubform {
+  display: contents;
 }

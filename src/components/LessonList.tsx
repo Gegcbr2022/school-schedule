@@ -1,8 +1,8 @@
 import { Fragment } from 'react'
 import { formatDuration, formatTime, plural } from '../lib/clock'
 import type { DisplayLesson } from '../lib/lessons'
-import { roomLabel } from '../lib/lessons'
-import { NoteIcon } from './Icons'
+import { freeBetween, roomLabel } from '../lib/lessons'
+import { NoteIcon, StarIcon } from './Icons'
 
 type Props = {
   lessons: DisplayLesson[]
@@ -15,6 +15,8 @@ type Props = {
   noteFor: (period: number) => string
   /** Відкрити редактор нотатки для цього уроку. */
   onOpenNote: (lesson: DisplayLesson) => void
+  /** Відкрити гуртки — дотиком по картці гуртка. */
+  onOpenClub?: () => void
 }
 
 type State = 'past' | 'current' | 'next' | 'future' | 'plain'
@@ -44,7 +46,7 @@ function breakBetween(a: DisplayLesson, b: DisplayLesson): number {
   return Math.max(0, b.start - a.end)
 }
 
-export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
+export function LessonList({ lessons, nowMin, noteFor, onOpenNote, onOpenClub }: Props) {
   const states = statesFor(lessons, nowMin)
 
   return (
@@ -63,15 +65,16 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
         const nextLesson = lessons[index + 1]
         const gap = nextLesson ? breakBetween(lesson, nextLesson) : 0
         // Скільки цілих уроків пропущено — це вже вікно, а не перерва.
-        const free = nextLesson ? nextLesson.period - lesson.period - 1 : 0
+        // Поруч із гуртком вікон не буває: дзвінкам він не підпорядкований.
+        const free = nextLesson ? freeBetween(lesson, nextLesson) : 0
         const onBreakNow =
           nowMin !== null && nextLesson
             ? nowMin >= lesson.end && nowMin < nextLesson.start
             : false
 
         return (
-          <Fragment key={lesson.n}>
-            <li className={`lesson lesson--${state}`}>
+          <Fragment key={lesson.club ?? lesson.n}>
+            <li className={lesson.club ? `lesson lesson--${state} lesson--club` : `lesson lesson--${state}`}>
               <div className="lesson__time">
                 <span className="lesson__start">{formatTime(lesson.start)}</span>
                 <span className="lesson__end">{formatTime(lesson.end)}</span>
@@ -84,11 +87,24 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
               <button
                 type="button"
                 className="lesson__card"
-                onClick={() => onOpenNote(lesson)}
-                aria-label={`${lesson.items.map((i) => i.subject).join(', ')}, ${lesson.n} урок — додати нотатку`}
+                onClick={() => (lesson.club ? onOpenClub?.() : onOpenNote(lesson))}
+                aria-label={
+                  lesson.club
+                    ? `Гурток: ${lesson.items.map((i) => i.subject).join(', ')} — змінити`
+                    : `${lesson.items.map((i) => i.subject).join(', ')}, ${lesson.n} урок — додати нотатку`
+                }
               >
                 <div className="lesson__head">
-                  <span className="lesson__num">{lesson.n} урок</span>
+                  <span className="lesson__num">
+                    {lesson.club ? (
+                      <>
+                        <StarIcon />
+                        Гурток
+                      </>
+                    ) : (
+                      `${lesson.n} урок`
+                    )}
+                  </span>
                   {badge && (
                     <span
                       className={
@@ -98,7 +114,9 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
                       {badge}
                     </span>
                   )}
-                  {state === 'past' && <span className="visually-hidden">Урок минув</span>}
+                  {state === 'past' && !lesson.club && (
+                    <span className="visually-hidden">Урок минув</span>
+                  )}
                 </div>
 
                 <div className="lesson__variants">
@@ -118,7 +136,7 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote }: Props) {
 
                 {lesson.note && <p className="lesson__note">{lesson.note}</p>}
 
-                {noteFor(lesson.period) ? (
+                {lesson.club ? null : noteFor(lesson.period) ? (
                   <p className="lesson__usernote">
                     <NoteIcon />
                     {noteFor(lesson.period)}

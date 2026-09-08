@@ -1,9 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarDate } from '../lib/clock'
-import { addDays, dateKey, isoOf } from '../lib/clock'
-
-/** Короткі назви днів за ISO-номером (1 = понеділок). */
-const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
+import { DAY_SHORT_NAME, addDays, dateKey, isoOf } from '../lib/clock'
 
 type Props = {
   today: CalendarDate
@@ -52,12 +49,12 @@ export function DateStrip({ today, selected, onSelect, marked }: Props) {
             type="button"
             className={`daycol${weekend ? ' daycol--weekend' : ''}`}
             aria-pressed={isSelected}
-            aria-label={`${WEEKDAY_SHORT[iso - 1]} ${date.day}${isToday ? ', сьогодні' : ''}${
+            aria-label={`${DAY_SHORT_NAME[iso]} ${date.day}${isToday ? ', сьогодні' : ''}${
               hasTask ? ', є завдання' : ''
             }`}
             onClick={() => onSelect(date)}
           >
-            <span className="daycol__wd">{WEEKDAY_SHORT[iso - 1]}</span>
+            <span className="daycol__wd">{DAY_SHORT_NAME[iso]}</span>
             <span className="daycol__num">{date.day}</span>
             {isToday && <span className="daycol__today" aria-hidden="true" />}
             {hasTask && <span className="daycol__task" aria-hidden="true" />}

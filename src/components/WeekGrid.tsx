@@ -28,6 +28,8 @@ export function WeekGrid({ days, todayIso }: Props) {
                 : 'без уроків'}
               {day.windows > 0 &&
                 ` · ${day.windows} ${plural(day.windows, ['вікно', 'вікна', 'вікон'])}`}
+              {day.clubs > 0 &&
+                ` · ${day.clubs} ${plural(day.clubs, ['гурток', 'гуртки', 'гуртків'])}`}
             </span>
           </h3>
 
@@ -35,14 +37,14 @@ export function WeekGrid({ days, todayIso }: Props) {
             <p className="tday__empty">Уроків немає.</p>
           ) : (
             <ol className="trows">
-              {day.rows.map((row) =>
+              {day.rows.map((row, index) =>
                 row.kind === 'window' ? (
-                  <li className="trow trow--window" key={row.period}>
+                  <li className="trow trow--window" key={index}>
                     <span className="trow__time">{formatTime(row.start)}</span>
                     <span className="trow__window">Вікно</span>
                   </li>
                 ) : (
-                  <li className="trow" key={row.period}>
+                  <li className={row.club ? 'trow trow--club' : 'trow'} key={index}>
                     <span className="trow__time">
                       {formatTime(row.start)}
                       <span className="trow__end">{formatTime(row.end)}</span>
