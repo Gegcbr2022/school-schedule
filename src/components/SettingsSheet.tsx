@@ -187,7 +187,7 @@ function ClassFields({
           options={CLASS_OPTIONS}
           value={profile.classGroup}
           onChange={(classGroup) => onChange({ classGroup })}
-          hint="Ділить клас на спарених уроках — українській, інформатиці, технологіях."
+          hint="Ділить клас навпіл на уроках, де групи вчаться окремо."
         />
       )}
 

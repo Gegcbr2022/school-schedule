@@ -33,8 +33,8 @@ if (!SRC) {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'src', 'data', 'timetable.ts')
 
-/** Беремо класи з цієї паралелі й старші. */
-const FROM_GRADE = 4
+/** Беремо класи з цієї паралелі й старші — 1–4 приходять із Word. */
+const FROM_GRADE = 5
 
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 const HALF_COLUMN = 73.75
@@ -383,11 +383,13 @@ for (const p of parsed) {
 }
 
 const header = `/**
- * Розклад усієї школи, ${FROM_GRADE}–11 класи.
+ * Розклад усієї школи.
  *
- * ЗГЕНЕРОВАНО з офіційного PDF ліцею скриптом
+ * ${FROM_GRADE}–11 класи ЗГЕНЕРОВАНО з офіційного PDF ліцею скриптом
  * \`scripts/import-timetable.mjs\`. Правити руками можна, але при
  * повторному імпорті правки треба перенести в OVERRIDES того скрипта.
+ * Молодша школа приходить окремим файлом — \`junior.ts\`, бо її ліцей
+ * друкує не в тому ж PDF, а у Word (див. \`scripts/import-junior.mjs\`).
  *
  * Поля комірки:
  *   s — предмет (ключ у SUBJECTS)
@@ -402,8 +404,10 @@ const header = `/**
  */
 
 import type { ClassTimetable } from './schedule'
+import { JUNIOR } from './junior'
 
 export const TIMETABLE: ClassTimetable[] = [
+  ...JUNIOR,
 `
 
 await writeFile(OUT, header + blocks.join('\n') + '\n]\n', 'utf8')
