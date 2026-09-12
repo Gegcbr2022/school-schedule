@@ -40,6 +40,7 @@ import {
   plural,
   weekParity,
 } from './lib/clock'
+import { haptic } from './lib/haptics'
 import { isStandalone, useInstallPrompt, useNow, useTheme } from './lib/hooks'
 import type { DisplayLesson, ViewMode } from './lib/lessons'
 import {
@@ -51,6 +52,7 @@ import {
 } from './lib/lessons'
 import type { Prefs } from './lib/prefs'
 import { DAY_PERIOD, allNotes, getNote, setNote } from './lib/notes'
+import { syncNotifications } from './lib/notifications'
 import {
   DEFAULT_PREFS,
   activeProfile,
@@ -251,6 +253,10 @@ export default function App() {
   const dayNote = noteFor(DAY_PERIOD)
   /** До якого уроку відкрито редактор; 0 — нотатка на весь день. */
   const notePeriod = noteTarget?.lesson?.period ?? DAY_PERIOD
+
+  useEffect(() => {
+    if (prefs) syncNotifications(prefs, view.today, now.minutes)
+  }, [prefs, view.today, now.minutes, notesVersion])
 
   return (
     <div className="app">
@@ -637,6 +643,12 @@ export default function App() {
           }}
           onClose={() => setSettingsOpen(false)}
           onReset={() => {
+            // Питаємо, бо це стирає все: у батьків — профілі всіх дітей
+            // разом із гуртками, у завуча — всі класи, за якими він
+            // стежить. Прибирання одного профілю поруч підтвердження
+            // просить, а це — більше за нього в кілька разів.
+            if (!window.confirm('Скинути все? Профілі, гуртки й налаштування зникнуть.')) return
+            haptic('warning')
             clearPrefs()
             setPrefs(null)
             setTheme('system')

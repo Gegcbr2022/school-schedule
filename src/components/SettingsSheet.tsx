@@ -9,12 +9,14 @@ import {
   LANGUAGE_GROUPS,
   LANGUAGE_LABEL,
 } from '../data/schedule'
+import { haptic } from '../lib/haptics'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Profile, Role, Theme } from '../lib/prefs'
 import {
   DEFAULT_CLASS_ID,
   DEFAULT_GROUPS,
+  DEFAULT_NOTIFICATIONS,
   activeProfile,
   isMulti,
   keepStorage,
@@ -129,6 +131,16 @@ const KIND_OPTIONS: Option<'class' | 'teacher'>[] = [
   { value: 'class', label: 'Клас' },
   { value: 'teacher', label: 'Вчитель' },
 ]
+
+const START_LEAD_OPTIONS = [0, 5, 10, 15, 30]
+const END_LEAD_OPTIONS = [0, 5, 10, 15]
+const HOMEWORK_LEAD_OPTIONS = [15, 30, 60, 120, 180]
+
+function leadLabel(minutes: number): string {
+  if (minutes === 0) return 'У момент дзвінка'
+  if (minutes < 60) return `За ${minutes} хв`
+  return `За ${minutes / 60} год`
+}
 
 /** Клас і групи одного профілю — те саме поле для учня, дитини й завуча. */
 function ClassFields({
@@ -260,6 +272,7 @@ export function SettingsSheet({
    */
   const multi = isMulti(draft.role) || draft.profiles.length > 1
   const teacherMode = profile.teacherId !== null
+  const notifications = draft.notifications ?? DEFAULT_NOTIFICATIONS
   /*
    * Ким саме є профіль, питаємо там, де профілів кілька: учителька з
    * двома дітьми в цій же школі має тримати поруч і свій розклад, і
@@ -293,9 +306,14 @@ export function SettingsSheet({
     commit({ ...draft, profiles: [...draft.profiles, added], activeId: added.id })
   }
 
+  const setNotifications = (patch: Partial<typeof notifications>) => {
+    commit({ ...draft, notifications: { ...notifications, ...patch } })
+  }
+
   const removeProfile = (victim: Profile) => {
     if (draft.profiles.length < 2) return
     if (!window.confirm(`Прибрати ${profileName(victim)}? Гуртки цього профілю зникнуть.`)) return
+    haptic('warning')
     const rest = draft.profiles.filter((p) => p.id !== victim.id)
     commit({
       ...draft,
@@ -451,6 +469,97 @@ export function SettingsSheet({
             </button>
             <p className="field__hint">
               Секції, музична школа, репетитор — стануть у стрічку дня разом з уроками.
+            </p>
+          </fieldset>
+        )}
+
+        {!onboarding && (
+          <fieldset className="field">
+            <legend className="field__label">Сповіщення</legend>
+            <div className="checks">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.enabled}
+                  onChange={(event) => setNotifications({ enabled: event.target.checked })}
+                />
+                <span>
+                  <span className="check__label">Увімкнути нагадування</span>
+                  <span className="check__hint">iPhone попросить дозвіл під час першої синхронізації.</span>
+                </span>
+              </label>
+
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.lessonStart}
+                  disabled={!notifications.enabled}
+                  onChange={(event) => setNotifications({ lessonStart: event.target.checked })}
+                />
+                <span className="check__label">Перед початком уроку або гуртка</span>
+              </label>
+              <select
+                className="select select--compact"
+                value={notifications.lessonStartLead}
+                disabled={!notifications.enabled || !notifications.lessonStart}
+                aria-label="Коли нагадувати перед початком"
+                onChange={(event) => setNotifications({ lessonStartLead: Number(event.target.value) })}
+              >
+                {START_LEAD_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {leadLabel(value)}
+                  </option>
+                ))}
+              </select>
+
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.lessonEnd}
+                  disabled={!notifications.enabled}
+                  onChange={(event) => setNotifications({ lessonEnd: event.target.checked })}
+                />
+                <span className="check__label">Перед кінцем уроку</span>
+              </label>
+              <select
+                className="select select--compact"
+                value={notifications.lessonEndLead}
+                disabled={!notifications.enabled || !notifications.lessonEnd}
+                aria-label="Коли нагадувати перед кінцем уроку"
+                onChange={(event) => setNotifications({ lessonEndLead: Number(event.target.value) })}
+              >
+                {END_LEAD_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {leadLabel(value)}
+                  </option>
+                ))}
+              </select>
+
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.homework}
+                  disabled={!notifications.enabled}
+                  onChange={(event) => setNotifications({ homework: event.target.checked })}
+                />
+                <span className="check__label">Про домашку й нотатки до уроків</span>
+              </label>
+              <select
+                className="select select--compact"
+                value={notifications.homeworkLead}
+                disabled={!notifications.enabled || !notifications.homework}
+                aria-label="Коли нагадувати про домашку"
+                onChange={(event) => setNotifications({ homeworkLead: Number(event.target.value) })}
+              >
+                {HOMEWORK_LEAD_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {leadLabel(value)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="field__hint">
+              Нагадування ставляться на найближчі чотири тижні й оновлюються після змін у розкладі, профілях або ДЗ.
             </p>
           </fieldset>
         )}

@@ -1,5 +1,5 @@
 /**
- * Імпорт офіційного розкладу ліцею (PDF з aSc Розклад) у src/data/timetable.ts.
+ * Імпорт офіційного розкладу ліцею (PDF з aSc Розклад) у src/data/seed/timetable.ts.
  *
  *   npm i -D pdfjs-dist
  *   node scripts/import-timetable.mjs "шлях/до/Розклад класи.pdf"
@@ -31,7 +31,7 @@ if (!SRC) {
 }
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'src', 'data', 'timetable.ts')
+const OUT = join(ROOT, 'src', 'data', 'seed', 'timetable.ts')
 
 /** Беремо класи з цієї паралелі й старші. */
 const FROM_GRADE = 4

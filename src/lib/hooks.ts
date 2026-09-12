@@ -6,6 +6,7 @@ import type {
 } from 'react'
 import type { KyivTime } from './clock'
 import { kyivNow } from './clock'
+import { isNative } from './native'
 import type { Theme } from './prefs'
 import { loadTheme, saveTheme } from './prefs'
 
@@ -278,6 +279,9 @@ const DISMISSED_KEY = 'rozklad:install-dismissed:v1'
 /** Чи запущені ми як встановлений застосунок. */
 export function isStandalone(): boolean {
   return (
+    // Рідна оболонка — це вже встановлений застосунок, хоч жодної
+    // браузерної ознаки в ній і не видно.
+    isNative() ||
     window.matchMedia('(display-mode: standalone)').matches ||
     // iOS Safari до сьогодні тримає це у власній нестандартній властивості.
     (navigator as Navigator & { standalone?: boolean }).standalone === true

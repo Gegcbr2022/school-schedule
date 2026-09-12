@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Маніфест приватності. Apple вимагає його з травня 2024 — без нього
+  збірку не приймають у App Store Connect.
+
+  Тут майже все порожнє, і це не лінощі, а правда про застосунок:
+  він нічого не збирає, нікуди не надсилає й ні за ким не стежить.
+  Єдиний запит у мережу — GET статичного файла з розкладом.
+
+  NSPrivacyAccessedAPITypes порожній свідомо: «API, що потребують
+  причини» (UserDefaults, час файлів, вільне місце на диску) ми не
+  викликаємо ані зі Swift, ані з вебу — там лише localStorage, який до
+  цього переліку не входить. Додасться така робота — сюди треба буде
+  дописати причину, інакше збірку відхилять.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

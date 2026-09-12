@@ -10,6 +10,7 @@ import {
   dateKey as dateKeyOf,
   formatDuration,
   formatTime,
+  isoOf,
   kyivNow,
   parseDateKey,
   parseTime,
@@ -32,7 +33,8 @@ import {
 import { MENU, MENU_FROM, MENU_TO, menuCovers, menuFor, portion } from '../data/menu'
 import { DAY_PERIOD, allNotes, datesWithNotes, setNote } from './notes'
 import type { Club, Groups } from './prefs'
-import { loadPrefs, savePrefs } from './prefs'
+import { DEFAULT_NOTIFICATIONS, loadPrefs, savePrefs } from './prefs'
+import { buildNotifications } from './notifications'
 import { clubsOn, lessonsOnly, profileTone, withClubs } from './profiles'
 
 const at = (h: number, m: number) => h * 60 + m
@@ -557,6 +559,90 @@ describe('записані завдання', () => {
   })
 })
 
+describe('сповіщення', () => {
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    })
+  })
+
+  const profile = {
+    ...G1,
+    id: '10б',
+    name: '',
+    classId: '10б',
+    teacherId: null,
+    clubs: [],
+  }
+
+  const prefs = {
+    role: 'student' as const,
+    activeId: '10б',
+    profiles: [profile],
+    notifications: {
+      ...DEFAULT_NOTIFICATIONS,
+      enabled: true,
+    },
+  }
+
+  it('мовчить, коли вимкнені в налаштуваннях', () => {
+    expect(
+      buildNotifications(
+        { ...prefs, notifications: { ...prefs.notifications, enabled: false } },
+        parseDateKey('2026-09-01'),
+        7 * 60,
+      ),
+    ).toEqual([])
+  })
+
+  it('ставить нагадування перед найближчим уроком', () => {
+    const date = parseDateKey('2026-09-02')
+    const lesson = buildDay(TEN_B, isoOf(date) - 1, G1, 'my', weekParity(addDays(date, 1 - isoOf(date))))[0]
+    const subject = lesson.items.map((item) => item.subject).join(' / ')
+    const items = buildNotifications(prefs, date, 7 * 60, 1)
+    const first = items.find((item) =>
+      item.id.startsWith(`start:10б:2026-09-02:${lesson.period}`),
+    )!
+
+    expect(first).toMatchObject({
+      title: `${subject} за 10 хв`,
+      year: 2026,
+      month: 9,
+      day: 2,
+      hour: Math.floor((lesson.start - 10) / 60),
+      minute: (lesson.start - 10) % 60,
+    })
+    expect(first.body).toContain('10-Б')
+  })
+
+  it('ставить домашку перед уроком і не лишає минулі тригери', () => {
+    setNote({ classId: '10б', date: '2026-09-01', period: 1 }, 'вивчити параграф')
+    setNote({ classId: '10б', date: '2026-09-02', period: 1 }, 'задача')
+
+    const items = buildNotifications(prefs, parseDateKey('2026-09-01'), 10 * 60, 2)
+
+    expect(items.some((item) => item.id === 'homework:10б:2026-09-01:1')).toBe(false)
+    const date = parseDateKey('2026-09-02')
+    const lesson = buildDay(TEN_B, isoOf(date) - 1, G1, 'my', weekParity(addDays(date, 1 - isoOf(date)))).find(
+      (row) => row.period === 1,
+    )!
+    const subject = lesson.items.map((item) => item.subject).join(' / ')
+
+    expect(items.find((item) => item.id === 'homework:10б:2026-09-02:1')).toMatchObject({
+      title: `${subject}: ДЗ`,
+      body: 'задача',
+      hour: 7,
+      minute: 0,
+    })
+  })
+})
+
 describe('налаштування зі старої версії', () => {
   beforeEach(() => {
     const store = new Map<string, string>()
@@ -579,6 +665,7 @@ describe('налаштування зі старої версії', () => {
     expect(loadPrefs()).toEqual({
       role: 'student',
       activeId: '10б',
+      notifications: DEFAULT_NOTIFICATIONS,
       profiles: [
         {
           id: '10б',
@@ -670,6 +757,7 @@ describe('налаштування зі старої версії', () => {
     savePrefs({
       role: 'parent',
       activeId: 'п9',
+      notifications: DEFAULT_NOTIFICATIONS,
       profiles: [{ ...G1, id: '10б', name: '', classId: '10б', teacherId: null, clubs: [] }],
     })
     expect(loadPrefs()!.activeId).toBe('10б')
@@ -679,6 +767,7 @@ describe('налаштування зі старої версії', () => {
     savePrefs({
       role: 'parent',
       activeId: '10б',
+      notifications: DEFAULT_NOTIFICATIONS,
       profiles: [
         {
           ...G1,
