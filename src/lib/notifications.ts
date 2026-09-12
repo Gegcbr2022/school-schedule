@@ -25,6 +25,8 @@ type SyncMessage = {
   items: NativeNotificationItem[]
 }
 
+let lastSync = ''
+
 function bridge(): Bridge | null {
   return (window.webkit?.messageHandlers?.notifications as Bridge | undefined) ?? null
 }
@@ -220,9 +222,12 @@ export function syncNotifications(
     type: 'sync',
     items: buildNotifications(prefs, today, nowMin),
   }
+  const serialized = JSON.stringify(message)
+  if (serialized === lastSync) return
 
   try {
     target.postMessage(message)
+    lastSync = serialized
   } catch {
     /* Сповіщення не мають ламати сам розклад. */
   }
