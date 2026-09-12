@@ -7,7 +7,7 @@
  * файл, що лежить у корені проєкту). Звільнених не переносимо.
  *
  * На виході два файли:
- *   src/data/teachers.ts — прізвища й коди, їде у збірку;
+ *   src/data/seed/teachers.ts — прізвища й коди, їдуть у збірку;
  *   src/data/contacts.ts — телефони, у git не потрапляє (див. .gitignore).
  *
  * Коди з паперового розкладу (дволітерні, зрідка трилітерні) журнал не
@@ -20,9 +20,9 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = process.argv[2] ?? join(ROOT, 'учителя.json')
-const OUT = join(ROOT, 'src', 'data', 'teachers.ts')
+const OUT = join(ROOT, 'src', 'data', 'seed', 'teachers.ts')
 const CONTACTS = join(ROOT, 'src', 'data', 'contacts.ts')
-const TIMETABLE = join(ROOT, 'src', 'data', 'timetable.ts')
+const TIMETABLE = join(ROOT, 'src', 'data', 'seed', 'timetable.ts')
 
 /**
  * Код у розкладі → хто це.

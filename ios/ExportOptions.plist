@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Як саме пакувати архів для App Store Connect.
+
+  DEVELOPMENT_TEAM сюди не вписано навмисно: `scripts/release-ios.sh`
+  підставляє його зі змінної TEAM_ID, щоб ідентифікатор команди не
+  лежав у репозиторії.
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<!-- Символи для звітів про збої: без них стектрейси в Organizer нечитабельні. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Підпис бере Xcode: сертифікат розповсюдження й профіль він знайде сам. -->
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!--
+	  Bitcode давно прибрали, App Thinning для одного вебзастосунку без
+	  важких ресурсів нічого не дає — не ускладнюємо.
+	-->
+	<key>destination</key>
+	<string>upload</string>
+</dict>
+</plist>

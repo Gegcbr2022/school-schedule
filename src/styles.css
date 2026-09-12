@@ -1105,7 +1105,9 @@ button {
 .sheet {
   width: 100%;
   max-width: 560px;
-  max-height: 92vh;
+  /* `dvh`, а не `vh`: із висувною панеллю Safari `vh` більший за видиму
+     частину екрана, і низ аркуша ховається під панеллю. */
+  max-height: 92dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 20px 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
@@ -1249,6 +1251,54 @@ button {
   font-size: 11.5px;
   font-weight: 500;
   opacity: 0.72;
+}
+
+.checks {
+  display: grid;
+  gap: 9px;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 36px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.check input:disabled {
+  opacity: 0.45;
+}
+
+.check:has(input:disabled) {
+  opacity: 0.6;
+}
+
+.check__label {
+  display: block;
+  font-weight: 650;
+}
+
+.check__hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+.select--compact {
+  min-height: 40px;
+  margin: -3px 0 2px 30px;
 }
 
 /* ── Підручники ──────────────────────────────────────────────────────── */

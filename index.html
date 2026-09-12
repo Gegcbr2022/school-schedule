@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-    <title>Розклад уроків — Ліцей №11</title>
+    <title>Дзвінка — розклад уроків</title>
     <meta
       name="description"
-      content="Розклад уроків Ліцею №11 Івано-Франківської міської ради, 4–11 класи: що зараз, скільки лишилось і який урок далі."
+      content="Дзвінка показує, який урок іде зараз, скільки лишилось до дзвінка і що буде далі. Працює без інтернету."
     />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f4f5f7" />
@@ -19,11 +19,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Розклад" />
-    <meta name="application-name" content="Розклад" />
+    <meta name="apple-mobile-web-app-title" content="Дзвінка" />
+    <meta name="application-name" content="Дзвінка" />
 
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Розклад уроків — Ліцей №11" />
+    <meta property="og:title" content="Дзвінка — розклад уроків" />
     <meta
       property="og:description"
       content="Що зараз, скільки лишилось і який урок далі. Працює офлайн."
@@ -33,6 +33,10 @@
       // Ставимо тему до першого малювання, щоб не блимнути білим.
       ;(function () {
         try {
+          // Ключ навмисно лишився з першої версії: у ньому вже лежить
+          // вибір тих, хто користується застосунком, і перейменування
+          // означало б повернути їх усіх до системної теми. Назва
+          // продукту в сховищі не видно нікому.
           var saved = localStorage.getItem('rozklad-10b:theme:v1')
           var dark =
             saved === 'dark' ||

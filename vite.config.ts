@@ -15,16 +15,33 @@ import { defineConfig } from 'vite'
  * інакший рівно тоді, коли застосунок справді змінився.
  */
 function stampServiceWorker(): Plugin {
+  /** Куди насправді зібралось: `dist` для сайту, `ios/Web` для оболонки. */
+  let outDir = 'dist'
+
   return {
     name: 'stamp-service-worker',
     apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
     // Файли з public/ копіюються після збірки — правимо вже на диску.
     closeBundle() {
-      const dir = 'dist'
-      const html = readFileSync(join(dir, 'index.html'), 'utf8')
+      const html = readFileSync(join(outDir, 'index.html'), 'utf8')
       const build = createHash('sha256').update(html).digest('hex').slice(0, 12)
-      const sw = join(dir, 'sw.js')
-      writeFileSync(sw, readFileSync(sw, 'utf8').replace("const BUILD = 'dev'", `const BUILD = '${build}'`))
+      const sw = join(outDir, 'sw.js')
+
+      const before = readFileSync(sw, 'utf8')
+      const after = before.replace("const BUILD = 'dev'", `const BUILD = '${build}'`)
+      // Мовчазна невдача тут коштує дорого: файл лишиться байт у байт тим
+      // самим, браузер не побачить нової версії — і встановлені застосунки
+      // перестануть оновлюватись, ніяк про це не повідомивши.
+      if (after === before) {
+        throw new Error(
+          `Не знайшов рядок "const BUILD = 'dev'" у ${sw}. ` +
+            'Відбиток збірки не проставлено — оновлення застосунку зламане.',
+        )
+      }
+      writeFileSync(sw, after)
     },
   }
 }
