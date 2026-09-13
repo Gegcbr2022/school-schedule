@@ -102,6 +102,17 @@ export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onC
         {/* Сьогодні підсвічуємо лише тоді, коли на екрані саме його тиждень. */}
         <WeekGrid days={days} todayIso={week === todayWeek ? todayIso : undefined} />
 
+        {/*
+          Номери кабінетів зняті з фото стенду, де вони написані від руки, і
+          частина цифр читається погано. Сказати про це треба саме тут: у
+          сітці тижня кабінетів видно найбільше за раз.
+        */}
+        <p className="sheet__note">
+          Кабінети взяті з фото розкладу зі стенду, а там вони написані від руки. Частина
+          номерів могла прочитатися неправильно — якщо кабінет не збігається, вірте
+          табличці на дверях.
+        </p>
+
         <div className="sheet__actions">
           <button type="button" className="btn btn--wide" onClick={onClose}>
             Закрити

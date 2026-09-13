@@ -1152,6 +1152,14 @@ button {
   max-height: none;
 }
 
+/* Застереження під сіткою тижня: помітне, але не кричить. */
+.sheet__note {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
 .note-input {
   display: block;
   width: 100%;
