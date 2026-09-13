@@ -31,6 +31,18 @@ function bridge(): Bridge | null {
   return (window.webkit?.messageHandlers?.notifications as Bridge | undefined) ?? null
 }
 
+/**
+ * Чи є кому доставити нагадування.
+ *
+ * Ставить їх операційна система телефона через місток iOS — свого способу
+ * розбудити людину о 7:45 у застосунку немає. У браузері й у PWA містка
+ * немає, тож і вмикати нічого: перемикач, який нічого не вмикає, гірший
+ * за його відсутність.
+ */
+export function notificationsWork(): boolean {
+  return bridge() !== null
+}
+
 function lessonName(lesson: DisplayLesson): string {
   return lesson.items.map((item) => item.subject).join(' / ')
 }

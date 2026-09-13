@@ -10,6 +10,7 @@ import {
   LANGUAGE_LABEL,
 } from '../data/schedule'
 import { haptic } from '../lib/haptics'
+import { notificationsWork } from '../lib/notifications'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Profile, Role, Theme } from '../lib/prefs'
@@ -51,8 +52,9 @@ type Option<T> = { value: T; label: string; sub?: string }
 
 /** Група перемикачів на справжніх radio — заради клавіатури й читалок екрана. */
 /** Вкладки аркуша налаштувань — рівно стільки, щоб жодна не прокручувалась. */
-const TABS = ['клас', 'групи', 'профіль', 'ще'] as const
-const TAB_LABEL: Record<(typeof TABS)[number], string> = {
+const ALL_TABS = ['клас', 'групи', 'профіль', 'ще'] as const
+type Tab = (typeof ALL_TABS)[number]
+const TAB_LABEL: Record<Tab, string> = {
   'клас': 'Клас',
   'групи': 'Групи',
   'профіль': 'Профіль',
@@ -295,7 +297,15 @@ export function SettingsSheet({
    * вкладках, і видно рівно одну. Інакше на телефоні це сувій на три
    * екрани, у якому «Тема» захована десь під сповіщеннями.
    */
-  const [tab, setTab] = useState<'клас' | 'групи' | 'профіль' | 'ще'>('клас')
+  const [tab, setTab] = useState<Tab>('клас')
+
+  /*
+   * Нагадування ставить операційна система телефона. У браузері й у PWA
+   * містка до неї немає, тож вкладки теж немає: показувати перемикачі,
+   * які нічого не вмикають, — обіцяти те, чого застосунок не зробить.
+   */
+  const TABS = ALL_TABS.filter((name) => name !== 'ще' || notificationsWork())
+  const shown = TABS.includes(tab) ? tab : 'клас'
 
   /*
    * Список профілів показуємо не лише в «багатопрофільних» ролях, а й
@@ -395,7 +405,7 @@ export function SettingsSheet({
                 key={name}
                 type="button"
                 role="tab"
-                aria-selected={tab === name}
+                aria-selected={shown === name}
                 onClick={() => setTab(name)}
               >
                 {TAB_LABEL[name]}
@@ -406,7 +416,7 @@ export function SettingsSheet({
 
         <div className={onboarding ? undefined : 'sheet__pane'}>
 
-        {(onboarding || tab === 'профіль') && (
+        {(onboarding || shown === 'профіль') && (
         <Radios
           name="role"
           legend="Чий розклад показувати"
@@ -417,7 +427,7 @@ export function SettingsSheet({
         />
         )}
 
-        {(onboarding || tab === 'профіль') && multi && (
+        {(onboarding || shown === 'профіль') && multi && (
           <fieldset className="field">
             <legend className="field__label">{ROLE_LIST_TITLE[draft.role]}</legend>
             <ul className="plist">
@@ -475,7 +485,7 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {(onboarding || tab === 'клас') && askKind && (
+        {(onboarding || shown === 'клас') && askKind && (
           <Radios
             name="kind"
             legend="Це розклад"
@@ -489,7 +499,7 @@ export function SettingsSheet({
           />
         )}
 
-        {(onboarding || tab === 'клас') && teacherMode ? (
+        {(onboarding || shown === 'клас') && teacherMode ? (
           <fieldset className="field">
             <legend className="field__label">Вчитель</legend>
             <select
@@ -511,15 +521,15 @@ export function SettingsSheet({
           </fieldset>
         ) : null}
 
-        {(onboarding || tab === 'клас') && !teacherMode && (
+        {(onboarding || shown === 'клас') && !teacherMode && (
           <ClassPicker profile={profile} onChange={update} />
         )}
 
-        {!onboarding && tab === 'групи' && !teacherMode && (
+        {!onboarding && shown === 'групи' && !teacherMode && (
           <GroupFields profile={profile} onChange={update} />
         )}
 
-        {!onboarding && tab === 'профіль' && (
+        {!onboarding && shown === 'профіль' && (
           <fieldset className="field">
             <legend className="field__label">Поза уроками</legend>
             <button type="button" className="btn btn--quiet btn--wide" onClick={onClubs}>
@@ -532,7 +542,7 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {!onboarding && tab === 'ще' && (
+        {!onboarding && shown === 'ще' && (
           <fieldset className="field">
             <legend className="field__label">Сповіщення</legend>
             <div className="checks">
@@ -623,7 +633,7 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {!onboarding && tab === 'профіль' && (
+        {!onboarding && shown === 'профіль' && (
           <>
             <Radios
               name="theme"
