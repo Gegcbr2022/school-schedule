@@ -87,6 +87,16 @@ export type Role = 'student' | 'teacher' | 'parent' | 'head'
 
 export const ROLES: Role[] = ['student', 'teacher', 'parent', 'head']
 
+export type NotificationPrefs = {
+  enabled: boolean
+  lessonStart: boolean
+  lessonStartLead: number
+  lessonEnd: boolean
+  lessonEndLead: number
+  homework: boolean
+  homeworkLead: number
+}
+
 /** Ролі, у яких профілів буває більше одного. */
 export function isMulti(role: Role): boolean {
   return role === 'parent' || role === 'head'
@@ -99,6 +109,7 @@ export type Prefs = {
   profiles: Profile[]
   /** `id` профілю, який зараз відкрито. */
   activeId: string
+  notifications: NotificationPrefs
 }
 
 export type Theme = 'light' | 'dark' | 'system'
@@ -120,6 +131,16 @@ export const DEFAULT_GROUPS: Groups = {
   gender: null,
 }
 
+export const DEFAULT_NOTIFICATIONS: NotificationPrefs = {
+  enabled: false,
+  lessonStart: true,
+  lessonStartLead: 10,
+  lessonEnd: false,
+  lessonEndLead: 5,
+  homework: true,
+  homeworkLead: 60,
+}
+
 export const DEFAULT_PROFILE: Profile = {
   ...DEFAULT_GROUPS,
   id: DEFAULT_CLASS_ID,
@@ -133,6 +154,7 @@ export const DEFAULT_PREFS: Prefs = {
   role: 'student',
   profiles: [DEFAULT_PROFILE],
   activeId: DEFAULT_PROFILE.id,
+  notifications: DEFAULT_NOTIFICATIONS,
 }
 
 /** Профіль, який зараз відкрито. Перший — запасний варіант на будь-який випадок. */
@@ -252,6 +274,31 @@ function minutesOf(value: unknown): number | null {
     : null
 }
 
+function oneOfNumber(allowed: readonly number[], value: unknown): number | null {
+  return typeof value === 'number' && allowed.includes(value) ? value : null
+}
+
+function readNotifications(raw: unknown): NotificationPrefs {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_NOTIFICATIONS
+  const it = raw as Record<string, unknown>
+
+  return {
+    enabled: typeof it.enabled === 'boolean' ? it.enabled : DEFAULT_NOTIFICATIONS.enabled,
+    lessonStart:
+      typeof it.lessonStart === 'boolean' ? it.lessonStart : DEFAULT_NOTIFICATIONS.lessonStart,
+    lessonStartLead:
+      oneOfNumber([0, 5, 10, 15, 30], it.lessonStartLead) ??
+      DEFAULT_NOTIFICATIONS.lessonStartLead,
+    lessonEnd: typeof it.lessonEnd === 'boolean' ? it.lessonEnd : DEFAULT_NOTIFICATIONS.lessonEnd,
+    lessonEndLead:
+      oneOfNumber([0, 5, 10, 15], it.lessonEndLead) ?? DEFAULT_NOTIFICATIONS.lessonEndLead,
+    homework: typeof it.homework === 'boolean' ? it.homework : DEFAULT_NOTIFICATIONS.homework,
+    homeworkLead:
+      oneOfNumber([15, 30, 60, 120, 180], it.homeworkLead) ??
+      DEFAULT_NOTIFICATIONS.homeworkLead,
+  }
+}
+
 /* ── Читання ─────────────────────────────────────────────────────────── */
 
 function readGroups(raw: Record<string, unknown>): Groups {
@@ -335,6 +382,7 @@ function migrateSolo(raw: Record<string, unknown>): Prefs | null {
     role: teacherId === null ? 'student' : 'teacher',
     profiles: [profile],
     activeId: profile.id,
+    notifications: DEFAULT_NOTIFICATIONS,
   }
 }
 
@@ -366,7 +414,12 @@ function migrateLegacy(): Prefs | null {
     clubs: [],
   }
 
-  return { role: 'student', profiles: [profile], activeId: profile.id }
+  return {
+    role: 'student',
+    profiles: [profile],
+    activeId: profile.id,
+    notifications: DEFAULT_NOTIFICATIONS,
+  }
 }
 
 /**
@@ -396,6 +449,7 @@ export function loadPrefs(): Prefs | null {
     profiles,
     // Профіль могли видалити на іншій вкладці — тоді відкриваємо перший.
     activeId: profiles.some((p) => p.id === activeId) ? activeId : profiles[0].id,
+    notifications: readNotifications(stored.notifications),
   }
 }
 

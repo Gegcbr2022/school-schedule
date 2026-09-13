@@ -12,7 +12,7 @@
  * Дзвінки в молодшій школі загальношкільні: уроки 1–11 за BELLS.
  */
 
-import type { ClassTimetable } from './schedule'
+import type { ClassTimetable } from '../schedule'
 
 export const JUNIOR: ClassTimetable[] = [
   {

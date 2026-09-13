@@ -34,3 +34,16 @@ src/data/contacts.ts
 
 # Локальні налаштування Claude Code (конфіг запуску dev-сервера)
 .claude/
+
+# Пак збирається зі `src/data/seed` під час збірки — у git його місця немає.
+public/data/school.json
+
+# Зібраний веб для iOS-оболонки.
+ios/Web/*
+!ios/Web/.gitignore
+
+# Артефакти релізу.
+build/
+
+# Знімки — робочі файли, у git їм місця немає.
+ios/screenshots/*.png

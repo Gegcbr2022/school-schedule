@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { haptic } from '../lib/haptics'
 import { formatTime } from '../lib/clock'
 import { useBackdropClose, useKeyboardInset, useModal } from '../lib/hooks'
 import type { DisplayLesson } from '../lib/lessons'
@@ -39,6 +40,7 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   }, [])
 
   const save = () => {
+    haptic('success')
     onSave(text)
     onClose()
   }

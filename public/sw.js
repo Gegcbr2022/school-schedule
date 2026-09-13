@@ -16,7 +16,19 @@
 const VERSION = 'v4'
 /** Замінюється на відбиток збірки; у dev так і лишається 'dev'. */
 const BUILD = 'dev'
-const CACHE = `rozklad-${VERSION}-${BUILD}`
+
+/**
+ * Префікс кешів, які належать саме оболонці. Усе, що його не має, —
+ * чуже: під `rozklad-books-v1` лежать скачані підручники (`lib/library.ts`),
+ * і прибирання застарілих версій не сміє їх чіпати.
+ */
+const SHELL_PREFIX = 'rozklad-shell-'
+const CACHE = `${SHELL_PREFIX}${VERSION}-${BUILD}`
+
+/** Кеші оболонки: нинішні з префіксом і старі, до того як префікс з'явився. */
+function ownedByShell(name) {
+  return name.startsWith(SHELL_PREFIX) || /^rozklad-v\d/.test(name)
+}
 
 /** Адреса оболонки застосунку: та сама папка, де лежить цей файл. */
 const SHELL = new URL('./', self.location).href
@@ -48,7 +60,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const names = await caches.keys()
-      await Promise.all(names.filter((name) => name !== CACHE).map((name) => caches.delete(name)))
+      await Promise.all(
+        names.filter((name) => ownedByShell(name) && name !== CACHE).map((name) => caches.delete(name)),
+      )
       await self.clients.claim()
     })(),
   )
@@ -93,6 +107,12 @@ self.addEventListener('fetch', (event) => {
   // Підручники важать десятки мегабайт — у кеш застосунку їм не місце.
   // Хай браузер качає їх сам, як звичайний файл.
   if (url.pathname.endsWith('.pdf')) return
+
+  // Розклад повинен приходити з мережі й тільки звідти. Поклади ми його
+  // в кеш — і `cacheFirst` віддавав би ту саму копію вічно, а оновлення
+  // розкладу перестало б працювати взагалі. Офлайн тут нічого не ламає:
+  // застосунок працює на паку, який уже лежить у localStorage.
+  if (url.pathname.endsWith('/data/school.json')) return
 
   // Будь-яка навігація всередині застосунку веде до однієї й тієї ж оболонки.
   if (request.mode === 'navigate') {

@@ -1,5 +1,5 @@
 /**
- * Імпорт офіційного розкладу ліцею (PDF з aSc Розклад) у src/data/timetable.ts.
+ * Імпорт офіційного розкладу ліцею (PDF з aSc Розклад) у src/data/seed/timetable.ts.
  *
  *   npm i -D pdfjs-dist
  *   node scripts/import-timetable.mjs "шлях/до/Розклад класи.pdf"
@@ -33,7 +33,7 @@ if (!SRC) {
 }
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'src', 'data', 'timetable.ts')
+const OUT = join(ROOT, 'src', 'data', 'seed', 'timetable.ts')
 
 /** Беремо класи з цієї паралелі й старші — 1–4 приходять із Word. */
 const FROM_GRADE = 5
@@ -386,7 +386,9 @@ for (const p of parsed) {
   )
 }
 
-const header = `/**
+const header = `/** Насінна копія розкладу, яка їде в збірку. */
+
+/**
  * Розклад усієї школи.
  *
  * ${FROM_GRADE}–11 класи ЗГЕНЕРОВАНО з офіційного PDF ліцею скриптом
@@ -407,7 +409,7 @@ const header = `/**
  * p — номер періоду за загальношкільним розкладом дзвінків (див. BELLS).
  */
 
-import type { ClassTimetable } from './schedule'
+import type { ClassTimetable } from '../schedule'
 import { JUNIOR } from './junior'
 
 export const TIMETABLE: ClassTimetable[] = [

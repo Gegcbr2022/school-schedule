@@ -1,14 +1,19 @@
 {
-  "name": "school-schedule",
+  "name": "dzvinka",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && npm run pack && vite build",
+    "build:ios": "node scripts/require-pack-url.mjs && tsc -b && npm run pack && BASE_PATH=/ vite build --outDir ios/Web --emptyOutDir",
+    "pack": "node scripts/build-pack.mjs",
+    "icons": "node scripts/generate-icons.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "shots": "./scripts/shots.sh",
+    "release:ios": "./scripts/release-ios.sh"
   },
   "dependencies": {
     "pdfjs-dist": "^6.3.289",
@@ -22,9 +27,10 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "sharp": "^0.35.4",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
   },
-  "description": "Розклад уроків 10-Б · Ліцей №11 Івано-Франківської міської ради"
+  "description": "Дзвінка — розклад уроків, який знає, що зараз"
 }

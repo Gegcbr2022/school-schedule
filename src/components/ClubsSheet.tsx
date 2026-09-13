@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
+import { haptic } from '../lib/haptics'
 import { DAY_SHORT_NAME, formatTime, parseTime, plural } from '../lib/clock'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import type { Club, Profile } from '../lib/prefs'
@@ -317,6 +318,7 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
                         // Кошик стоїть упритул до картки — питаємо, щоб
                         // невлучний дотик не стирав розклад секції.
                         if (window.confirm(`Прибрати «${club.name}»?`)) {
+                          haptic('warning')
                           onSave(clubs.filter((c) => c.id !== club.id))
                         }
                       }}

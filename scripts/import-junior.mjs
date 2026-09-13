@@ -1,5 +1,5 @@
 /**
- * Імпорт розкладу молодшої школи (1–4 класи) у src/data/junior.ts.
+ * Імпорт розкладу молодшої школи (1–4 класи) у src/data/seed/junior.ts.
  *
  *   node scripts/import-junior.mjs "Розклад.docx"
  *
@@ -29,7 +29,7 @@ if (!SRC) {
 }
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'src', 'data', 'junior.ts')
+const OUT = join(ROOT, 'src', 'data', 'seed', 'junior.ts')
 
 /** Беремо класи молодші за цю паралель — 5–11 приходять із PDF. */
 const UPTO_GRADE = 4
@@ -386,7 +386,7 @@ const out = `/**
  * Дзвінки в молодшій школі загальношкільні: уроки 1–${last} за BELLS.
  */
 
-import type { ClassTimetable } from './schedule'
+import type { ClassTimetable } from '../schedule'
 
 export const JUNIOR: ClassTimetable[] = [
 ${blocks.join('\n')}

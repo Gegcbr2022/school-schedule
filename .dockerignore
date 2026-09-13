@@ -1,0 +1,6 @@
+node_modules
+dist
+ios/Web
+.git
+.github
+public/data/school.json

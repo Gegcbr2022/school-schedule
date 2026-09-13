@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bookBytes } from '../lib/library'
+import { isNative } from '../lib/native'
 import { CloseIcon, DownloadIcon } from './Icons'
 
 type Props = {
@@ -212,6 +213,15 @@ export function BookViewer({ title, url, onClose }: Props) {
         } catch {
           /* користувач передумав — це не помилка, тихо переходимо до завантаження */
         }
+      }
+
+      // У рідній оболонці запасного шляху немає: WKWebView не вміє
+      // завантажувати файли за посиланням, тож `<a download>` там просто
+      // нічого не робить. Краще сказати про це прямо, ніж мовчки не
+      // зберегти — людина інакше тицятиме кнопку далі.
+      if (isNative()) {
+        setSaveError('Не вдалося зберегти. Спробуйте ще раз і виберіть «Зберегти у файли».')
+        return
       }
 
       const href = URL.createObjectURL(blob)
