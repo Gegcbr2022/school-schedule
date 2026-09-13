@@ -13,8 +13,9 @@
  * Ручні уточнення, яких у PDF не видно, живуть в OVERRIDES і
  * CLASS_FIXES — повторний імпорт їх не загубить. Далі накладаються два
  * зовнішні джерела: `vchyteli.mjs` (учительський вивантаж aSc — домашні
- * кабінети, коди вчителів, чергування по тижнях) і `kabinety.mjs`
- * (паперовий розклад зі школи, він же й останнє слово).
+ * кабінети, коди вчителів, чергування по тижнях) і `stend.mjs` (фото
+ * паперового розкладу з коридору, з якого беремо кабінети на всі п'ять
+ * днів). Старий `kabinety.mjs` прибрано: стенд покриває те саме й ширше.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
@@ -23,6 +24,7 @@ import { fileURLToPath } from 'node:url'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { ROOMS } from './kabinety.mjs'
 import { FROM_TEACHERS } from './vchyteli.mjs'
+import { STEND } from './stend.mjs'
 
 const SRC = process.argv[2]
 if (!SRC) {
@@ -64,60 +66,20 @@ const GROUP_LABELS = new Set(Object.keys(GROUP_KEY))
  */
 const OVERRIDES = {}
 
-/* ── Уточнення за паперовим розкладом із кабінетами ───────────────────── */
+/* ── Правки на весь клас ──────────────────────────────────────────────── */
 
 /**
- * Школа видала розклад із кабінетами вже після цього PDF. Предметну сітку
- * він майже не змінює (697 уроків із 702 стоять там само), але в кількох
- * класах порядок уроків інший — і ці правки живуть тут, бо в PDF їх немає.
+ * Правка, яку не висловити однією коміркою: інший порядок уроків, доданий
+ * урок, перенесення між днями. Функція отримує п'ять днів класу «сирими»,
+ * ще до розмітки груп, і повертає їх виправленими.
  *
- * Функція отримує п'ять днів класу «сирими», ще до розмітки груп, і
- * повертає їх виправленими. Дні — масиви `{ n, cells }`, `n` — глобальний
- * період за BELLS.
+ * Зараз порожньо, і це добре. Тут жили дві правки, писані для попереднього
+ * PDF: перебудова понеділка в 6-А і переставлені місцями образотворче з
+ * математикою в 7-А. У новому PDF школа виправила і те, і те сама —
+ * фото стенду підтверджує його, а не правки. Лишити їх означало б
+ * переставити вже правильне назад.
  */
-const CLASS_FIXES = {
-  /*
-   * У 6-А PDF розійшовся з папером двічі, і в обидві сторони.
-   *
-   * Понеділок зібраний в іншому порядку, і математики в PDF на сім уроків
-   * лише шість. А в п'ятницю навпаки: нульового уроку немає (це видно на
-   * фото стенду), а PDF ставить математику двічі підряд — зайве.
-   *
-   * Порядок понеділка — з паперу, і починається він не з нульового уроку, а
-   * на урок раніше: математика стоїть «мінус першим», о 11:55 (підтверджено
-   * у школі). Поки весь день стояв на урок пізніше, шість уроків 6-А
-   * накладались на інші класи — та сама Наталія Овчар мала б водночас вести
-   * математику в 5-В.
-   */
-  '6а': (days) => {
-    const mon = days[0]
-    const at = (subject) => mon.find((l) => l.cells[0].s === subject)
-    const order = ['іст', 'зл', 'ам', 'мпЗ', 'ум', 'фк']
-    const monday = [{ n: 5, cells: [{ s: 'М', t: 'НО' }] }]
-    order.forEach((subject, i) => {
-      const lesson = at(subject)
-      if (lesson) monday.push({ n: 6 + i, cells: lesson.cells })
-    })
-    // Перебудовуємо лише тоді, коли знайшли всі шість уроків понеділка.
-    if (monday.length !== 7) return days
-
-    const friday = days[4].filter((l) => l.n !== 6)
-    return [monday, days[1], days[2], days[3], friday]
-  },
-
-  /* У 7-А образотворче з музикою і математика стоять навпаки: */
-  /* на папері обр/муз у вівторок 7-м, а математика в середу 4-м. */
-  '7а': (days) => {
-    const tue = days[1].find((l) => l.n === 7)
-    const wed = days[2].find((l) => l.n === 4)
-    if (!tue || !wed) return days
-    const swap = tue.cells
-    tue.cells = wed.cells
-    wed.cells = swap
-    return days
-  },
-
-}
+const CLASS_FIXES = {}
 
 /**
  * Одне скорочення в розкладі — різні предмети в різних учителів.
@@ -318,13 +280,48 @@ function fromTeachers(key, cells) {
 }
 
 /**
- * Ставить кабінети з паперового розкладу (див. `kabinety.mjs`) — там, де
- * він їх дає. Порожній рядок і відсутній номер лишають те, що в PDF.
+ * Кабінети з попереднього паперового розкладу (`kabinety.mjs`) — там, де їх
+ * не дає ні PDF, ні нинішній стенд. Ставимо, лише якщо на цій годині досі
+ * той самий предмет: школа з того часу перетасувала уроки, і шістнадцять
+ * ключів указують тепер на інший урок, ніж коли папір знімали.
  */
-function withRooms(key, cells) {
+function withOldPaper(key, cells) {
   const rooms = ROOMS[key]
-  if (!rooms) return cells
-  return cells.map((c, i) => (rooms[i] ? { ...c, room: rooms[i] } : c))
+  if (!rooms || rooms.length !== cells.length) return cells
+  if (!rooms.every((r, i) => r.s === cells[i].s)) return cells
+  return cells.map((c, i) => (rooms[i].r ? { ...c, room: rooms[i].r } : c))
+}
+
+/* ── Кабінети зі стенду ───────────────────────────────────────────────── */
+
+/**
+ * Стенд (`stend.mjs`) — фото паперового розкладу з коридору, прочитане по
+ * клітинці. Предметну сітку він підтверджує, а не міняє: із 728 звірених
+ * уроків 727 стоять там само, що й у PDF, і єдиний, де вони розійшлися, —
+ * рукописна правка в 8-А, у якій PDF розбірливіший за фото.
+ *
+ * Його користь в іншому: кабінети. PDF ховає «домашню» кімнату класу, а на
+ * стенді номер стоїть майже над кожним уроком — і, на відміну від старого
+ * паперу (`kabinety.mjs`), на всі п'ять днів, а не на три.
+ *
+ * Тому звідси беремо ЛИШЕ кабінети, і лише там, де предмет збігається:
+ * якщо на цій годині стоїть інший урок, ніж на фото, номер не наш.
+ */
+function withStendRooms(cls, dayIndex, lesson) {
+  const day = STEND[`${cls} ${DAYS[dayIndex]}`]
+  if (!day) return lesson.cells
+  const at = day.find((l) => l.p === lesson.n)
+  if (!at) return lesson.cells
+
+  // Кожній комірці уроку шукаємо на фото половину з тим самим предметом:
+  // групи на папері бувають переставлені («англ м/укр м» проти «укр м/англ м»).
+  const pool = at.c.map((c) => ({ c, used: false }))
+  return lesson.cells.map((cell) => {
+    const hit = pool.find((x) => !x.used && x.c.s === cell.s)
+    if (!hit) return cell
+    hit.used = true
+    return hit.c.r ? { ...cell, room: hit.c.r } : cell
+  })
 }
 
 /* ── 3. Генерація TypeScript ──────────────────────────────────────────── */
@@ -353,14 +350,21 @@ for (const p of parsed) {
   const dayBlocks = days.map((day, di) => {
     const lines = day.map((lesson) => {
       const key = `${p.cls} ${DAYS[di]}${lesson.n}`
-      const cells = withoutFakeGyms(
-        withRooms(
-          key,
-          fromTeachers(
-            key,
-            OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+      const cells = withStendRooms(
+        p.cls,
+        di,
+        {
+          n: lesson.n,
+          cells: withoutFakeGyms(
+            withOldPaper(
+              key,
+              fromTeachers(
+                key,
+                OVERRIDES[key] ? OVERRIDES[key](lesson.cells) : markWeekAlternation(lesson.cells),
+              ),
+            ),
           ),
-        ),
+        },
       )
 
       if (cells.length > 1 && cells.every((c) => !c.g)) stats.unnamed.push(key)

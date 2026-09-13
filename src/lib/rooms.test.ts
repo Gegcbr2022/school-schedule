@@ -3,6 +3,7 @@ import { BELLS } from '../data/schedule'
 import { ROOM_LIST, periodAfter, periodAt, roomsAt } from './rooms'
 
 const WED = 2
+const THU = 3
 const FRI = 4
 const roomAt = (day: number, period: number, room: string, week: 1 | 2 = 1) =>
   roomsAt(day, period as never, week).find((r) => r.room === room)
@@ -34,8 +35,10 @@ describe('карта кабінетів', () => {
   })
 
   it('в одному кабінеті може сидіти кілька груп', () => {
-    // 8-А, середа, 8 урок: обидві підгрупи німецької в 3-му.
-    expect(roomAt(WED, 8, '3')?.busy).toHaveLength(2)
+    // 5-В, четвер, 4 урок другої зміни: обидві підгрупи англійської в 14-му.
+    // Раніше прикладом була німецька 8-А в середу, але на новому стенді її
+    // підгрупи розведено по різних кабінетах (3 і 2).
+    expect(roomAt(THU, 10, '14')?.busy).toHaveLength(2)
   })
 
   it('через тиждень кабінет зайнятий не завжди', () => {
