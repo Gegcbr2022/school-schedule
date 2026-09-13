@@ -1178,7 +1178,7 @@ button {
 }
 
 .sheet__tabs button {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   padding: 7px 4px;
   border: 0;
@@ -1186,7 +1186,7 @@ button {
   background: none;
   color: var(--text-2);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
