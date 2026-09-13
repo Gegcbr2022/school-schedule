@@ -23,19 +23,53 @@
 
 /* Begin PBXBuildFile section */
 		D200000000000000000000B2 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = D200000000000000000000B1 /* Web */; };
+		D20000000000000000000201 /* DzvinkaWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D20000000000000000000202 /* DzvinkaWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D2000000000000000000020A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D20000000000000000000105 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D20000000000000000000206;
+			remoteInfo = DzvinkaWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D20000000000000000000204 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D20000000000000000000201 /* DzvinkaWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		D200000000000000000000B1 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Web; sourceTree = "<group>"; };
 		D200000000000000000000E1 /* Dzvinka.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dzvinka.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D20000000000000000000202 /* DzvinkaWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DzvinkaWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D200000000000000000000A1 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
+		D20000000000000000000203 /* Widget */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Widget; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		D200000000000000000000C2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D20000000000000000000205 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -49,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				D200000000000000000000A1 /* App */,
+				D20000000000000000000203 /* Widget */,
 				D200000000000000000000B1 /* Web */,
 				D200000000000000000000D1 /* Products */,
 			);
@@ -58,6 +93,7 @@
 			isa = PBXGroup;
 			children = (
 				D200000000000000000000E1 /* Dzvinka.app */,
+				D20000000000000000000202 /* DzvinkaWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,10 +109,12 @@
 				D20000000000000000000103 /* Sources */,
 				D200000000000000000000C2 /* Frameworks */,
 				D20000000000000000000104 /* Resources */,
+				D20000000000000000000204 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D20000000000000000000209 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D200000000000000000000A1 /* App */,
@@ -85,6 +123,26 @@
 			productName = Dzvinka;
 			productReference = D200000000000000000000E1 /* Dzvinka.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D20000000000000000000206 /* DzvinkaWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2000000000000000000020D /* Build configuration list for PBXNativeTarget "DzvinkaWidgetExtension" */;
+			buildPhases = (
+				D20000000000000000000207 /* Sources */,
+				D20000000000000000000205 /* Frameworks */,
+				D20000000000000000000208 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D20000000000000000000203 /* Widget */,
+			);
+			name = DzvinkaWidgetExtension;
+			productName = DzvinkaWidgetExtension;
+			productReference = D20000000000000000000202 /* DzvinkaWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -98,6 +156,19 @@
 				TargetAttributes = {
 					D200000000000000000000F1 = {
 						CreatedOnToolsVersion = 26.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+					D20000000000000000000206 = {
+						CreatedOnToolsVersion = 26.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -116,6 +187,7 @@
 			projectRoot = "";
 			targets = (
 				D200000000000000000000F1 /* Dzvinka */,
+				D20000000000000000000206 /* DzvinkaWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -126,6 +198,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				D200000000000000000000B2 /* Web in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D20000000000000000000208 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,7 +240,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D20000000000000000000207 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D20000000000000000000209 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D20000000000000000000206 /* DzvinkaWidgetExtension */;
+			targetProxy = D2000000000000000000020A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		D20000000000000000000107 /* Debug */ = {
@@ -219,8 +313,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Dzvinka.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -246,8 +341,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Dzvinka.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -264,6 +360,60 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.dzvinka.schedule;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D2000000000000000000020B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DzvinkaWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Дзвінка";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.dzvinka.schedule.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D2000000000000000000020C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DzvinkaWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Дзвінка";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.dzvinka.schedule.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -285,6 +435,15 @@
 			buildConfigurations = (
 				D20000000000000000000108 /* Debug */,
 				D2000000000000000000010B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2000000000000000000020D /* Build configuration list for PBXNativeTarget "DzvinkaWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2000000000000000000020B /* Debug */,
+				D2000000000000000000020C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

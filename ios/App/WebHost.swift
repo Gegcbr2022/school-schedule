@@ -23,6 +23,7 @@ struct WebHost: UIViewRepresentable {
     config.userContentController.addUserScript(flag)
     config.userContentController.add(context.coordinator.haptics, name: Haptics.channel)
     config.userContentController.add(context.coordinator.notifications, name: Notifications.channel)
+    config.userContentController.add(context.coordinator.widgets, name: Widgets.channel)
 
     let view = WKWebView(frame: .zero, configuration: config)
     view.navigationDelegate = context.coordinator
@@ -50,6 +51,7 @@ struct WebHost: UIViewRepresentable {
   final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
     let haptics = Haptics()
     let notifications = Notifications()
+    let widgets = Widgets()
 
     /// Усе, що не наш застосунок, відкриваємо системою: підручники з
     /// хмари, телефони вчителів, пошта. Усередині вікна їм не місце —
