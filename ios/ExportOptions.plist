@@ -19,6 +19,10 @@
 	<key>signingStyle</key>
 	<string>automatic</string>
 
+	<!-- Номер версії/збірки беремо з проєкту, а не даємо Xcode міняти його під час upload. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+
 	<!--
 	  Bitcode давно прибрали, App Thinning для одного вебзастосунку без
 	  важких ресурсів нічого не дає — не ускладнюємо.

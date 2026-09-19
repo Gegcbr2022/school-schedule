@@ -53,6 +53,7 @@ import {
 import type { Prefs } from './lib/prefs'
 import { DAY_PERIOD, allNotes, getNote, setNote } from './lib/notes'
 import { syncNotifications } from './lib/notifications'
+import { syncWidgets } from './lib/widgets'
 import {
   DEFAULT_PREFS,
   activeProfile,
@@ -255,7 +256,9 @@ export default function App() {
   const notePeriod = noteTarget?.lesson?.period ?? DAY_PERIOD
 
   useEffect(() => {
-    if (prefs) syncNotifications(prefs, view.today, now.minutes)
+    if (!prefs) return
+    syncNotifications(prefs, view.today, now.minutes)
+    syncWidgets(prefs, view.today, now.minutes)
   }, [prefs, view.today, now.minutes, notesVersion])
 
   return (
