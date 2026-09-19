@@ -112,10 +112,10 @@ describe('парність тижня', () => {
 })
 
 describe('розклад усієї школи', () => {
-  it('усі класи з 4 по 11', () => {
+  it('усі класи з 1 по 11', () => {
     const grades = classesByGrade().map((g) => g.grade)
-    expect(grades).toEqual([4, 5, 6, 7, 8, 9, 10, 11])
-    expect(TIMETABLE).toHaveLength(24)
+    expect(grades).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    expect(TIMETABLE).toHaveLength(33)
   })
 
   it('у кожного класу п’ять днів і хоч один урок', () => {
@@ -217,16 +217,20 @@ describe('предмети', () => {
   })
 
   it('«і» з паперу розділено: весь клас — історія, по групах — інформатика', () => {
-    // Понеділок, 3 урок — історик ЛК у своєму 19-му, весь клас.
+    // Понеділок, 3 урок — історик ЛК, весь клас. Кабінет 18: на стенді
+    // над «історія» стоїть саме він, а не звичний для ЛК 19-й.
     expect(at10b(G1, MON, 3)?.items[0].subject).toBe('Історія')
-    expect(at10b(G1, MON, 3)?.items[0].room).toBe('19')
+    expect(at10b(G1, MON, 3)?.items[0].room).toBe('18')
     // Вівторок, 3 урок — інформатик ІГ, 2 група, комп'ютерний 15-й.
     expect(at10b(G2, TUE, 3)?.items[0].subject).toBe('Інформатика')
     expect(at10b(G2, TUE, 3)?.items[0].room).toBe('15')
   })
 
   it('жоден клас не має інформатики без поділу на групи', () => {
-    for (const cls of TIMETABLE) {
+    // Лише 5–11: саме там «і» стоїть під спільним кодом з історією, і цей
+    // поділ — єдине, чим вони розрізняються. У молодшій школі предмет
+    // виписаний словом, і в 2-А та 4-Б інформатика справді йде всім класом.
+    for (const cls of TIMETABLE.filter((c) => parseInt(c.id, 10) >= 5)) {
       for (const cell of cls.days.flat().flatMap((l) => l.c)) {
         if (cell.s === 'і') expect(['1', '2']).toContain(cell.g)
         if (cell.s === 'іст') expect(cell.g === '1' || cell.g === '2').toBe(false)
@@ -251,12 +255,19 @@ describe('кабінети', () => {
     expect(roomLabel(undefined)).toBeNull()
   })
 
-  it('10-Б: кабінети з офіційного розкладу', () => {
-    expect(at10b(G1, MON, 1)?.items[0].room).toBeUndefined()
+  /*
+   * Понеділок і вівторок кабінетів не мали зовсім: PDF «домашню» кімнату
+   * класу не друкує, а попередній папір покривав лише середу–п'ятницю.
+   * Тепер їх дає стенд — звідси 12 на першому уроці й 18 на третьому.
+   */
+  it('10-Б: кабінети з офіційного розкладу і стенду', () => {
+    expect(at10b(G1, MON, 1)?.items[0].room).toBe('12')
     expect(at10b(G1, MON, 2)?.items[0].room).toBe('12')
-    expect(at10b(G1, MON, 3)?.items[0].room).toBe('19')
+    expect(at10b(G1, MON, 3)?.items[0].room).toBe('18')
     expect(at10b(G1, MON, 6)?.items[0].room).toBe('6')
-    expect(at10b(G1, TUE, 1)?.items[0].room).toBe('9')
+    // Фізика переїхала з 9-го в 11-й — і це схоже на правду: 11-й у школі
+    // фізичний (25 уроків проти 5), а 9-й хімічний (23 уроки хімії).
+    expect(at10b(G1, TUE, 1)?.items[0].room).toBe('11')
   })
 
   /*
@@ -349,7 +360,9 @@ describe('групи 10-Б', () => {
     expect(fortnightly).toContain('8а 4 1 і 1')
     expect(fortnightly).toContain('8а 4 1 і 2')
     expect(fortnightly).toContain('9в 3 8 нм 2')
-    expect(fortnightly).toHaveLength(30)
+    // Було 30: тридцятим стояла музика 4-Б, і знав про неї лише PDF.
+    // Відколи 4-і йдуть із Word, а Word парності не друкує, її тут немає.
+    expect(fortnightly).toHaveLength(29)
   })
 
   it('повний розклад показує всі варіанти з підписами', () => {

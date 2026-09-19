@@ -1154,6 +1154,88 @@ button {
   max-height: none;
 }
 
+/*
+ * Аркуш, який не прокручується: шапка, смуга вкладок і кнопки закріплені,
+ * а між ними — рівно одна вкладка. Вміст кожної підібраний так, щоб
+ * влазив; `auto` лишається запобіжником на дрібних екранах, а не режимом
+ * роботи — інакше налаштування просто обрізало б.
+ */
+.sheet--fixed {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet__tabs {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  margin-bottom: 14px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.sheet__tabs button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet__tabs button[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.sheet__pane {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet__pane > .field:last-of-type {
+  margin-bottom: 0;
+}
+
+/* Щільніші відступи — там, де аркуш мусить поміститись цілком. */
+.sheet--tight .field {
+  margin-bottom: 14px;
+}
+
+.sheet--tight .field__label {
+  margin-bottom: 6px;
+}
+
+.sheet--tight .sheet__head {
+  margin-bottom: 10px;
+}
+
+.sheet--tight .sheet__intro {
+  margin-bottom: 14px;
+}
+
+/* Застереження під сіткою тижня: помітне, але не кричить. */
+.sheet__note {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
 .note-input {
   display: block;
   width: 100%;
@@ -1539,17 +1621,23 @@ button {
 
 /* ── Вибір класу ─────────────────────────────────────────────────────── */
 
+/*
+ * Одинадцять паралелей по чотири класи мусять поміститись на екран
+ * телефона цілком, без прокрутки. Тому це сітка з фіксованими колонками,
+ * а не перенос рядків: літери шикуються одна під одною, і кожна паралель
+ * займає рівно один рядок заввишки в кнопку.
+ */
 .grade {
-  display: flex;
+  display: grid;
+  /* П'ять колонок, бо в п'ятій паралелі п'ять класів — від А до Д. */
+  grid-template-columns: 16px repeat(5, minmax(0, 1fr));
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 3px;
+  margin-bottom: 3px;
 }
 
 .grade__label {
-  flex: none;
-  width: 20px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-3);
   text-align: right;
@@ -1557,18 +1645,14 @@ button {
 }
 
 .grade__classes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  flex: 1;
+  display: contents;
 }
 
 .option--tight {
-  flex: 0 1 auto;
-  min-width: 58px;
-  min-height: 40px;
-  padding: 0 10px;
-  font-size: 14px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 2px;
+  font-size: 12.5px;
 }
 
 .sheet__actions {

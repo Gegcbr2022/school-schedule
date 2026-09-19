@@ -10,6 +10,7 @@ import {
   LANGUAGE_LABEL,
 } from '../data/schedule'
 import { haptic } from '../lib/haptics'
+import { notificationsWork } from '../lib/notifications'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
 import type { Prefs, Profile, Role, Theme } from '../lib/prefs'
@@ -50,6 +51,18 @@ type Props = {
 type Option<T> = { value: T; label: string; sub?: string }
 
 /** Група перемикачів на справжніх radio — заради клавіатури й читалок екрана. */
+/** Вкладки аркуша налаштувань — рівно стільки, щоб жодна не прокручувалась. */
+const ALL_TABS = ['клас', 'групи', 'профіль', 'ще'] as const
+type Tab = (typeof ALL_TABS)[number]
+const TAB_LABEL: Record<Tab, string> = {
+  'клас': 'Клас',
+  'групи': 'Групи',
+  'профіль': 'Профіль',
+  // Не «Ще»: на цій вкладці лише нагадування, і краще сказати це прямо,
+  // ніж лишати людину гадати, що там сховано.
+  'ще': 'Нагадування',
+}
+
 function Radios<T extends string>({
   name,
   legend,
@@ -143,27 +156,14 @@ function leadLabel(minutes: number): string {
 }
 
 /** Клас і групи одного профілю — те саме поле для учня, дитини й завуча. */
-function ClassFields({
-  profile,
-  onChange,
-}: {
+type FieldsProps = {
   profile: Profile
   onChange: (patch: Partial<Profile>) => void
-}) {
+}
+
+/** Вибір класу — окремо від поділів, бо вони живуть на різних вкладках. */
+function ClassPicker({ profile, onChange }: FieldsProps) {
   const cls = classById(profile.classId)
-  // Питаємо лише про ті поділи, які в цьому класі справді є.
-  const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
-
-  // Підгрупи англійської підписуємо вчителем, якщо він відомий.
-  const englishOptions: Option<Profile['english']>[] = ENGLISH_GROUPS.map((g) => {
-    const code = cls?.days
-      .flat()
-      .flatMap((l) => l.c)
-      .find((c) => c.g === g)?.t
-    const who = code ? teacherOf(code, 'ам', profile.classId) : undefined
-    return { value: g, label: g.toUpperCase(), sub: who ? scheduleName(who) : code }
-  })
-
   return (
     <>
       <fieldset className="field">
@@ -191,7 +191,34 @@ function ClassFields({
         ))}
         {cls?.homeroom && <p className="field__hint">Класний керівник: {cls.homeroom}</p>}
       </fieldset>
+    </>
+  )
+}
 
+/**
+ * Поділи класу: навчальна група, друга іноземна, англійська підгрупа,
+ * фізкультура. Питаємо лише про ті, які в цьому класі справді є.
+ */
+function GroupFields({ profile, onChange }: FieldsProps) {
+  const cls = classById(profile.classId)
+  const dims: Set<Dim> = cls ? dimensionsOf(cls) : new Set()
+
+  // Підгрупи англійської підписуємо вчителем, якщо він відомий.
+  const englishOptions: Option<Profile['english']>[] = ENGLISH_GROUPS.map((g) => {
+    const code = cls?.days
+      .flat()
+      .flatMap((l) => l.c)
+      .find((c) => c.g === g)?.t
+    const who = code ? teacherOf(code, 'ам', profile.classId) : undefined
+    return { value: g, label: g.toUpperCase(), sub: who ? scheduleName(who) : code }
+  })
+
+  if (dims.size === 0) {
+    return <p className="field__hint">Цей клас ні на що не ділиться — налаштовувати нічого.</p>
+  }
+
+  return (
+    <>
       {dims.has('classGroup') && (
         <Radios
           name="classGroup"
@@ -199,7 +226,7 @@ function ClassFields({
           options={CLASS_OPTIONS}
           value={profile.classGroup}
           onChange={(classGroup) => onChange({ classGroup })}
-          hint="Ділить клас на спарених уроках — українській, інформатиці, технологіях."
+          hint="Ділить клас навпіл на уроках, де групи вчаться окремо."
         />
       )}
 
@@ -266,6 +293,21 @@ export function SettingsSheet({
   const update = (patch: Partial<Profile>) => commit(withProfile(draft, { ...profile, ...patch }))
 
   /*
+   * Аркуш налаштувань не прокручується: усе, що в ньому є, розкладено по
+   * вкладках, і видно рівно одну. Інакше на телефоні це сувій на три
+   * екрани, у якому «Тема» захована десь під сповіщеннями.
+   */
+  const [tab, setTab] = useState<Tab>('клас')
+
+  /*
+   * Нагадування ставить операційна система телефона. У браузері й у PWA
+   * містка до неї немає, тож вкладки теж немає: показувати перемикачі,
+   * які нічого не вмикають, — обіцяти те, чого застосунок не зробить.
+   */
+  const TABS = ALL_TABS.filter((name) => name !== 'ще' || notificationsWork())
+  const shown = TABS.includes(tab) ? tab : 'клас'
+
+  /*
    * Список профілів показуємо не лише в «багатопрофільних» ролях, а й
    * усюди, де профілів справді кілька: інакше той, хто повернув роль
    * назад на «Учня», більше не дістанеться до заведених профілів.
@@ -328,7 +370,7 @@ export function SettingsSheet({
       {...backdrop}
     >
       <div
-        className="sheet"
+        className={onboarding ? 'sheet sheet--tight' : 'sheet sheet--tight sheet--fixed'}
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
@@ -349,12 +391,32 @@ export function SettingsSheet({
           )}
         </div>
 
-        <p className="sheet__intro">
-          {onboarding
-            ? 'Оберіть свій клас — і побачите саме свій розклад. Учителі, батьки й завучі можуть увімкнути свій режим. Змінити можна будь-коли.'
-            : 'Налаштування зберігаються лише на цьому пристрої.'}
-        </p>
+        {onboarding && (
+          <p className="sheet__intro">
+            Оберіть свій клас — і побачите саме свій розклад. Учителі, батьки й завучі
+            можуть увімкнути свій режим. Змінити можна будь-коли.
+          </p>
+        )}
 
+        {!onboarding && (
+          <div className="sheet__tabs" role="tablist" aria-label="Розділи налаштувань">
+            {TABS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                aria-selected={shown === name}
+                onClick={() => setTab(name)}
+              >
+                {TAB_LABEL[name]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className={onboarding ? undefined : 'sheet__pane'}>
+
+        {(onboarding || shown === 'профіль') && (
         <Radios
           name="role"
           legend="Чий розклад показувати"
@@ -363,8 +425,9 @@ export function SettingsSheet({
           onChange={setRole}
           hint={ROLE_HINT[draft.role]}
         />
+        )}
 
-        {multi && (
+        {(onboarding || shown === 'профіль') && multi && (
           <fieldset className="field">
             <legend className="field__label">{ROLE_LIST_TITLE[draft.role]}</legend>
             <ul className="plist">
@@ -422,7 +485,7 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {askKind && (
+        {(onboarding || shown === 'клас') && askKind && (
           <Radios
             name="kind"
             legend="Це розклад"
@@ -436,7 +499,7 @@ export function SettingsSheet({
           />
         )}
 
-        {teacherMode ? (
+        {(onboarding || shown === 'клас') && teacherMode ? (
           <fieldset className="field">
             <legend className="field__label">Вчитель</legend>
             <select
@@ -456,11 +519,17 @@ export function SettingsSheet({
               так і лишились нерозгаданими — їх у списку немає.
             </p>
           </fieldset>
-        ) : (
-          <ClassFields profile={profile} onChange={update} />
+        ) : null}
+
+        {(onboarding || shown === 'клас') && !teacherMode && (
+          <ClassPicker profile={profile} onChange={update} />
         )}
 
-        {!onboarding && (
+        {!onboarding && shown === 'групи' && !teacherMode && (
+          <GroupFields profile={profile} onChange={update} />
+        )}
+
+        {!onboarding && shown === 'профіль' && (
           <fieldset className="field">
             <legend className="field__label">Поза уроками</legend>
             <button type="button" className="btn btn--quiet btn--wide" onClick={onClubs}>
@@ -473,7 +542,7 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {!onboarding && (
+        {!onboarding && shown === 'ще' && (
           <fieldset className="field">
             <legend className="field__label">Сповіщення</legend>
             <div className="checks">
@@ -564,15 +633,20 @@ export function SettingsSheet({
           </fieldset>
         )}
 
-        {!onboarding && (
-          <Radios
-            name="theme"
-            legend="Тема"
-            options={THEME_OPTIONS}
-            value={theme}
-            onChange={onTheme}
-          />
+        {!onboarding && shown === 'профіль' && (
+          <>
+            <Radios
+              name="theme"
+              legend="Тема"
+              options={THEME_OPTIONS}
+              value={theme}
+              onChange={onTheme}
+            />
+            <p className="field__hint">Налаштування зберігаються лише на цьому пристрої.</p>
+          </>
         )}
+
+        </div>
 
         <div className="sheet__actions">
           <button
