@@ -12,6 +12,10 @@ import SwiftUI
 /// усередині застосунку, і тримає тло під статусбаром у колір теми.
 @main
 struct DzvinkaApp: App {
+  init() {
+    WatchSync.shared.activate()
+  }
+
   var body: some Scene {
     WindowGroup {
       RootView()

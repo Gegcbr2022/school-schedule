@@ -23,6 +23,7 @@ final class Widgets: NSObject, WKScriptMessageHandler {
       let data = try JSONSerialization.data(withJSONObject: body)
       SharedStore.defaults?.set(data, forKey: SharedStore.widgetSnapshotKey)
       WidgetCenter.shared.reloadAllTimelines()
+      WatchSync.shared.sendLatest()
       os_log("widget snapshot synced", log: log, type: .info)
     } catch {
       os_log("widget snapshot error %{public}@", log: log, type: .error, error.localizedDescription)
