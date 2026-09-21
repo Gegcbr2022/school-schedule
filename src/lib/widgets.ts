@@ -36,17 +36,21 @@ type WidgetStatus = {
   progress: number
 }
 
-export type WidgetSnapshot = {
+export type WidgetDay = {
+  date: string
+  dayName: string
+  schoolCount: number
+  lessons: WidgetLesson[]
+}
+
+export type WidgetSnapshot = WidgetDay & {
   type: 'snapshot'
   version: 1
   updatedAt: string
-  date: string
-  dayName: string
   profileName: string
   profileSub: string
-  schoolCount: number
-  lessons: WidgetLesson[]
   status: WidgetStatus
+  days: WidgetDay[]
 }
 
 let lastSnapshot = ''
@@ -140,6 +144,16 @@ function profileLessons(profile: Profile, today: CalendarDate): DisplayLesson[] 
   return withClubs(profileDay(profile, iso - 1, week, 'my'), clubsOn(profile, iso, week))
 }
 
+function snapshotDay(profile: Profile, date: CalendarDate): WidgetDay {
+  const lessons = profileLessons(profile, date)
+  return {
+    date: dateKey(date),
+    dayName: DAY_NAME[isoOf(date)],
+    schoolCount: lessonsOnly(lessons).length,
+    lessons: lessons.map(widgetLesson),
+  }
+}
+
 export function buildWidgetSnapshot(
   prefs: Prefs,
   today: CalendarDate,
@@ -149,16 +163,14 @@ export function buildWidgetSnapshot(
   const lessons = profileLessons(profile, today)
 
   return {
+    ...snapshotDay(profile, today),
     type: 'snapshot',
     version: 1,
     updatedAt: new Date().toISOString(),
-    date: dateKey(today),
-    dayName: DAY_NAME[isoOf(today)],
     profileName: profileName(profile),
     profileSub: profileSub(profile),
-    schoolCount: lessonsOnly(lessons).length,
-    lessons: lessons.map(widgetLesson),
     status: statusSnapshot(lessons, nowMin),
+    days: Array.from({ length: 7 }, (_, offset) => snapshotDay(profile, addDays(today, offset))),
   }
 }
 
@@ -167,9 +179,9 @@ export function syncWidgets(prefs: Prefs, today: CalendarDate, nowMin: number): 
   if (!target) return
 
   const snapshot = buildWidgetSnapshot(prefs, today, nowMin)
-  const serialized = JSON.stringify(snapshot)
+  const serialized = JSON.stringify({ ...snapshot, updatedAt: undefined, status: undefined })
   if (serialized === lastSnapshot) return
-  lastSnapshot = serialized
 
   target.postMessage(snapshot)
+  lastSnapshot = serialized
 }

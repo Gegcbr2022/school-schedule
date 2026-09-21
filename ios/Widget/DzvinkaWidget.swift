@@ -36,9 +36,18 @@ private struct Snapshot: Codable, Hashable {
   let schoolCount: Int
   let lessons: [Lesson]
   let status: SnapshotStatus
+  let days: [SnapshotDay]?
+}
+
+private struct SnapshotDay: Codable, Hashable {
+  let date: String
+  let dayName: String
+  let schoolCount: Int
+  let lessons: [Lesson]
 }
 
 private enum LiveStatus: Hashable {
+  case unavailable
   case empty
   case before(next: Lesson, minutes: Int)
   case lesson(current: Lesson, next: Lesson?, minutes: Int, progress: Double)
@@ -50,6 +59,44 @@ private struct WidgetEntry: TimelineEntry {
   let date: Date
   let snapshot: Snapshot?
   let status: LiveStatus
+
+  var countdown: ClosedRange<Date>? {
+    guard let deadlineMinute else { return nil }
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Europe/Kyiv") ?? .current
+    guard let end = calendar.date(
+      bySettingHour: deadlineMinute / 60,
+      minute: deadlineMinute % 60,
+      second: 0,
+      of: date
+    ), end > date else { return nil }
+    return date...end
+  }
+
+  var deadlineText: String? {
+    guard let deadlineMinute else { return nil }
+    return String(format: "%02d:%02d", deadlineMinute / 60, deadlineMinute % 60)
+  }
+
+  var deadlinePrefix: String {
+    if case .lesson = status { return "до" }
+    return "о"
+  }
+
+  var countdownLabel: String {
+    if case .lesson(let current, _, _, _) = status {
+      return current.isClub ? "до кінця" : "до дзвінка"
+    }
+    return "до початку"
+  }
+
+  private var deadlineMinute: Int? {
+    switch status {
+      case .before(let next, _), .pause(let next, _): return next.start
+      case .lesson(let current, _, _, _): return current.end
+      default: return nil
+    }
+  }
 }
 
 private struct Provider: TimelineProvider {
@@ -63,22 +110,37 @@ private struct Provider: TimelineProvider {
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetEntry>) -> Void) {
     let now = Date()
-    let moments = refreshMoments(from: now, snapshot: loadSnapshot())
+    let moments = refreshMoments(from: now, snapshot: loadSnapshot(for: now))
     let entries = moments.map { entry(for: $0) }
     completion(Timeline(entries: entries, policy: .after(moments.last ?? now.addingTimeInterval(15 * 60))))
   }
 
   private func entry(for date: Date) -> WidgetEntry {
-    let snapshot = loadSnapshot()
+    let snapshot = loadSnapshot(for: date)
     return WidgetEntry(date: date, snapshot: snapshot, status: liveStatus(snapshot: snapshot, at: date))
   }
 
-  private func loadSnapshot() -> Snapshot? {
+  private func loadSnapshot(for date: Date) -> Snapshot? {
     guard
       let data = UserDefaults(suiteName: WidgetStore.appGroup)?.data(forKey: WidgetStore.snapshotKey),
-      let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data)
+      let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data),
+      snapshot.version == 1
     else { return nil }
-    return snapshot
+    let key = Self.dateKey(date)
+    if snapshot.date == key { return snapshot }
+    guard let day = snapshot.days?.first(where: { $0.date == key }) else { return nil }
+    return Snapshot(
+      version: snapshot.version,
+      updatedAt: snapshot.updatedAt,
+      date: day.date,
+      dayName: day.dayName,
+      profileName: snapshot.profileName,
+      profileSub: snapshot.profileSub,
+      schoolCount: day.schoolCount,
+      lessons: day.lessons,
+      status: snapshot.status,
+      days: snapshot.days
+    )
   }
 
   private func refreshMoments(from now: Date, snapshot: Snapshot?) -> [Date] {
@@ -89,6 +151,9 @@ private struct Provider: TimelineProvider {
 
     let calendar = Self.kyivCalendar
     let startOfDay = calendar.startOfDay(for: now)
+    if let midnight = calendar.date(byAdding: .day, value: 1, to: startOfDay) {
+      dates.append(midnight)
+    }
     for lesson in snapshot?.lessons ?? [] {
       for value in [lesson.start, lesson.end] {
         if let date = calendar.date(byAdding: .minute, value: value, to: startOfDay), date > now {
@@ -102,8 +167,8 @@ private struct Provider: TimelineProvider {
   }
 
   private func liveStatus(snapshot: Snapshot?, at date: Date) -> LiveStatus {
-    guard let snapshot else { return .empty }
-    guard snapshot.date == Self.dateKey(date) else { return .empty }
+    guard let snapshot else { return .unavailable }
+    guard snapshot.date == Self.dateKey(date) else { return .unavailable }
     let lessons = snapshot.lessons
     guard let first = lessons.first, let last = lessons.last else { return .empty }
 
@@ -166,15 +231,20 @@ private extension Snapshot {
     profileSub: "Розклад уроків",
     schoolCount: 6,
     lessons: [.demo, .nextDemo],
-    status: SnapshotStatus(kind: "lesson", title: "Зараз 3 урок", subtitle: "Математика", minutes: 12, progress: 0.62)
+    status: SnapshotStatus(kind: "lesson", title: "Зараз 3 урок", subtitle: "Математика", minutes: 12, progress: 0.62),
+    days: nil
   )
 }
 
-private extension View {
-  func dzvinkaBackground() -> some View {
-    containerBackground(for: .widget) {
+private struct DzvinkaBackground: ViewModifier {
+  @Environment(\.colorScheme) private var colorScheme
+
+  func body(content: Content) -> some View {
+    content.containerBackground(for: .widget) {
       LinearGradient(
-        colors: [Color(red: 0.96, green: 0.98, blue: 0.99), Color(red: 0.89, green: 0.95, blue: 0.94)],
+        colors: colorScheme == .dark
+          ? [Color(red: 0.08, green: 0.12, blue: 0.14), Color(red: 0.10, green: 0.18, blue: 0.17)]
+          : [Color(red: 0.96, green: 0.98, blue: 0.99), Color(red: 0.89, green: 0.95, blue: 0.94)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
       )
@@ -182,13 +252,36 @@ private extension View {
   }
 }
 
-private func minutesText(_ minutes: Int) -> String {
-  if minutes <= 0 { return "зараз" }
-  return "\(minutes) хв"
+private extension View {
+  func dzvinkaBackground() -> some View {
+    modifier(DzvinkaBackground())
+  }
+}
+
+private struct CountdownView: View {
+  @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+  let entry: WidgetEntry
+  var compact = false
+
+  var body: some View {
+    if let interval = entry.countdown, let deadline = entry.deadlineText {
+      if isLuminanceReduced {
+        Text(compact ? deadline : "До \(deadline)")
+          .monospacedDigit()
+      } else {
+        Text(timerInterval: interval, countsDown: true, showsHours: true)
+          .monospacedDigit()
+          .minimumScaleFactor(0.6)
+          .lineLimit(1)
+      }
+    }
+  }
 }
 
 private func title(for status: LiveStatus) -> String {
   switch status {
+    case .unavailable: return "Онови розклад"
     case .empty: return "Уроків немає"
     case .before: return "До початку"
     case .lesson(let current, _, _, _): return current.isClub ? "Зараз гурток" : "Зараз \(current.n) урок"
@@ -199,17 +292,11 @@ private func title(for status: LiveStatus) -> String {
 
 private func subject(for status: LiveStatus) -> String {
   switch status {
-    case .empty: return "Відкрий Дзвінку, щоб оновити"
+    case .unavailable: return "Відкрий Дзвінку, щоб оновити"
+    case .empty: return "На сьогодні розклад порожній"
     case .before(let next, _), .pause(let next, _): return next.title
     case .lesson(let current, _, _, _): return current.title
     case .done(let total): return "Було \(total) уроків"
-  }
-}
-
-private func minutes(for status: LiveStatus) -> Int {
-  switch status {
-    case .before(_, let minutes), .lesson(_, _, let minutes, _), .pause(_, let minutes): return minutes
-    default: return 0
   }
 }
 
@@ -238,9 +325,19 @@ private struct NowSmallView: View {
         EmptyView()
       }
       .gaugeStyle(.accessoryLinearCapacity)
-      Text(minutes(for: entry.status) > 0 ? "\(minutesText(minutes(for: entry.status))) лишилось" : "за київським часом")
+      if entry.countdown != nil {
+        HStack(spacing: 4) {
+          CountdownView(entry: entry)
+          Spacer(minLength: 0)
+          Text(entry.countdownLabel)
+        }
         .font(.caption2)
         .foregroundStyle(.secondary)
+      } else {
+        Text("за київським часом")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
     }
     .dzvinkaBackground()
   }
@@ -253,9 +350,7 @@ private struct NowAccessoryRectangularView: View {
     VStack(alignment: .leading, spacing: 2) {
       Text(title(for: entry.status)).font(.caption2)
       Text(subject(for: entry.status)).font(.headline).lineLimit(1)
-      if minutes(for: entry.status) > 0 {
-        Text("\(minutesText(minutes(for: entry.status)))").font(.caption)
-      }
+      CountdownView(entry: entry).font(.caption)
     }
   }
 }
@@ -267,7 +362,13 @@ private struct NowAccessoryCircularView: View {
     Gauge(value: progress(for: entry.status)) {
       Text("Дз")
     } currentValueLabel: {
-      Text(minutes(for: entry.status) > 0 ? "\(minutes(for: entry.status))" : "✓")
+      if entry.countdown != nil {
+        CountdownView(entry: entry, compact: true).font(.caption2)
+      } else if case .done = entry.status {
+        Text("✓")
+      } else {
+        Text("—")
+      }
     }
     .gaugeStyle(.accessoryCircular)
   }
@@ -302,10 +403,10 @@ private struct NextSmallView: View {
           .foregroundStyle(.secondary)
           .lineLimit(1)
       } else {
-        Text("На сьогодні все")
+        Text(entry.snapshot == nil ? "Онови розклад" : "На сьогодні все")
           .font(.title3.weight(.semibold))
         Spacer(minLength: 0)
-        Text(entry.snapshot?.dayName ?? "")
+        Text(entry.snapshot?.dayName ?? "Відкрий Дзвінку на iPhone")
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -328,8 +429,9 @@ private struct DayView: View {
             .foregroundStyle(.secondary)
         }
         Spacer()
-        Text(minutes(for: entry.status) > 0 ? minutesText(minutes(for: entry.status)) : "")
+        CountdownView(entry: entry)
           .font(.headline.monospacedDigit())
+          .frame(maxWidth: 88, alignment: .trailing)
       }
 
       ForEach(Array((entry.snapshot?.lessons ?? []).prefix(5).enumerated()), id: \.offset) { _, lesson in
@@ -350,9 +452,27 @@ private struct DayView: View {
         }
       }
 
+      if entry.snapshot == nil {
+        Text("Відкрий Дзвінку на iPhone, щоб оновити розклад")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+
       Spacer(minLength: 0)
     }
     .dzvinkaBackground()
+  }
+}
+
+private struct NowAccessoryInlineView: View {
+  let entry: WidgetEntry
+
+  var body: some View {
+    if let deadline = entry.deadlineText {
+      Text("\(subject(for: entry.status)) · \(entry.deadlinePrefix) \(deadline)")
+    } else {
+      Text(title(for: entry.status))
+    }
   }
 }
 
@@ -365,8 +485,10 @@ private struct NowWidgetRoot: View {
     switch family {
       case .accessoryCircular:
         NowAccessoryCircularView(entry: entry)
-      case .accessoryRectangular, .accessoryInline:
+      case .accessoryRectangular:
         NowAccessoryRectangularView(entry: entry)
+      case .accessoryInline:
+        NowAccessoryInlineView(entry: entry)
       default:
         NowSmallView(entry: entry)
     }
