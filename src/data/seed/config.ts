@@ -95,5 +95,5 @@ export const SCHOOL = {
   name: 'Ліцей №11 Івано-Франківської міської ради',
   timezone: 'Europe/Kyiv',
   yearStart: { month: 9, day: 1 },
-  seedVersion: '2026-09-15T00:30',
+  seedVersion: '2026-09-21T13:00',
 }
