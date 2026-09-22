@@ -14,6 +14,11 @@
 declare global {
   interface Window {
     __native?: { platform: 'ios' }
+    /**
+     * Розклад, який відкрили файлом. Кличе оболонка, коли по
+     * `.dzvinka` натиснули в «Файлах» або прийняли через AirDrop.
+     */
+    __dzvinkaImport?: (code: string) => void
     webkit?: {
       messageHandlers?: Record<string, { postMessage: (value: unknown) => void }>
     }

@@ -74,7 +74,13 @@ export function LessonList({ lessons, nowMin, noteFor, onOpenNote, onOpenClub }:
 
         return (
           <Fragment key={lesson.club ?? lesson.n}>
-            <li className={lesson.club ? `lesson lesson--${state} lesson--club` : `lesson lesson--${state}`}>
+            <li
+              className={
+                lesson.club
+                  ? `lesson lesson--${state} lesson--club lesson--t${lesson.tone ?? 0}`
+                  : `lesson lesson--${state}`
+              }
+            >
               <div className="lesson__time">
                 <span className="lesson__start">{formatTime(lesson.start)}</span>
                 <span className="lesson__end">{formatTime(lesson.end)}</span>

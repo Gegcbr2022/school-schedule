@@ -178,6 +178,26 @@ export function plural(n: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
+/**
+ * Скільки вже триває — на відміну від `formatDuration`, розрахована на
+ * довгі проміжки.
+ *
+ * Тривога в прифронтовій області може тривати тижнями, і «триває
+ * 109 год 28 хв» людина не читає — вона це пропускає. Після доби
+ * рахуємо днями, після години — годинами, без хвилин: точність тут
+ * нікому не потрібна, потрібен порядок величини.
+ */
+export function formatElapsed(minutes: number): string {
+  const total = Math.max(0, Math.floor(minutes))
+  if (total < 60) return `${total} ${plural(total, ['хвилину', 'хвилини', 'хвилин'])}`
+
+  const hours = Math.floor(total / 60)
+  if (hours < 24) return `${hours} ${plural(hours, ['годину', 'години', 'годин'])}`
+
+  const days = Math.floor(hours / 24)
+  return `${days} ${plural(days, ['день', 'дні', 'днів'])}`
+}
+
 /** Назви днів тижня за ISO-номером. */
 export const DAY_NAME: Record<number, string> = {
   1: 'Понеділок',

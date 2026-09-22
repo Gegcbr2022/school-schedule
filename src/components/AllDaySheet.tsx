@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
+import type { CalendarDate } from '../lib/clock'
 import { formatDuration, formatTime, plural } from '../lib/clock'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import type { DayStatus, DisplayLesson } from '../lib/lessons'
@@ -24,6 +25,8 @@ type Props = {
   when: string
   /** День тижня за ISO, 1 (Пн) … 7 (Нд). */
   iso: number
+  /** Сама дата — без неї не видно, що гурток цього дня скасовано. */
+  date: CalendarDate
   week: WeekParity
   /** Уроків цього дня немає ні в кого: вихідний або свято. */
   noLessons: boolean
@@ -98,6 +101,7 @@ export function AllDaySheet({
   profiles,
   when,
   iso,
+  date,
   week,
   noLessons,
   nowMin,
@@ -117,7 +121,7 @@ export function AllDaySheet({
 
   const lines: Line[] = profiles.map((profile) => {
     const lessons = noLessons ? [] : schoolDay(profile, iso, week)
-    const rows = withClubs(lessons, clubsOn(profile, iso, week))
+    const rows = withClubs(lessons, clubsOn(profile, iso, week, date))
     return {
       profile,
       rows,

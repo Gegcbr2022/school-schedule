@@ -9,7 +9,10 @@ import {
   LANGUAGE_GROUPS,
   LANGUAGE_LABEL,
 } from '../data/schedule'
+import { OBLASTS, oblastOfKey } from '../data/regions'
+import { alertsAvailable } from '../lib/alerts'
 import { haptic } from '../lib/haptics'
+import { liveWorks } from '../lib/live'
 import { notificationsWork } from '../lib/notifications'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import { classById, classesByGrade, dimensionsOf } from '../lib/lessons'
@@ -32,7 +35,7 @@ import {
   profileTone,
 } from '../lib/profiles'
 import { formalName, scheduleName, scheduleTeachers, teacherOf } from '../lib/teachers'
-import { CloseIcon, PlusIcon, StarIcon, TrashIcon } from './Icons'
+import { CloseIcon, PlusIcon, ShareIcon, StarIcon, TrashIcon } from './Icons'
 
 type Props = {
   /** Перше знайомство показуємо без хрестика і з кнопкою «Готово». */
@@ -43,6 +46,8 @@ type Props = {
   onTheme: (theme: Theme) => void
   /** Відкрити гуртки цього профілю. */
   onClubs: () => void
+  /** Поділитися налаштованим розкладом. */
+  onShare: () => void
   onClose: () => void
   onReset: () => void
 }
@@ -52,7 +57,7 @@ type Option<T> = { value: T; label: string; sub?: string }
 
 /** Група перемикачів на справжніх radio — заради клавіатури й читалок екрана. */
 /** Вкладки аркуша налаштувань — рівно стільки, щоб жодна не прокручувалась. */
-const ALL_TABS = ['клас', 'групи', 'профіль', 'ще'] as const
+const ALL_TABS = ['клас', 'групи', 'профіль', 'ще', 'тривога'] as const
 type Tab = (typeof ALL_TABS)[number]
 const TAB_LABEL: Record<Tab, string> = {
   'клас': 'Клас',
@@ -61,6 +66,7 @@ const TAB_LABEL: Record<Tab, string> = {
   // Не «Ще»: на цій вкладці лише нагадування, і краще сказати це прямо,
   // ніж лишати людину гадати, що там сховано.
   'ще': 'Нагадування',
+  'тривога': 'Тривога',
 }
 
 function Radios<T extends string>({
@@ -273,6 +279,7 @@ export function SettingsSheet({
   onPrefs,
   onTheme,
   onClubs,
+  onShare,
   onClose,
   onReset,
 }: Props) {
@@ -304,7 +311,13 @@ export function SettingsSheet({
    * містка до неї немає, тож вкладки теж немає: показувати перемикачі,
    * які нічого не вмикають, — обіцяти те, чого застосунок не зробить.
    */
-  const TABS = ALL_TABS.filter((name) => name !== 'ще' || notificationsWork())
+  const TABS = ALL_TABS.filter((name) => {
+    if (name === 'ще') return notificationsWork()
+    // Вкладки тривоги немає там, де застосунок зібрали без адреси
+    // джерела: обіцяти стеження, якого не буде, гірше, ніж мовчати.
+    if (name === 'тривога') return alertsAvailable()
+    return true
+  })
   const shown = TABS.includes(tab) ? tab : 'клас'
 
   /*
@@ -351,6 +364,17 @@ export function SettingsSheet({
   const setNotifications = (patch: Partial<typeof notifications>) => {
     commit({ ...draft, notifications: { ...notifications, ...patch } })
   }
+
+  const setAlerts = (patch: Partial<typeof draft.alerts>) => {
+    commit({ ...draft, alerts: { ...draft.alerts, ...patch } })
+  }
+
+  /*
+   * Область обраного місця. Обраним може бути і сама область, і район у
+   * ній — у налаштуваннях зберігається один ключ, а списків два: другий
+   * просто показує райони тієї області, яку видно в першому.
+   */
+  const pickedOblast = oblastOfKey(draft.alerts.region)
 
   const removeProfile = (victim: Profile) => {
     if (draft.profiles.length < 2) return
@@ -539,6 +563,15 @@ export function SettingsSheet({
             <p className="field__hint">
               Секції, музична школа, репетитор — стануть у стрічку дня разом з уроками.
             </p>
+
+            <button type="button" className="btn btn--quiet btn--wide" onClick={onShare}>
+              <ShareIcon />
+              Поділитися розкладом
+            </button>
+            <p className="field__hint">
+              Клас, групи й гуртки одним файлом або посиланням — щоб не налаштовувати
+              те саме вдруге на іншому телефоні.
+            </p>
           </fieldset>
         )}
 
@@ -626,11 +659,203 @@ export function SettingsSheet({
                   </option>
                 ))}
               </select>
+
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.clubLeave}
+                  disabled={!notifications.enabled}
+                  onChange={(event) => setNotifications({ clubLeave: event.target.checked })}
+                />
+                <span>
+                  <span className="check__label">Що час виходити на гурток</span>
+                  <span className="check__hint">
+                    За дорогою, яку вказали в гуртку, — а не тоді, коли заняття вже почалось.
+                  </span>
+                </span>
+              </label>
+
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={notifications.clubPayment}
+                  disabled={!notifications.enabled}
+                  onChange={(event) => setNotifications({ clubPayment: event.target.checked })}
+                />
+                <span>
+                  <span className="check__label">Про оплату гуртка</span>
+                  <span className="check__hint">За три дні до дати «оплачено до» і в сам день.</span>
+                </span>
+              </label>
             </div>
             <p className="field__hint">
               Нагадування ставляться на найближчі чотири тижні й оновлюються після змін у розкладі, профілях або ДЗ.
             </p>
           </fieldset>
+        )}
+
+        {!onboarding && shown === 'ще' && liveWorks() && (
+          <fieldset className="field">
+            <legend className="field__label">Екран блокування</legend>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={draft.live}
+                onChange={(event) => commit({ ...draft, live: event.target.checked })}
+              />
+              <span>
+                <span className="check__label">Показувати урок на екрані блокування</span>
+                <span className="check__hint">
+                  Поточний урок і відлік до дзвінка — на екрані блокування й у динамічному
+                  острові. З'являється в навчальний день і зникає після останнього уроку.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+        )}
+
+        {!onboarding && shown === 'тривога' && (
+          <>
+            <fieldset className="field">
+              <legend className="field__label">Повітряна тривога</legend>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={draft.alerts.enabled}
+                  onChange={(event) => setAlerts({ enabled: event.target.checked })}
+                />
+                <span>
+                  <span className="check__label">Стежити за тривогою</span>
+                  <span className="check__hint">
+                    Показувати стан над розкладом і підказувати, на який урок повертатись
+                    після відбою.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+
+            <fieldset className="field">
+              <legend className="field__label">Де ви</legend>
+              <select
+                className="select"
+                value={String(pickedOblast?.uid ?? '')}
+                disabled={!draft.alerts.enabled}
+                aria-label="Область, за якою стежити"
+                onChange={(event) => setAlerts({ region: event.target.value })}
+              >
+                {OBLASTS.map((oblast) => (
+                  <option key={oblast.uid} value={String(oblast.uid)}>
+                    {oblast.name}
+                  </option>
+                ))}
+              </select>
+
+              {pickedOblast && pickedOblast.raions.length > 0 && (
+                <select
+                  className="select select--second"
+                  value={draft.alerts.region}
+                  disabled={!draft.alerts.enabled}
+                  aria-label="Район, за яким стежити"
+                  onChange={(event) => setAlerts({ region: event.target.value })}
+                >
+                  <option value={String(pickedOblast.uid)}>Уся область</option>
+                  {pickedOblast.raions.map((raion) => (
+                    <option key={raion.uid} value={String(raion.uid)}>
+                      {raion.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <p className="field__hint">
+                {/*
+                  Сама лише область не годиться там, де вона найпотрібніша:
+                  у прифронтових областях тривога майже завжди є хоч десь, і
+                  цілодобово червона картка швидко перестає щось означати.
+                */}
+                Район вужчий за область: тривога в іншому її кінці вас не смикатиме.
+                Коли оголошують по всій області, вона доходить до кожного району
+                однаково.
+              </p>
+            </fieldset>
+
+            {notificationsWork() && (
+              <fieldset className="field">
+                <legend className="field__label">Сповіщення</legend>
+                <div className="checks">
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.alerts.onStart}
+                      disabled={!draft.alerts.enabled}
+                      onChange={(event) => setAlerts({ onStart: event.target.checked })}
+                    />
+                    <span>
+                      <span className="check__label">Коли тривога почалась</span>
+                      <span className="check__hint">
+                        І коли жовтий рівень змінюється на червоний — це вже інші дії.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.alerts.onEnd}
+                      disabled={!draft.alerts.enabled}
+                      onChange={(event) => setAlerts({ onEnd: event.target.checked })}
+                    />
+                    <span>
+                      <span className="check__label">Про відбій</span>
+                      <span className="check__hint">
+                        Сирена на відбій більше не звучить — з вересня 2026 вона є лише на
+                        початок.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.alerts.live}
+                      disabled={!draft.alerts.enabled}
+                      onChange={(event) => setAlerts({ live: event.target.checked })}
+                    />
+                    <span>
+                      <span className="check__label">Тривога на екрані блокування</span>
+                      <span className="check__hint">
+                        І в динамічному острові — для iPhone це одна й та сама жива
+                        активність, окремо їх не вимкнути.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.alerts.backToClass}
+                      disabled={!draft.alerts.enabled}
+                      onChange={(event) => setAlerts({ backToClass: event.target.checked })}
+                    />
+                    <span>
+                      <span className="check__label">Коли час повертатись на урок</span>
+                      <span className="check__hint">
+                        Відбій посеред уроку означає, що йти треба вже на наступний.
+                        Застосунок порахує, на який саме, і нагадає перед ним.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+            )}
+
+            <p className="field__hint">
+              Дані беруться з офіційного alerts.in.ua через власний посередник. Поки
+              застосунок відкритий, він питає раз на хвилину; коли закритий — тоді, коли
+              iPhone дасть фоновий час. Це підстраховка, а не сирена: рішення приймайте
+              за офіційним оповіщенням.
+            </p>
+          </>
         )}
 
         {!onboarding && shown === 'профіль' && (

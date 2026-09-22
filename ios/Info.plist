@@ -18,6 +18,87 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!--
+	  Живі активності: поточний урок на екрані блокування й у динамічному
+	  острові. Без цього ключа `Activity.request` мовчки відмовляється
+	  працювати — помилки не буде, просто нічого не з'явиться.
+	-->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+
+	<!--
+	  Фонове оновлення — єдиний спосіб дізнатися про повітряну тривогу,
+	  коли застосунок закритий. iOS сама вирішує, коли дати нам цей час,
+	  і робить це не за розкладом: це підстраховка, а не гарантія.
+	-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>app.dzvinka.alerts</string>
+	</array>
+
+	<!--
+	  Свої матеріали на полиці: файл можна взяти з «Файлів», із галереї
+	  або сфотографувати. Без цих двох рядків застосунок просто падає,
+	  коли людина обирає «Медіатека» чи «Зняти фото».
+	-->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Щоб покласти на полицю фото сторінки підручника чи конспекту. Знімок лишається на цьому телефоні й нікуди не надсилається.</string>
+
+	<key>NSCameraUsageDescription</key>
+	<string>Щоб сфотографувати сторінку зошита або розклад і покласти на полицю. Знімок лишається на цьому телефоні й нікуди не надсилається.</string>
+
+	<!--
+	  Файл `.dzvinka` — це налаштований розклад, яким поділились: клас,
+	  групи й гуртки. Прилітає через AirDrop, повідомлення або «Файли».
+	  Без цих двох розділів система просто не знає, кому такий файл
+	  віддати, і AirDrop на нього не спрацює зовсім.
+	-->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.dzvinka.schedule.pack</string>
+			<key>UTTypeDescription</key>
+			<string>Розклад Дзвінки</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>dzvinka</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/json</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Розклад Дзвінки</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>app.dzvinka.schedule.pack</string>
+			</array>
+		</dict>
+	</array>
+
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

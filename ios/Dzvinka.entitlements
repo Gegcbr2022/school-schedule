@@ -6,5 +6,19 @@
 	<array>
 		<string>group.app.dzvinka.schedule</string>
 	</array>
+
+	<!--
+	  Сповіщення про повітряну тривогу мають право пробиватись крізь «Не
+	  турбувати» й режими зосередження: це рівно той випадок, заради
+	  якого рівень «важливо зараз» і існує. Окремого дозволу Apple для
+	  нього не потрібно — досить увімкненої можливості
+	  USERNOTIFICATIONS_TIMESENSITIVE на самому App ID.
+
+	  Просить цей рівень `ios/App/Alerts.swift`. Якщо колись профіль
+	  поїде й експорт почне падати з «profile doesn't include the …
+	  capability» — це лікує `scripts/fix-profiles.py`.
+	-->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
 </dict>
 </plist>

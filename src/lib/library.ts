@@ -55,6 +55,35 @@ export async function saveBook(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * Кладе в ту саму полицю готові байти, без жодної мережі.
+ *
+ * Потрібно для власних матеріалів: файл уже в руках (його щойно обрали
+ * на телефоні), качати його нізвідки. Сховище те саме, що й у
+ * підручників, — отже, і читалка, і «поділитися», і прибирання працюють
+ * з ними без жодної окремої гілки.
+ */
+export async function putBook(url: string, blob: Blob): Promise<boolean> {
+  const cache = await open()
+  if (!cache) return false
+
+  try {
+    await cache.put(
+      url,
+      new Response(blob, {
+        headers: {
+          'content-type': blob.type || 'application/octet-stream',
+          'content-length': String(blob.size),
+        },
+      }),
+    )
+    return true
+  } catch {
+    // Найімовірніше скінчилось місце — а це не привід валити застосунок.
+    return false
+  }
+}
+
 export async function removeBook(url: string): Promise<void> {
   const cache = await open()
   if (!cache) return

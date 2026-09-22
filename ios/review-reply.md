@@ -1,5 +1,11 @@
 # Відповідь на Guideline 2.1 — Information Needed
 
+> **Тексти оновлені під версію 1.2.** Порівняно з першою відправкою в
+> застосунку з'явились: стан повітряної тривоги (третій вид мережевого
+> запиту), жива активність, Сірі й доступ до камери та галереї для
+> власних матеріалів. Усе це описано нижче — якщо відповідь беруть
+> звідси, вона вже актуальна.
+
 Apple не відхилила застосунок по суті. Це стандартний запит до облікових
 записів із короткою історією перевірок: «розкажіть докладніше». Треба
 відповісти в App Store Connect і **тим самим текстом заповнити поле Notes**
@@ -31,9 +37,23 @@ The app also filters the timetable down to the pupil's own subgroups (learning
 group, second foreign language, English subgroup, PE split), so a pupil never
 sees a lesson that is not theirs.
 
-There are no accounts, no grades, no social features, no user-generated content
-shared between users, no advertising and no analytics. Nothing is collected
-about the user. All settings stay on the device.
+There are no accounts, no grades, no social features, no advertising and no
+analytics. Nothing is collected about the user. All settings stay on the device.
+
+The app has no server and hosts no user content. It does let a user hand their
+own settings (chosen class, subgroups, after-school clubs) to another person,
+but only through the system share sheet - as a small .dzvinka file over AirDrop
+or Messages, or as a link whose payload sits in the URL fragment and is
+therefore never transmitted to any server. Nothing is uploaded, nothing is
+published, and no content reaches a third party except the one the user picks
+in the iOS share sheet. Phone numbers and free-text notes attached to clubs are
+stripped by default, and the exact contents are shown on screen before sending.
+
+The app may ask for access to the photo library or the camera. This is only so
+that a pupil can attach their own study material - a photo of a textbook page
+or of their notes - to the app's own shelf, next to the class textbooks. The
+picked image is stored inside the app's own storage on the device and is never
+uploaded anywhere.
 
 3. SETTING UP AND ACCESSING THE MAIN FEATURES
 
@@ -60,6 +80,9 @@ Main features and how to reach them, all from the main screen:
   - Homework and notes: tap "Додати ДЗ" on any lesson, or the note field
     above the day.
   - Canteen menu: the "Меню" chip above the timetable.
+  - Air raid alert status and settings: the sliders icon → "Тривога" tab.
+  - Share the configured timetable: the sliders icon → "Профіль" tab →
+    "Поділитися розкладом".
 
 4. EXTERNAL SERVICES, TOOLS AND PLATFORMS
 
@@ -68,8 +91,14 @@ authentication provider, no payment processor, no advertising SDK, no analytics
 SDK and no AI services. It contains no third-party frameworks at all - the iOS
 shell is plain SwiftUI and WKWebView.
 
-The app makes exactly two kinds of network request, both of them simple
-downloads of static files, and both optional:
+The app additionally uses three Apple system frameworks: UserNotifications for
+local reminders, WidgetKit and ActivityKit for the home screen widget and the
+Live Activity showing the current lesson, and AppIntents for Siri. None of them
+involves a server: there are no push notifications and no push tokens of any
+kind.
+
+The app makes exactly three kinds of network request, all of them simple
+downloads of static files, and all optional:
 
   a) Timetable updates. The app periodically downloads one static JSON file
      containing the school timetable, so that a changed lesson reaches pupils
@@ -79,6 +108,21 @@ downloads of static files, and both optional:
 
   b) Textbook PDFs. Only when the user explicitly opens or saves a textbook.
      These are static PDF files hosted on Cloudflare R2 object storage.
+
+  c) Air raid alert status, only if the user turns this feature on. Ukraine is
+     at war and air raid alerts interrupt lessons every day, so the app can
+     show the current alert level for the region the user selects and, once the
+     all-clear is given, tell the pupil which lesson to return to.
+
+     This is a single static JSON file, also hosted on Cloudflare R2, listing
+     the current alert level for every region of Ukraine. The app downloads the
+     whole file and selects the relevant region locally, on the device. The
+     selected region is never sent anywhere - it never leaves the device, and
+     the server cannot know it. The data originates from alerts.in.ua, the
+     public Ukrainian alert service; a small scheduled job of ours copies it to
+     the static file so that no credentials have to ship inside the app.
+
+     Nothing is uploaded in any of these three cases.
 
 5. REGIONAL DIFFERENCES
 
@@ -143,11 +187,18 @@ NO USER-GENERATED CONTENT shared between users. No advertising, no analytics,
 no tracking, no in-app purchases, no paid features.
 
 EXTERNAL SERVICES: none for core functionality. No backend, no authentication,
-no payment processor, no AI services, no third-party SDKs. The app makes only
-two kinds of request, both plain downloads of static files and both optional:
-(a) one static JSON file with the timetable, so a changed lesson reaches pupils
-without an app update - nothing is uploaded; (b) textbook PDFs from Cloudflare
-R2, only when the user opens or saves a book.
+no payment processor, no AI services, no third-party SDKs, no push
+notifications. The app makes only three kinds of request, all plain downloads
+of static files and all optional: (a) one static JSON file with the timetable,
+so a changed lesson reaches pupils without an app update; (b) textbook PDFs
+from Cloudflare R2, only when the user opens or saves a book; (c) if the user
+enables it, one static JSON file with the current air raid alert level for
+every region of Ukraine - the app picks the relevant region on the device, so
+the chosen region never leaves it. Nothing is uploaded in any case.
+
+PHOTO/CAMERA: only to let a pupil attach their own material (a photo of a page
+or of their notes) to the app's own shelf. The image stays in the app's storage
+on the device and is never uploaded.
 
 REGIONS: no regional differences. Ukrainian only. All times are always computed
 in the Europe/Kyiv time zone, because the school bells ring in Ukraine.

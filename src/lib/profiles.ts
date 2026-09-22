@@ -10,7 +10,8 @@
 
 import type { ClassTimetable, WeekParity } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
-import { formatTime } from './clock'
+import type { CalendarDate } from './clock'
+import { dateKey, formatTime } from './clock'
 import type { DisplayLesson, ViewMode } from './lessons'
 import { CLUB_PERIOD, buildDay, classById } from './lessons'
 import type { Club, Profile, Role } from './prefs'
@@ -130,10 +131,41 @@ export function leaveAt(club: Club): number {
   return club.start - (club.travel ?? 0)
 }
 
-/** Гуртки цього профілю в такий день тижня (ISO 1…7), за часом. */
-export function clubsOn(profile: Profile, iso: number, week: WeekParity): Club[] {
+/**
+ * Чи буває гурток у цю конкретну дату.
+ *
+ * День тижня й парність — це ще не все: секція починається в жовтні,
+ * закінчується в травні, а окреме заняття могли й скасувати. Без цієї
+ * перевірки застосунок писав би «сьогодні о 17:00 футбол» і посеред
+ * канікул, і того дня, коли тренер захворів.
+ */
+export function clubRunsOn(club: Club, date: CalendarDate): boolean {
+  const key = dateKey(date)
+  if (club.from && key < club.from) return false
+  if (club.to && key > club.to) return false
+  return !club.skip?.includes(key)
+}
+
+/**
+ * Гуртки цього профілю в такий день тижня (ISO 1…7), за часом.
+ *
+ * `date` необов'язкова: у «типовому тижні» конкретних дат немає, і там
+ * показуємо все, що взагалі буває. Скрізь, де дата є, її треба передати —
+ * інакше скасовані заняття й секції поза сезоном лишаться в дні.
+ */
+export function clubsOn(
+  profile: Profile,
+  iso: number,
+  week: WeekParity,
+  date?: CalendarDate,
+): Club[] {
   return profile.clubs
-    .filter((club) => club.days.includes(iso) && (!club.week || club.week === week))
+    .filter(
+      (club) =>
+        club.days.includes(iso) &&
+        (!club.week || club.week === week) &&
+        (date === undefined || clubRunsOn(club, date)),
+    )
     .sort((a, b) => a.start - b.start || a.name.localeCompare(b.name, 'uk'))
 }
 
@@ -175,9 +207,12 @@ export function withClubs(lessons: DisplayLesson[], clubs: Club[]): DisplayLesso
       period: CLUB_PERIOD,
       start: club.start,
       end: club.end,
-      items: [{ subject: club.name, room: club.place, teacher: club.note }],
+      // Тренер важливіший за нотатку: у нотатці лежить «взяти форму»,
+      // а підпис під гуртком читають, щоб зрозуміти, до кого йдуть.
+      items: [{ subject: club.name, room: club.place, teacher: club.teacher || club.note }],
       note: note ?? undefined,
       club: club.id,
+      tone: club.tone,
     }
     return row
   })
