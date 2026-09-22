@@ -50,6 +50,8 @@ export type DisplayLesson = {
    * тож ні номера уроку, ні вікон до сусідів рахувати не можна.
    */
   club?: string
+  /** Відтінок картки гуртка — щоб три секції в дні не зливались. */
+  tone?: number
 }
 
 /**
@@ -304,6 +306,22 @@ export function computeStatus(lessons: DisplayLesson[], nowMin: number): DayStat
 /** Скільки уроків уже позаду. */
 export function finishedCount(lessons: DisplayLesson[], nowMin: number): number {
   return lessons.filter((l) => nowMin >= l.end).length
+}
+
+/**
+ * На який урок повертатись після відбою.
+ *
+ * Правило одне на всі випадки: перший урок, який **починається пізніше**
+ * за відбій. Відбій о 10:20, посеред третього уроку, — отже, на третій
+ * уже не встигнути й іти треба на четвертий. Відбій о 10:50, на перерві,
+ * — отже, на той, що о 11:00. Окремої гілки «в середині уроку» не
+ * потрібно: обидва випадки — це один і той самий відбір.
+ *
+ * Гуртки не рахуються: з укриття повертаються на уроки, а секція — це
+ * вже не школа.
+ */
+export function resumeAfter(lessons: DisplayLesson[], nowMin: number): DisplayLesson | null {
+  return lessons.find((lesson) => !lesson.club && lesson.start > nowMin) ?? null
 }
 
 /* ── Дні ─────────────────────────────────────────────────────────────── */

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AlertCard } from './components/AlertCard'
 import { AllDaySheet } from './components/AllDaySheet'
+import { ImportSheet } from './components/ImportSheet'
+import { ShareSheet } from './components/ShareSheet'
 import { BooksSheet } from './components/BooksSheet'
 import { ClubsSheet } from './components/ClubsSheet'
 import { DateStrip } from './components/DateStrip'
@@ -26,6 +29,7 @@ import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
 import { TeachersSheet } from './components/TeachersSheet'
 import { WeekSheet } from './components/WeekSheet'
+import { placeByKey } from './data/regions'
 import { SCHOOL_NAME } from './data/schedule'
 import { specialDayOn } from './data/special'
 import type { CalendarDate } from './lib/clock'
@@ -40,8 +44,14 @@ import {
   plural,
   weekParity,
 } from './lib/clock'
+import { ALERT_TITLE, syncAlertSettings } from './lib/alerts'
 import { haptic } from './lib/haptics'
-import { isStandalone, useInstallPrompt, useNow, useTheme } from './lib/hooks'
+import { isStandalone, useAlert, useInstallPrompt, useNow, useTheme } from './lib/hooks'
+import { syncLive } from './lib/live'
+import { maybeAskReview, noteUsage } from './lib/review'
+import { signalAlert } from './lib/signal'
+import type { SharePack } from './lib/share'
+import { decodePack, mergeClubs, profileFromPack, takePackFromUrl } from './lib/share'
 import type { DisplayLesson, ViewMode } from './lib/lessons'
 import {
   computeStatus,
@@ -49,6 +59,7 @@ import {
   finishedCount,
   nextSchoolIso,
   offWeekNote,
+  resumeAfter,
 } from './lib/lessons'
 import type { Prefs } from './lib/prefs'
 import { DAY_PERIOD, allNotes, getNote, setNote } from './lib/notes'
@@ -60,6 +71,7 @@ import {
   clearPrefs,
   keepStorage,
   loadPrefs,
+  nextProfileId,
   pinTeacher,
   savePrefs,
   withProfile,
@@ -104,11 +116,44 @@ export default function App() {
    * Від цього залежить, куди повернутись, коли їх закрити.
    */
   const [clubsFrom, setClubsFrom] = useState<'settings' | 'day' | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  /** Розклад, який хтось надіслав, — поки не вирішили, що з ним робити. */
+  const [incoming, setIncoming] = useState<SharePack | null>(null)
   const [allOpen, setAllOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
   const [stuck, setStuck] = useState(false)
+
+  /*
+   * Розклад, яким поділились. Приходить двома шляхами: посиланням (тоді
+   * він в адресі) і файлом `.dzvinka` через AirDrop — такий файл
+   * відкриває оболонка й передає сюди (`ios/App/OpenFile.swift`).
+   */
+  useEffect(() => {
+    const catchLink = () => {
+      const pack = takePackFromUrl()
+      if (pack) setIncoming(pack)
+    }
+    catchLink()
+
+    /*
+     * Не лише на старті. Коли застосунок уже відкритий — а встановлений
+     * PWA відкритий майже завжди, — посилання тієї самої адреси міняє
+     * лише хвіст після `#`, і сторінка не перечитується. Без цього
+     * слухача розклад, надісланий у чат, просто нічого не зробив би.
+     */
+    window.addEventListener('hashchange', catchLink)
+
+    window.__dzvinkaImport = (code: string) => {
+      const pack = decodePack(code)
+      if (pack) setIncoming(pack)
+    }
+    return () => {
+      window.removeEventListener('hashchange', catchLink)
+      delete window.__dzvinkaImport
+    }
+  }, [])
 
   useEffect(() => {
     const onScroll = () => setStuck(window.scrollY > 4)
@@ -143,7 +188,7 @@ export default function App() {
         dayIso > 5 || specialDayOn(date)?.noLessons
           ? []
           : profileDay(profile, dayIso - 1, forWeek, viewMode),
-        clubsOn(profile, dayIso, forWeek),
+        clubsOn(profile, dayIso, forWeek, date),
       )
 
     const lessons = dayFor(selected, selIso, week, mode)
@@ -198,6 +243,27 @@ export default function App() {
     view.todayIso > 5 && view.todayLessons.length === 0
       ? null
       : computeStatus(view.todayLessons, now.minutes)
+
+  /*
+   * Тривога — стан світу, а не вибраного дня: вона однаково важлива,
+   * хоч на екрані понеділок, хоч наступний тиждень. Тому й живе над
+   * усім іншим, а не в бічній картці «що зараз».
+   */
+  const alertsOn = view.active.alerts.enabled
+  const { state: alertState, endedAt: alertEndedAt } = useAlert(
+    alertsOn,
+    view.active.alerts.region,
+  )
+  const alertRegion = placeByKey(view.active.alerts.region)
+
+  /*
+   * Значок на іконці й підпис вкладки. Це все, чим сайт може
+   * попередити про тривогу без сервера, — і цього досить, щоб побачити
+   * її, не відкриваючи застосунок (див. `lib/signal.ts`).
+   */
+  useEffect(() => {
+    signalAlert(alertsOn ? alertState.level : 0, ALERT_TITLE[alertState.level] ?? '')
+  }, [alertsOn, alertState.level])
 
   const alreadyOnUpcoming = dateKey(view.selected) === dateKey(view.upcomingDate)
 
@@ -259,7 +325,29 @@ export default function App() {
     if (!prefs) return
     syncNotifications(prefs, view.today, now.minutes)
     syncWidgets(prefs, view.today, now.minutes)
-  }, [prefs, view.today, now.minutes, notesVersion])
+    // Активність показує сьогоднішній урок, а не той день, який гортають.
+    syncLive(prefs.live, profileName(view.profile), status, now, view.todayLessons)
+    syncAlertSettings(prefs.alerts)
+    // `now` цілком, а не лише хвилини: живій активності потрібен момент
+    // часу, а не число. Об'єкт новий рівно тоді, коли цокнув годинник.
+  }, [prefs, view.today, now, notesVersion, status, view.profile, view.todayLessons])
+
+  /*
+   * Прохання оцінити застосунок. Не на відкритті — людина прийшла по
+   * розклад, і вікно поверх нього це рівно те, за що застосункам ставлять
+   * одну зірку. Даємо кілька секунд подивитись на те, по що прийшли, і
+   * питаємо лише тоді, коли момент справді добрий (див. `lib/review.ts`).
+   */
+  const todayKey = dateKey(view.today)
+  const dayOver = status?.kind === 'done'
+
+  useEffect(() => {
+    if (!prefs) return
+    noteUsage(view.today)
+    const id = window.setTimeout(() => maybeAskReview(view.today, dayOver), 4000)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs === null, todayKey, dayOver])
 
   return (
     <div className="app">
@@ -344,6 +432,16 @@ export default function App() {
       </header>
 
       <main>
+        {alertsOn && alertRegion && (
+          <AlertCard
+            state={alertState}
+            region={alertRegion}
+            endedAt={alertEndedAt}
+            resume={resumeAfter(todaySchool, now.minutes)}
+            nowMs={Date.now()}
+          />
+        )}
+
         <div className="daymeta">
           <h1 className="daymeta__day">{DAY_NAME[view.selIso]}</h1>
           <p className="daymeta__date">{formatDateUk(view.selected)}</p>
@@ -546,6 +644,7 @@ export default function App() {
           profiles={view.active.profiles}
           when={when}
           iso={view.selIso}
+          date={view.selected}
           week={view.week}
           noLessons={noSchool}
           nowMin={view.isToday ? now.minutes : null}
@@ -557,9 +656,46 @@ export default function App() {
         />
       )}
 
+      {shareOpen && <ShareSheet profile={view.profile} onClose={() => setShareOpen(false)} />}
+
+      {incoming && (
+        <ImportSheet
+          pack={incoming}
+          currentName={profileName(view.profile)}
+          onAddProfile={() => {
+            const id = nextProfileId(view.active)
+            const added = profileFromPack(incoming, id, view.profile.classId)
+            // Прийшов чужий розклад — це вже вкладена праця; просимо
+            // браузер берегти сховище.
+            keepStorage()
+            savePreferences({
+              ...view.active,
+              profiles: [...view.active.profiles, added],
+              activeId: id,
+              // Профілів стало більше одного — роль «учня» ховала б
+              // перемикач, і другий профіль просто не було б де відкрити.
+              role: view.active.role === 'student' ? 'parent' : view.active.role,
+            })
+            setIncoming(null)
+          }}
+          onMergeClubs={() => {
+            keepStorage()
+            savePreferences(
+              withProfile(view.active, {
+                ...view.profile,
+                clubs: mergeClubs(view.profile.clubs, incoming.clubs ?? []),
+              }),
+            )
+            setIncoming(null)
+          }}
+          onClose={() => setIncoming(null)}
+        />
+      )}
+
       {clubsFrom && (
         <ClubsSheet
           profile={view.profile}
+          today={view.today}
           onSave={(clubs) => {
             // Перший гурток — це вже вкладена праця; просимо берегти сховище.
             if (clubs.length > 0) keepStorage()
@@ -589,6 +725,7 @@ export default function App() {
         <WeekSheet
           profile={view.profile}
           mode={mode}
+          weekStart={addDays(view.selected, 1 - view.selIso)}
           currentWeek={view.week}
           todayIso={view.todayIso <= 5 ? view.todayIso : undefined}
           todayWeek={view.currentWeek}
@@ -643,6 +780,10 @@ export default function App() {
           onClubs={() => {
             setSettingsOpen(false)
             setClubsFrom('settings')
+          }}
+          onShare={() => {
+            setSettingsOpen(false)
+            setShareOpen(true)
           }}
           onClose={() => setSettingsOpen(false)}
           onReset={() => {

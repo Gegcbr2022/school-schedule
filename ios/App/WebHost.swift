@@ -3,6 +3,16 @@ import WebKit
 
 /// WKWebView із застосунком усередині.
 struct WebHost: UIViewRepresentable {
+  /**
+   * Той самий і єдиний веб-вигляд.
+   *
+   * Потрібен тим, хто приходить іззовні сцени, — зараз це відкриття
+   * файла `.dzvinka` (`OpenFile`). Посилання навмисно слабке: тримати
+   * вʼю живою через статичну змінну означало б не дати системі
+   * прибрати її ніколи.
+   */
+  private(set) static weak var current: WKWebView?
+
   func makeCoordinator() -> Coordinator { Coordinator() }
 
   func makeUIView(context: Context) -> WKWebView {
@@ -24,6 +34,9 @@ struct WebHost: UIViewRepresentable {
     config.userContentController.add(context.coordinator.haptics, name: Haptics.channel)
     config.userContentController.add(context.coordinator.notifications, name: Notifications.channel)
     config.userContentController.add(context.coordinator.widgets, name: Widgets.channel)
+    config.userContentController.add(context.coordinator.review, name: Review.channel)
+    config.userContentController.add(context.coordinator.live, name: LiveActivityBridge.channel)
+    config.userContentController.add(context.coordinator.alerts, name: AlertsBridge.channel)
 
     let view = WKWebView(frame: .zero, configuration: config)
     view.navigationDelegate = context.coordinator
@@ -43,6 +56,7 @@ struct WebHost: UIViewRepresentable {
     // чіпляємось після того, як UIKit добудує ієрархію.
     DispatchQueue.main.async { KeyboardBar.hide(in: view) }
 
+    Self.current = view
     return view
   }
 
@@ -52,6 +66,9 @@ struct WebHost: UIViewRepresentable {
     let haptics = Haptics()
     let notifications = Notifications()
     let widgets = Widgets()
+    let review = Review()
+    let live = LiveActivityBridge()
+    let alerts = AlertsBridge()
 
     /// Усе, що не наш застосунок, відкриваємо системою: підручники з
     /// хмари, телефони вчителів, пошта. Усередині вікна їм не місце —

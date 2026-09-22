@@ -1,16 +1,29 @@
-import { Fragment, useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Book, BookGroup } from '../data/books'
 import { booksForClass, booksForGrade, gradeOf } from '../data/books'
 import { subjectName } from '../data/schedule'
 import { plural } from '../lib/clock'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import { removeBook, saveBook, savedUrls } from '../lib/library'
+import type { Material } from '../lib/shelf'
+import {
+  MAX_FILE_MB,
+  addFile,
+  addLink,
+  formatSize,
+  isImage,
+  materialUrl,
+  materials,
+  removeMaterial,
+  shelfBytes,
+} from '../lib/shelf'
 import { teacherGrades } from '../lib/teacherSchedule'
 import type { Teacher } from '../lib/teachers'
 import { politeName } from '../lib/teachers'
 import { BookViewer } from './BookViewer'
 import { ErrorBoundary } from './ErrorBoundary'
-import { CheckIcon, CloseIcon, DownloadIcon } from './Icons'
+import { ImageViewer } from './ImageViewer'
+import { CheckIcon, ClipIcon, CloseIcon, DownloadIcon, LinkIcon, PlusIcon, TrashIcon } from './Icons'
 
 type Props = {
   classId: string
@@ -80,6 +93,52 @@ export function BooksSheet({ classId, className, teacher, onClose }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [reading, setReading] = useState<{ title: string; url: string } | null>(null)
+  const [looking, setLooking] = useState<Material | null>(null)
+
+  /* ── Своя полиця ───────────────────────────────────────────────────── */
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [mine, setMine] = useState<Material[]>(materials)
+  const [adding, setAdding] = useState(false)
+  const [linkTitle, setLinkTitle] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
+  const [shelfError, setShelfError] = useState<string | null>(null)
+
+  const takeFiles = async (list: FileList | null) => {
+    setShelfError(null)
+    for (const file of Array.from(list ?? [])) {
+      const result = await addFile(file)
+      if (!result.ok) {
+        setShelfError(result.why)
+        break
+      }
+    }
+    setMine(materials())
+  }
+
+  const takeLink = () => {
+    const result = addLink(linkTitle, linkUrl)
+    if (!result.ok) {
+      setShelfError(result.why)
+      return
+    }
+    setShelfError(null)
+    setLinkTitle('')
+    setLinkUrl('')
+    setAdding(false)
+    setMine(materials())
+  }
+
+  const openMine = (item: Material) => {
+    if (item.link) {
+      window.open(item.link, '_blank', 'noopener')
+      return
+    }
+    if (isImage(item)) {
+      setLooking(item)
+      return
+    }
+    setReading({ title: item.title, url: materialUrl(item.id) })
+  }
 
   const refresh = useCallback(() => {
     void savedUrls().then(setSaved)
@@ -237,6 +296,138 @@ export function BooksSheet({ classId, className, teacher, onClose }: Props) {
             </>
           )}
 
+          {/*
+            Своя полиця. Підручники класу застосунок знає, а конспект,
+            зошит чи сфотографовану сторінку — ні; вони живуть у чаті, в
+            «Файлах» і в галереї, тобто в трьох різних місцях. Тут вони
+            лежать поряд із підручниками, відкриваються тією самою
+            читалкою й нікуди з телефона не йдуть.
+          */}
+          <section className="books shelf">
+            <h3 className="books__subject">
+              <ClipIcon />
+              Мої матеріали
+            </h3>
+
+            {mine.length === 0 ? (
+              <p className="shelf__empty">
+                Конспект, робочий зошит, методичка, фото сторінки — усе, чого немає
+                в переліку класу. Зберігається на цьому пристрої й відкривається без
+                інтернету.
+              </p>
+            ) : (
+              <ul className="books__list">
+                {mine.map((item) => (
+                  <li className="book" key={item.id}>
+                    <button type="button" className="book__text book__text--tap" onClick={() => openMine(item)}>
+                      <p className="book__title">
+                        {item.title}
+                        {item.note && <span className="book__note">{item.note}</span>}
+                      </p>
+                      <p className="book__facts">
+                        {item.link ? (
+                          <span className="book__tag">
+                            <LinkIcon />
+                            посилання
+                          </span>
+                        ) : (
+                          <span>
+                            {isImage(item) ? 'знімок' : 'PDF'} · {formatSize(item.size)}
+                          </span>
+                        )}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      className="iconbtn iconbtn--small"
+                      aria-label={`Прибрати ${item.title}`}
+                      onClick={() => {
+                        if (!window.confirm(`Прибрати «${item.title}»?`)) return
+                        void removeMaterial(item.id).then(() => setMine(materials()))
+                      }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {shelfError && (
+              <p className="book__error" role="alert">
+                {shelfError}
+              </p>
+            )}
+
+            {adding ? (
+              <div className="shelf__link">
+                <input
+                  className="textinput"
+                  type="text"
+                  value={linkTitle}
+                  maxLength={80}
+                  placeholder="Як підписати"
+                  aria-label="Назва посилання"
+                  onChange={(event) => setLinkTitle(event.target.value)}
+                />
+                <input
+                  className="textinput"
+                  type="url"
+                  inputMode="url"
+                  value={linkUrl}
+                  maxLength={500}
+                  placeholder="https://…"
+                  aria-label="Адреса"
+                  // Без цього iOS робить велику літеру на початку адреси
+                  // й підкреслює її як помилку.
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  onChange={(event) => setLinkUrl(event.target.value)}
+                />
+                <div className="shelf__add">
+                  <button type="button" className="btn" onClick={takeLink}>
+                    Додати
+                  </button>
+                  <button type="button" className="linkbtn" onClick={() => setAdding(false)}>
+                    Скасувати
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="shelf__add">
+                <input
+                  ref={fileRef}
+                  className="visually-hidden"
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*"
+                  aria-label="Файл із пристрою"
+                  onChange={(event) => {
+                    void takeFiles(event.target.files)
+                    // Той самий файл мають дати додати ще раз — інакше
+                    // повторний вибір мовчки нічого не робить.
+                    event.target.value = ''
+                  }}
+                />
+                <button type="button" className="btn btn--quiet" onClick={() => fileRef.current?.click()}>
+                  <PlusIcon />
+                  Файл
+                </button>
+                <button type="button" className="btn btn--quiet" onClick={() => setAdding(true)}>
+                  <LinkIcon />
+                  Посилання
+                </button>
+              </div>
+            )}
+
+            <p className="shelf__note">
+              До {MAX_FILE_MB} МБ на файл
+              {mine.some((item) => item.size > 0) && ` · зайнято ${formatSize(shelfBytes())}`}. Нічого нікуди
+              не надсилається: файли лишаються на цьому пристрої.
+            </p>
+          </section>
+
           <div className="sheet__actions">
             <button type="button" className="btn btn--wide" onClick={onClose}>
               Закрити
@@ -244,6 +435,15 @@ export function BooksSheet({ classId, className, teacher, onClose }: Props) {
           </div>
         </div>
       </div>
+
+      {looking && (
+        <ImageViewer
+          title={looking.title}
+          url={materialUrl(looking.id)}
+          mime={looking.mime}
+          onClose={() => setLooking(null)}
+        />
+      )}
 
       {reading && (
         // Збій у читалці не має валити весь розклад — просто закриваємо книжку.

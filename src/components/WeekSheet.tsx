@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
-import { plural } from '../lib/clock'
+import type { CalendarDate } from '../lib/clock'
+import { addDays, plural } from '../lib/clock'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import type { ViewMode } from '../lib/lessons'
 import type { Profile } from '../lib/prefs'
@@ -12,6 +13,11 @@ import { WeekGrid } from './WeekGrid'
 type Props = {
   profile: Profile
   mode: ViewMode
+  /**
+   * Понеділок тижня, який відкрито. Потрібен лише гурткам: без дати не
+   * видно ні того, що секція ще не почалась, ні скасованого заняття.
+   */
+  weekStart: CalendarDate
   /** Парність поточного тижня — з неї й починаємо. */
   currentWeek: WeekParity
   /** Сьогоднішній день (ISO 1…5), щоб підсвітити; вихідні — не передавати. */
@@ -27,7 +33,15 @@ const DAYS = [0, 1, 2, 3, 4]
  * Увесь тиждень одним екраном — те, чого в застосунку бракувало найбільше:
  * у стрічці днів видно лише один день за раз, а планують тиждень.
  */
-export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onClose }: Props) {
+export function WeekSheet({
+  profile,
+  mode,
+  weekStart,
+  currentWeek,
+  todayIso,
+  todayWeek,
+  onClose,
+}: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
   const backdrop = useBackdropClose(onClose)
@@ -37,10 +51,16 @@ export function WeekSheet({ profile, mode, currentWeek, todayIso, todayWeek, onC
     () =>
       weekFrom(
         DAYS.map((day) =>
-          withClubs(profileDay(profile, day, week, mode), clubsOn(profile, day + 1, week)),
+          withClubs(
+            profileDay(profile, day, week, mode),
+            // Інший тиждень чергування — це інший календарний тиждень;
+            // яких саме дат він стосується, звідси не видно, тож дати
+            // беремо лише для того тижня, що зараз на екрані.
+            clubsOn(profile, day + 1, week, week === currentWeek ? addDays(weekStart, day) : undefined),
+          ),
         ),
       ),
-    [profile, mode, week],
+    [profile, mode, week, weekStart, currentWeek],
   )
 
   const lessons = days.reduce((n, day) => n + day.count, 0)

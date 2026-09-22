@@ -540,5 +540,6 @@ struct DzvinkaWidgetBundle: WidgetBundle {
     DzvinkaNowWidget()
     DzvinkaNextWidget()
     DzvinkaDayWidget()
+    DzvinkaLiveActivity()
   }
 }

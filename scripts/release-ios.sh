@@ -22,7 +22,12 @@
 #   ASC_ISSUER_ID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee \
 #   ASC_KEY_PATH=~/.appstoreconnect/AuthKey_XXXXXXXX.p8 \
 #   PACK_URL=https://gegcbr2022.github.io/school-schedule/data/school.json \
+#   ALERTS_URL=https://pub-xxxx.r2.dev/alerts.json \
 #   ./scripts/release-ios.sh
+#
+# ALERTS_URL необов'язковий: без нього розділ повітряної тривоги в застосунку
+# просто не з'являється (і жодного запиту в мережу не йде). Як його підняти —
+# див. worker/README.md.
 #
 set -euo pipefail
 
@@ -37,22 +42,40 @@ cd "$(dirname "$0")/.."
 BUILD_DIR="${BUILD_DIR:-build}"
 ARCHIVE="$BUILD_DIR/Dzvinka.xcarchive"
 
+ALERTS_URL="${ALERTS_URL:-}"
+
 echo "→ Збираю веб (розклад братиметься з $PACK_URL)"
-VITE_PACK_URL="$PACK_URL" npm run build:ios
+if [ -n "$ALERTS_URL" ]; then
+  echo "   тривога — з $ALERTS_URL"
+else
+  echo "   без повітряної тривоги (ALERTS_URL не вказано)"
+fi
+VITE_PACK_URL="$PACK_URL" VITE_ALERTS_URL="$ALERTS_URL" npm run build:ios
 
 echo "→ Перевіряю типи, лінт і тести"
 npx tsc -b
 npm run lint
 npm test
 
+KEY_PATH="$(cd "$(dirname "$ASC_KEY_PATH")" && pwd)/$(basename "$ASC_KEY_PATH")"
+
 echo "→ Архівую"
 rm -rf "$ARCHIVE"
+# -allowProvisioningUpdates: нова можливість застосунку (як-от Time
+# Sensitive Notifications) означає новий профіль. Без цього прапорця
+# збірка просто падає з «profile doesn't include the … capability», і
+# capability доводиться вмикати руками на developer.apple.com. Ключ ASC
+# тут потрібен саме для цього — щоб Xcode мав чим оновити профіль.
 xcodebuild archive \
   -project ios/Dzvinka.xcodeproj \
   -scheme Dzvinka \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$KEY_PATH" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_STYLE=Automatic
 
@@ -62,11 +85,14 @@ cp ios/ExportOptions.plist "$OPTIONS"
 /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" "$OPTIONS"
 
 echo "→ Відправляю в App Store Connect"
+# Без -allowProvisioningUpdates: підпис тут ручний, профілі названі в
+# ExportOptions.plist. Прапорець лише штовхнув би Xcode у хмарний підпис,
+# на який у нашого ключа немає прав.
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportOptionsPlist "$OPTIONS" \
   -exportPath "$BUILD_DIR/export" \
-  -authenticationKeyPath "$(cd "$(dirname "$ASC_KEY_PATH")" && pwd)/$(basename "$ASC_KEY_PATH")" \
+  -authenticationKeyPath "$KEY_PATH" \
   -authenticationKeyID "$ASC_KEY_ID" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 

@@ -34,7 +34,12 @@ jobs:
           npm run lint
           npm test
 
+      # Адреса стану тривоги — не секрет: це публічний файл, який однаково
+      # читають усі телефони. Немає її — сайт просто збереться без розділу
+      # тривоги, мовчки й без помилок. Звідки вона береться — worker/README.md.
       - run: npm run build
+        env:
+          VITE_ALERTS_URL: https://pub-58a1b7943a104948a240730aaa5eb54a.r2.dev/alerts.json
 
       - uses: actions/configure-pages@v5
 

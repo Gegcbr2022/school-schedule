@@ -141,7 +141,7 @@ function profileLessons(profile: Profile, today: CalendarDate): DisplayLesson[] 
   if (iso > 5 || specialDayOn(today)?.noLessons) return []
 
   const week = weekParity(addDays(today, 1 - iso))
-  return withClubs(profileDay(profile, iso - 1, week, 'my'), clubsOn(profile, iso, week))
+  return withClubs(profileDay(profile, iso - 1, week, 'my'), clubsOn(profile, iso, week, today))
 }
 
 function snapshotDay(profile: Profile, date: CalendarDate): WidgetDay {

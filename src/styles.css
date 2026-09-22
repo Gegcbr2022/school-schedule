@@ -27,6 +27,23 @@
 
   --rail: rgba(16, 19, 26, 0.12);
 
+  /* Відтінки гуртків: футбол і музична школа мають розрізнятись боковим
+     зором, без читання назви. Нульовий — той самий теплий, що був досі,
+     тож у вже заведених гуртків нічого не змінюється. */
+  --tone-0: #b45309;
+  --tone-1: #0f766e;
+  --tone-2: #4d7c0f;
+  --tone-3: #6d28d9;
+  --tone-4: #be185d;
+  --tone-5: #0369a1;
+
+  /* Тривога. Жовтий і червоний — не «слабше» й «сильніше», а різні дії,
+     тож кольори взяті ті самі, якими рівні й називають. */
+  --alert-yellow: #b45309;
+  --alert-yellow-bg: rgba(180, 83, 9, 0.09);
+  --alert-red: #b91c1c;
+  --alert-red-bg: rgba(185, 28, 28, 0.09);
+
   --shadow-sm: 0 1px 2px rgba(16, 19, 26, 0.06);
   --shadow-md: 0 4px 16px -6px rgba(16, 19, 26, 0.16);
   --bar-bg: rgba(242, 243, 246, 0.82);
@@ -59,6 +76,18 @@
   --ok: #4ade80;
 
   --rail: rgba(255, 255, 255, 0.14);
+
+  --tone-0: #f0b429;
+  --tone-1: #2dd4bf;
+  --tone-2: #a3e635;
+  --tone-3: #c4b5fd;
+  --tone-4: #f9a8d4;
+  --tone-5: #7dd3fc;
+
+  --alert-yellow: #f0b429;
+  --alert-yellow-bg: rgba(240, 180, 41, 0.13);
+  --alert-red: #fca5a5;
+  --alert-red-bg: rgba(248, 113, 113, 0.14);
 
   --shadow-sm: none;
   --shadow-md: 0 6px 20px -8px rgba(0, 0, 0, 0.6);
@@ -2959,7 +2988,16 @@ summary {
   border: 1px solid var(--border);
   color: var(--text);
   font: inherit;
-  font-size: 15px;
+  /*
+   * Рівно 16px, і жодним пікселем менше.
+   *
+   * iOS сам наближає сторінку, коли фокус потрапляє в поле з дрібнішим
+   * шрифтом. А відзумити назад тут нічим: вище на `.app` стоїть
+   * `touch-action: pan-x pan-y`, щоб розклад не «розповзався» від
+   * випадкового щипка. Разом це давало пастку: торкнувся поля «як
+   * звати» — і застосунок лишився збільшеним назавжди.
+   */
+  font-size: 16px;
 }
 
 .textinput::placeholder {
@@ -3036,4 +3074,319 @@ summary {
 
 .clubform {
   display: contents;
+}
+
+
+/* ── Повітряна тривога ───────────────────────────────────────────────── */
+
+/* Стоїть над усім, а не в бічній картці «що зараз»: тривога стосується
+   не вибраного дня, а нинішньої хвилини, і сперечатися з нею за увагу
+   не має нічого. */
+.alert {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid currentColor;
+}
+
+.alert--yellow {
+  color: var(--alert-yellow);
+  background: var(--alert-yellow-bg);
+}
+
+.alert--red {
+  color: var(--alert-red);
+  background: var(--alert-red-bg);
+}
+
+.alert--clear {
+  color: var(--ok);
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.alert__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.alert__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.alert__title {
+  margin: 6px 0 0;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.alert__where {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+/* Головний рядок картки: відповідь, якої більше ніде немає. */
+.alert__resume {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.alert__stale {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* ── Відтінки гуртків ────────────────────────────────────────────────── */
+
+.club--t0 .club__body { border-left: 3px solid var(--tone-0); }
+.club--t1 .club__body { border-left: 3px solid var(--tone-1); }
+.club--t2 .club__body { border-left: 3px solid var(--tone-2); }
+.club--t3 .club__body { border-left: 3px solid var(--tone-3); }
+.club--t4 .club__body { border-left: 3px solid var(--tone-4); }
+.club--t5 .club__body { border-left: 3px solid var(--tone-5); }
+
+.club__season {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.lesson--t1 .lesson__card { border-left-color: var(--tone-1); }
+.lesson--t2 .lesson__card { border-left-color: var(--tone-2); }
+.lesson--t3 .lesson__card { border-left-color: var(--tone-3); }
+.lesson--t4 .lesson__card { border-left-color: var(--tone-4); }
+.lesson--t5 .lesson__card { border-left-color: var(--tone-5); }
+
+.lesson--t1 .lesson__num, .lesson--t1 .lesson__dot { color: var(--tone-1); }
+.lesson--t2 .lesson__num, .lesson--t2 .lesson__dot { color: var(--tone-2); }
+.lesson--t3 .lesson__num, .lesson--t3 .lesson__dot { color: var(--tone-3); }
+.lesson--t4 .lesson__num, .lesson--t4 .lesson__dot { color: var(--tone-4); }
+.lesson--t5 .lesson__num, .lesson--t5 .lesson__dot { color: var(--tone-5); }
+
+.lesson--t1 .lesson__dot { background: var(--tone-1); }
+.lesson--t2 .lesson__dot { background: var(--tone-2); }
+.lesson--t3 .lesson__dot { background: var(--tone-3); }
+.lesson--t4 .lesson__dot { background: var(--tone-4); }
+.lesson--t5 .lesson__dot { background: var(--tone-5); }
+
+.tonepick {
+  display: flex;
+  /* Кнопки ширші за самі крапки, тож проміжок між ними вже не потрібен. */
+  margin: -7px;
+}
+
+/*
+ * Кружок видно на 30 px, а натискається він на всі 44 — саме стільки
+ * потрібно пальцю. Тому колір малює псевдоелемент, а кнопка лишається
+ * прозорою рамкою навколо нього.
+ */
+.tonepick__dot {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: inherit;
+}
+
+.tonepick__dot::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: currentColor;
+  transition: transform 0.12s ease;
+}
+
+/* Обрана крапка читається й без кольору — вона просто більша. */
+.tonepick__dot[aria-pressed='true']::before {
+  border-color: var(--text);
+  transform: scale(1.12);
+}
+
+.tonepick__dot--t0 { color: var(--tone-0); }
+.tonepick__dot--t1 { color: var(--tone-1); }
+.tonepick__dot--t2 { color: var(--tone-2); }
+.tonepick__dot--t3 { color: var(--tone-3); }
+.tonepick__dot--t4 { color: var(--tone-4); }
+.tonepick__dot--t5 { color: var(--tone-5); }
+
+/* ── Згорнута частина форми ──────────────────────────────────────────── */
+
+/* Сезон, скасування й оплата заповнюються раз на рік. Тримати їх
+   розгорнутими означає зробити форму вдвічі довшою заради полів, до
+   яких доходять одиниці. */
+.more {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.more__summary {
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.more__summary::-webkit-details-marker {
+  display: none;
+}
+
+.more__summary::after {
+  content: ' ▾';
+  color: var(--text-3);
+}
+
+.more[open] .more__summary::after {
+  content: ' ▴';
+}
+
+.skips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skips svg {
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+}
+
+/* ── Своя полиця ─────────────────────────────────────────────────────── */
+
+.shelf {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.shelf .books__subject {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.shelf .books__subject svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+
+.shelf__empty {
+  margin: 4px 0 12px;
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+
+.shelf__add {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.shelf__add .btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.shelf__link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.shelf__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* ── Що саме поїде, коли ділишся ─────────────────────────────────────── */
+
+/* «Поділитися» без цього списку — це кнопка, яка відправляє невідомо
+   що, і натискати її страшно. */
+.shared {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shared li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+}
+
+.shared svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--ok);
+}
+
+.shared__who {
+  color: var(--text-3);
+}
+
+/* Другий список поспіль — район під областю. */
+.select--second {
+  margin-top: 8px;
+}
+
+/* Уся картка власного матеріалу — кнопка: дотик відкриває файл. */
+.book__text--tap {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.book__tag svg {
+  width: 11px;
+  height: 11px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+
+.viewer__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
 }

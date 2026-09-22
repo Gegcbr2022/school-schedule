@@ -1,15 +1,26 @@
 import { useId, useState } from 'react'
 import type { WeekParity } from '../data/schedule'
 import { haptic } from '../lib/haptics'
-import { DAY_SHORT_NAME, formatTime, parseTime, plural } from '../lib/clock'
+import type { CalendarDate } from '../lib/clock'
+import {
+  DAY_SHORT_NAME,
+  dateKey,
+  formatDateUk,
+  formatTime,
+  parseDateKey,
+  parseTime,
+  plural,
+} from '../lib/clock'
 import { useBackdropClose, useModal } from '../lib/hooks'
 import type { Club, Profile } from '../lib/prefs'
-import { nextClubId } from '../lib/prefs'
+import { CLUB_LEADS, CLUB_TONES, nextClubId } from '../lib/prefs'
 import { leaveAt, profileName } from '../lib/profiles'
-import { CloseIcon, PlusIcon, StarIcon, TrashIcon } from './Icons'
+import { CloseIcon, PhoneIcon, PlusIcon, StarIcon, TrashIcon } from './Icons'
 
 type Props = {
   profile: Profile
+  /** Сьогодні — для кнопки «скасувати сьогоднішнє заняття». */
+  today: CalendarDate
   onSave: (clubs: Club[]) => void
   onClose: () => void
 }
@@ -18,7 +29,15 @@ const ISO_DAYS = [1, 2, 3, 4, 5, 6, 7]
 
 /** Порожня заготовка: вівторок о 16:00 — просто щоб не починати з нуля. */
 function blankClub(clubs: Club[]): Club {
-  return { id: nextClubId(clubs), name: '', days: [], start: 16 * 60, end: 17 * 60 }
+  return {
+    id: nextClubId(clubs),
+    name: '',
+    days: [],
+    start: 16 * 60,
+    end: 17 * 60,
+    // Колір наступний по колу — щоб два гуртки поспіль не виявились однакові.
+    tone: clubs.length % CLUB_TONES,
+  }
 }
 
 /** «Пн, Ср · 17:00–18:30» — один рядок про те, коли гурток. */
@@ -27,15 +46,27 @@ function whenOf(club: Club): string {
   return `${days} · ${formatTime(club.start)}–${formatTime(club.end)}`
 }
 
+/** «з 1 жовтня», «до 25 травня», «1 жовтня — 25 травня». */
+function seasonOf(club: Club): string | null {
+  if (club.from && club.to) {
+    return `${formatDateUk(parseDateKey(club.from))} — ${formatDateUk(parseDateKey(club.to))}`
+  }
+  if (club.from) return `з ${formatDateUk(parseDateKey(club.from))}`
+  if (club.to) return `до ${formatDateUk(parseDateKey(club.to))}`
+  return null
+}
+
 /** Скільки закладати на дорогу. Нуль — «поруч, іти нікуди». */
 const TRAVEL = [0, 10, 15, 30, 45]
 
 function ClubForm({
   club,
+  today,
   onDone,
   onCancel,
 }: {
   club: Club
+  today: CalendarDate
   onDone: (club: Club) => void
   onCancel: () => void
 }) {
@@ -48,6 +79,12 @@ function ClubForm({
         ? draft.days.filter((d) => d !== iso)
         : [...draft.days, iso].sort((a, b) => a - b),
     })
+
+  const skip = draft.skip ?? []
+  const addSkip = (key: string) => {
+    if (!key || skip.includes(key)) return
+    update({ skip: [...skip, key].sort() })
+  }
 
   // Не даємо зберегти те, чого не вийде показати в розкладі.
   const ready = draft.name.trim().length > 0 && draft.days.length > 0 && draft.end > draft.start
@@ -157,6 +194,79 @@ function ClubForm({
         </p>
       </fieldset>
 
+      {draft.travel ? (
+        <fieldset className="field">
+          <legend className="field__label">Нагадати про вихід</legend>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={draft.leaveAlert !== false}
+              onChange={(event) =>
+                update({ leaveAlert: event.target.checked ? undefined : false })
+              }
+            />
+            <span>
+              <span className="check__label">
+                Сповістити о {formatTime(leaveAt(draft))} — «час виходити»
+              </span>
+              <span className="check__hint">
+                Окремо від нагадування про початок: на дорогу закладено {draft.travel} хв.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+      ) : null}
+
+      <fieldset className="field">
+        <legend className="field__label">Колір</legend>
+        <div className="tonepick">
+          {Array.from({ length: CLUB_TONES }, (_, tone) => (
+            <button
+              key={tone}
+              type="button"
+              className={`tonepick__dot tonepick__dot--t${tone}`}
+              aria-pressed={(draft.tone ?? 0) === tone}
+              aria-label={`Колір ${tone + 1}`}
+              onClick={() => update({ tone })}
+            />
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="field">
+        <legend className="field__label">Хто веде</legend>
+        <input
+          className="textinput"
+          type="text"
+          value={draft.teacher ?? ''}
+          maxLength={60}
+          placeholder="Іван Петрович"
+          aria-label="Хто веде гурток"
+          onChange={(event) => update({ teacher: event.target.value })}
+        />
+      </fieldset>
+
+      <fieldset className="field">
+        <legend className="field__label">Телефон</legend>
+        <input
+          className="textinput"
+          type="tel"
+          inputMode="tel"
+          value={draft.phone ?? ''}
+          maxLength={30}
+          placeholder="+380 67 123 45 67"
+          aria-label="Телефон тренера"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(event) => update({ phone: event.target.value })}
+        />
+        <p className="field__hint">
+          З'явиться кнопкою поруч із гуртком — щоб не шукати номер у переписці,
+          коли дитину треба забрати раніше.
+        </p>
+      </fieldset>
+
       <fieldset className="field">
         <legend className="field__label">Нотатка</legend>
         <input
@@ -164,7 +274,7 @@ function ClubForm({
           type="text"
           value={draft.note ?? ''}
           maxLength={200}
-          placeholder="Тренер, телефон, що взяти"
+          placeholder="Що взяти, який вхід, оплата"
           aria-label="Нотатка"
           onChange={(event) => update({ note: event.target.value })}
         />
@@ -198,6 +308,117 @@ function ClubForm({
         </p>
       </fieldset>
 
+      {/*
+        Решта — те, що заповнюють один раз на рік або не заповнюють зовсім.
+        Тримати це розгорнутим означає зробити форму вдвічі довшою заради
+        полів, до яких доходять одиниці. `details` для цього й існує.
+      */}
+      <details className="more">
+        <summary className="more__summary">Сезон, скасування, оплата</summary>
+
+        <fieldset className="field">
+          <legend className="field__label">Коли буває</legend>
+          <div className="timepair">
+            <input
+              className="textinput textinput--time"
+              type="date"
+              value={draft.from ?? ''}
+              aria-label="Початок сезону"
+              onChange={(event) => update({ from: event.target.value || undefined })}
+            />
+            <span className="timepair__dash" aria-hidden="true">
+              —
+            </span>
+            <input
+              className="textinput textinput--time"
+              type="date"
+              value={draft.to ?? ''}
+              aria-label="Кінець сезону"
+              onChange={(event) => update({ to: event.target.value || undefined })}
+            />
+          </div>
+          <p className="field__hint">
+            Порожньо — гурток буває завжди. Секція з жовтня по травень інакше стоятиме
+            в розкладі й посеред канікул.
+          </p>
+        </fieldset>
+
+        <fieldset className="field">
+          <legend className="field__label">Не буде</legend>
+          <div className="timepair">
+            <input
+              className="textinput textinput--time"
+              type="date"
+              value=""
+              aria-label="Додати дату без заняття"
+              onChange={(event) => addSkip(event.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn--quiet"
+              onClick={() => addSkip(dateKey(today))}
+            >
+              Сьогодні
+            </button>
+          </div>
+          {skip.length > 0 && (
+            <ul className="skips">
+              {skip.map((key) => (
+                <li key={key}>
+                  <button
+                    type="button"
+                    className="chip chip--button"
+                    aria-label={`Повернути заняття ${formatDateUk(parseDateKey(key))}`}
+                    onClick={() => update({ skip: skip.filter((d) => d !== key) })}
+                  >
+                    {formatDateUk(parseDateKey(key))}
+                    <CloseIcon />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="field__hint">
+            Тренер захворів — це не привід стирати секцію й заводити її заново
+            в понеділок. Дотик по даті повертає заняття назад.
+          </p>
+        </fieldset>
+
+        <fieldset className="field">
+          <legend className="field__label">Нагадати за</legend>
+          <select
+            className="select select--compact"
+            value={draft.lead ?? ''}
+            aria-label="За скільки хвилин нагадати про цей гурток"
+            onChange={(event) =>
+              update({ lead: event.target.value === '' ? undefined : Number(event.target.value) })
+            }
+          >
+            <option value="">Як у налаштуваннях</option>
+            {CLUB_LEADS.map((value) => (
+              <option key={value} value={value}>
+                {value === 0 ? 'У момент початку' : `За ${value} хв`}
+              </option>
+            ))}
+          </select>
+          <p className="field__hint">
+            Урок за стінкою й музична школа через місто не можуть мати однакове «за 10 хв».
+          </p>
+        </fieldset>
+
+        <fieldset className="field">
+          <legend className="field__label">Оплачено до</legend>
+          <input
+            className="textinput textinput--time"
+            type="date"
+            value={draft.paidUntil ?? ''}
+            aria-label="Оплачено до"
+            onChange={(event) => update({ paidUntil: event.target.value || undefined })}
+          />
+          <p className="field__hint">Нагадаємо за три дні й у сам день, о дев'ятій ранку.</p>
+        </fieldset>
+      </details>
+
       <div className="sheet__actions">
         <button
           type="button"
@@ -208,7 +429,10 @@ function ClubForm({
               ...draft,
               name: draft.name.trim(),
               place: draft.place?.trim() || undefined,
+              teacher: draft.teacher?.trim() || undefined,
+              phone: draft.phone?.trim() || undefined,
               note: draft.note?.trim() || undefined,
+              skip: draft.skip && draft.skip.length > 0 ? draft.skip : undefined,
             })
           }
         >
@@ -229,7 +453,7 @@ function ClubForm({
  * Записане тут потрапляє просто у стрічку дня, за часом, разом з уроками:
  * другого списку, у який треба окремо заглядати, ми не заводимо.
  */
-export function ClubsSheet({ profile, onSave, onClose }: Props) {
+export function ClubsSheet({ profile, today, onSave, onClose }: Props) {
   const headingId = useId()
   const sheetRef = useModal(onClose)
   const backdrop = useBackdropClose(onClose)
@@ -274,7 +498,12 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
         </p>
 
         {editing ? (
-          <ClubForm club={editing} onDone={commit} onCancel={() => setEditing(null)} />
+          <ClubForm
+            club={editing}
+            today={today}
+            onDone={commit}
+            onCancel={() => setEditing(null)}
+          />
         ) : (
           <>
             {clubs.length === 0 ? (
@@ -287,7 +516,7 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
             ) : (
               <ul className="clubs">
                 {clubs.map((club) => (
-                  <li className="club" key={club.id}>
+                  <li className={`club club--t${club.tone ?? 0}`} key={club.id}>
                     <button
                       type="button"
                       className="club__body"
@@ -299,9 +528,10 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
                         {whenOf(club)}
                         {club.week && ` · ${club.week} тиждень`}
                       </span>
-                      {(club.place || club.note || club.travel) && (
+                      {(club.place || club.note || club.travel || club.teacher) && (
                         <span className="club__where">
                           {[
+                            club.teacher,
                             club.place,
                             club.travel ? `вийти о ${formatTime(leaveAt(club))}` : null,
                             club.note,
@@ -310,7 +540,33 @@ export function ClubsSheet({ profile, onSave, onClose }: Props) {
                             .join(' · ')}
                         </span>
                       )}
+                      {(seasonOf(club) || club.paidUntil || club.skip?.length) && (
+                        <span className="club__season">
+                          {[
+                            seasonOf(club),
+                            club.paidUntil
+                              ? `оплачено до ${formatDateUk(parseDateKey(club.paidUntil))}`
+                              : null,
+                            club.skip?.length
+                              ? `${club.skip.length} ${plural(club.skip.length, ['скасування', 'скасування', 'скасувань'])}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      )}
                     </button>
+                    {club.phone && (
+                      /* Посилання, а не кнопка: набирати має телефон, а
+                         не ми. Оболонка віддає `tel:` системі. */
+                      <a
+                        className="iconbtn iconbtn--small"
+                        href={`tel:${club.phone.replace(/[^+\d]/g, '')}`}
+                        aria-label={`Подзвонити: ${club.teacher || club.name}`}
+                      >
+                        <PhoneIcon />
+                      </a>
+                    )}
                     <button
                       type="button"
                       className="iconbtn iconbtn--small"

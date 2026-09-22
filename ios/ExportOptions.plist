@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Як саме пакувати архів для App Store Connect.
 
   DEVELOPMENT_TEAM сюди не вписано навмисно: `scripts/release-ios.sh`
   підставляє його зі змінної TEAM_ID, щоб ідентифікатор команди не
   лежав у репозиторії.
+
+  ЧОМУ ПІДПИС РУЧНИЙ, А НЕ АВТОМАТИЧНИЙ. Автоматичний означає «Xcode
+  сходить у хмару й перевипустить профіль сам». Для цього потрібен ключ
+  App Store Connect із роллю Admin, а наш — App Manager: експорт падає з
+  «Cloud signing permission error», і жодне `-allowProvisioningUpdates`
+  не допомагає. Профілі в портала є, сертифікат у keychain є — треба
+  просто назвати їх вголос. Коли профіль протермінується або його
+  зіпсує нова можливість застосунку, полагодить `scripts/fix-profiles.py`.
 -->
 <plist version="1.0">
 <dict>
@@ -15,9 +24,21 @@
 	<key>uploadSymbols</key>
 	<true/>
 
-	<!-- Підпис бере Xcode: сертифікат розповсюдження й профіль він знайде сам. -->
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
+
+	<key>signingCertificate</key>
+	<string>iPhone Distribution</string>
+
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>app.dzvinka.schedule</key>
+		<string>Dzvinka App Store</string>
+		<key>app.dzvinka.schedule.widget</key>
+		<string>Dzvinka Widget App Store</string>
+		<key>app.dzvinka.schedule.watchkitapp</key>
+		<string>Dzvinka Watch App Store</string>
+	</dict>
 
 	<!-- Номер версії/збірки беремо з проєкту, а не даємо Xcode міняти його під час upload. -->
 	<key>manageAppVersionAndBuildNumber</key>

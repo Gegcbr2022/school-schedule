@@ -13,6 +13,7 @@ import {
 } from '../data/schedule'
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
+import { DEFAULT_REGION, knownRegion } from '../data/regions'
 
 /**
  * Поділи, за якими з розкладу класу лишається саме свій.
@@ -50,11 +51,60 @@ export type Club = {
    * тоді, коли по дитину вже їдуть.
    */
   travel?: number
-  /** Вільний рядок: тренер, телефон, оплата, що взяти. */
+  /** Хто веде: «Іван Петрович», «Марія К.». */
+  teacher?: string
+  /**
+   * Телефон тренера чи адміністратора. Зберігається як написали —
+   * набирати його все одно телефону, а не нам.
+   */
+  phone?: string
+  /** Вільний рядок: що взяти, який вхід, будь-що інше. */
   note?: string
   /** Буває лише на тижнях цієї парності; немає — щотижня. */
   week?: WeekParity
+  /**
+   * Відтінок картки, 0…`CLUB_TONES`−1. Коли гуртків у дні три, однакові
+   * зірочки читаються гірше, ніж колір: футбол і музична школа мають
+   * розрізнятись боковим зором, без читання назви.
+   */
+  tone?: number
+  /**
+   * Коли гурток узагалі буває, «рррр-мм-дд» включно.
+   *
+   * Секція починається в жовтні й закінчується в травні, а без цих полів
+   * вона вічна: на канікулах і влітку застосунок і далі писав би, що
+   * сьогодні о 17:00 футбол.
+   */
+  from?: string
+  to?: string
+  /**
+   * Дати, коли заняття не буде, «рррр-мм-дд». Тренер захворів — це не
+   * привід стирати гурток і заводити його заново в понеділок.
+   */
+  skip?: string[]
+  /**
+   * За скільки хвилин нагадати саме про цей гурток. Немає — береться
+   * загальне налаштування. Урок за стінкою й музична школа через місто
+   * не можуть мати однакове «за 10 хв».
+   */
+  lead?: number
+  /**
+   * Нагадати ще й тоді, коли час виходити (`leaveAt`).
+   *
+   * `undefined` — це «так», якщо дорогу вказано: людина, яка не полінилась
+   * ввести 40 хвилин на дорогу, саме цього нагадування й хоче. Явне
+   * `false` вимикає.
+   */
+  leaveAlert?: boolean
+  /** Оплачено до цієї дати, «рррр-мм-дд». Нагадаємо за три дні й у день. */
+  paidUntil?: string
 }
+
+/** Скільки відтінків у гуртків. Стільки ж класів `.club--tN` у стилях. */
+export const CLUB_TONES = 6
+
+/** За скільки хвилин можна нагадати про гурток. */
+export const CLUB_LEADS = [0, 5, 10, 15, 30, 45, 60] as const
 
 /**
  * Чий розклад показує застосунок.
@@ -95,6 +145,42 @@ export type NotificationPrefs = {
   lessonEndLead: number
   homework: boolean
   homeworkLead: number
+  /** Нагадати, що час виходити на гурток, — за дорогою, яку вказали. */
+  clubLeave: boolean
+  /** Нагадати про оплату гуртка за три дні до дати «оплачено до». */
+  clubPayment: boolean
+}
+
+/**
+ * Повітряна тривога.
+ *
+ * Свідомо окремо від нагадувань: нагадування — це розклад, а тривога —
+ * зовнішній світ, і вимикати їх людина хоче незалежно.
+ */
+export type AlertPrefs = {
+  /** Показувати стан тривоги над розкладом. */
+  enabled: boolean
+  /** За яким регіоном стежимо — ключ із `data/regions.ts`. */
+  region: string
+  /** Сповістити, коли тривога почалась. */
+  onStart: boolean
+  /** Сповістити про відбій. */
+  onEnd: boolean
+  /**
+   * Після відбою — нагадати, на який урок повертатись і о котрій він
+   * починається. Заради цього все й затівалось: відбій о 10:20 сам по
+   * собі не каже, що йти треба на четвертий, а не на третій.
+   */
+  backToClass: boolean
+  /**
+   * Показувати тривогу на екрані блокування й у динамічному острові.
+   *
+   * Окремо від `Prefs.live`: урок там показують заради зручності, а
+   * тривогу — заради безпеки, і людина може хотіти одне без іншого.
+   * Розділити екран блокування й динамічний острів не можна: для iOS це
+   * одна й та сама «жива активність», просто в двох місцях.
+   */
+  live: boolean
 }
 
 /** Ролі, у яких профілів буває більше одного. */
@@ -110,6 +196,13 @@ export type Prefs = {
   /** `id` профілю, який зараз відкрито. */
   activeId: string
   notifications: NotificationPrefs
+  alerts: AlertPrefs
+  /**
+   * Показувати поточний урок на екрані блокування й у динамічному
+   * острові. Сама активність з'являється лише в навчальний день і зникає
+   * після останнього уроку, тож умикати її окремо щоранку не треба.
+   */
+  live: boolean
 }
 
 export type Theme = 'light' | 'dark' | 'system'
@@ -139,6 +232,19 @@ export const DEFAULT_NOTIFICATIONS: NotificationPrefs = {
   lessonEndLead: 5,
   homework: true,
   homeworkLead: 60,
+  clubLeave: true,
+  clubPayment: true,
+}
+
+export const DEFAULT_ALERTS: AlertPrefs = {
+  // Вимкнено доти, доки регіон не обрали свідомо: тривога чужої області
+  // гірша за її відсутність — до неї перестають прислухатись.
+  enabled: false,
+  region: DEFAULT_REGION,
+  onStart: true,
+  onEnd: true,
+  backToClass: true,
+  live: true,
 }
 
 export const DEFAULT_PROFILE: Profile = {
@@ -155,6 +261,8 @@ export const DEFAULT_PREFS: Prefs = {
   profiles: [DEFAULT_PROFILE],
   activeId: DEFAULT_PROFILE.id,
   notifications: DEFAULT_NOTIFICATIONS,
+  alerts: DEFAULT_ALERTS,
+  live: true,
 }
 
 /** Профіль, який зараз відкрито. Перший — запасний варіант на будь-який випадок. */
@@ -255,7 +363,7 @@ function oneOf<T extends string>(allowed: readonly T[], value: unknown): T | nul
     : null
 }
 
-function knownClass(value: unknown): string | null {
+export function knownClass(value: unknown): string | null {
   return typeof value === 'string' && TIMETABLE.some((c) => c.id === value) ? value : null
 }
 
@@ -278,6 +386,11 @@ function oneOfNumber(allowed: readonly number[], value: unknown): number | null 
   return typeof value === 'number' && allowed.includes(value) ? value : null
 }
 
+/** Дата у вигляді «рррр-мм-дд» — або `null`, якщо це щось інше. */
+function dayKey(value: unknown): string | null {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
+}
+
 function readNotifications(raw: unknown): NotificationPrefs {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_NOTIFICATIONS
   const it = raw as Record<string, unknown>
@@ -296,12 +409,31 @@ function readNotifications(raw: unknown): NotificationPrefs {
     homeworkLead:
       oneOfNumber([15, 30, 60, 120, 180], it.homeworkLead) ??
       DEFAULT_NOTIFICATIONS.homeworkLead,
+    clubLeave: typeof it.clubLeave === 'boolean' ? it.clubLeave : DEFAULT_NOTIFICATIONS.clubLeave,
+    clubPayment:
+      typeof it.clubPayment === 'boolean' ? it.clubPayment : DEFAULT_NOTIFICATIONS.clubPayment,
+  }
+}
+
+function readAlerts(raw: unknown): AlertPrefs {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_ALERTS
+  const it = raw as Record<string, unknown>
+
+  return {
+    enabled: typeof it.enabled === 'boolean' ? it.enabled : DEFAULT_ALERTS.enabled,
+    // Регіон міг зникнути зі списку — тоді краще свій, ніж чужий.
+    region: knownRegion(it.region) ?? DEFAULT_ALERTS.region,
+    onStart: typeof it.onStart === 'boolean' ? it.onStart : DEFAULT_ALERTS.onStart,
+    onEnd: typeof it.onEnd === 'boolean' ? it.onEnd : DEFAULT_ALERTS.onEnd,
+    backToClass:
+      typeof it.backToClass === 'boolean' ? it.backToClass : DEFAULT_ALERTS.backToClass,
+    live: typeof it.live === 'boolean' ? it.live : DEFAULT_ALERTS.live,
   }
 }
 
 /* ── Читання ─────────────────────────────────────────────────────────── */
 
-function readGroups(raw: Record<string, unknown>): Groups {
+export function readGroups(raw: Record<string, unknown>): Groups {
   return {
     classGroup: oneOf(CLASS_GROUPS, raw.classGroup) ?? DEFAULT_GROUPS.classGroup,
     language: oneOf(LANGUAGE_GROUPS, raw.language) ?? DEFAULT_GROUPS.language,
@@ -310,7 +442,7 @@ function readGroups(raw: Record<string, unknown>): Groups {
   }
 }
 
-function readClub(raw: unknown): Club | null {
+export function readClub(raw: unknown): Club | null {
   if (typeof raw !== 'object' || raw === null) return null
   const it = raw as Record<string, unknown>
 
@@ -331,8 +463,22 @@ function readClub(raw: unknown): Club | null {
     end,
     place: text(it.place, 80) || undefined,
     travel: minutesOf(it.travel) || undefined,
+    teacher: text(it.teacher, 60) || undefined,
+    phone: text(it.phone, 30) || undefined,
     note: text(it.note, 200) || undefined,
     week: it.week === 1 || it.week === 2 ? (it.week as WeekParity) : undefined,
+    tone:
+      typeof it.tone === 'number' && it.tone >= 0 && it.tone < CLUB_TONES
+        ? Math.floor(it.tone)
+        : undefined,
+    from: dayKey(it.from) ?? undefined,
+    to: dayKey(it.to) ?? undefined,
+    skip: Array.isArray(it.skip)
+      ? [...new Set(it.skip.map(dayKey).filter((d): d is string => d !== null))].sort()
+      : undefined,
+    lead: oneOfNumber(CLUB_LEADS, it.lead) ?? undefined,
+    leaveAlert: it.leaveAlert === false ? false : undefined,
+    paidUntil: dayKey(it.paidUntil) ?? undefined,
   }
 }
 
@@ -383,6 +529,8 @@ function migrateSolo(raw: Record<string, unknown>): Prefs | null {
     profiles: [profile],
     activeId: profile.id,
     notifications: DEFAULT_NOTIFICATIONS,
+    alerts: DEFAULT_ALERTS,
+    live: true,
   }
 }
 
@@ -419,6 +567,8 @@ function migrateLegacy(): Prefs | null {
     profiles: [profile],
     activeId: profile.id,
     notifications: DEFAULT_NOTIFICATIONS,
+    alerts: DEFAULT_ALERTS,
+    live: true,
   }
 }
 
@@ -450,6 +600,8 @@ export function loadPrefs(): Prefs | null {
     // Профіль могли видалити на іншій вкладці — тоді відкриваємо перший.
     activeId: profiles.some((p) => p.id === activeId) ? activeId : profiles[0].id,
     notifications: readNotifications(stored.notifications),
+    alerts: readAlerts(stored.alerts),
+    live: typeof stored.live === 'boolean' ? stored.live : true,
   }
 }
 

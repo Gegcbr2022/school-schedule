@@ -33,7 +33,7 @@ import {
 import { MENU, MENU_FROM, MENU_TO, menuCovers, menuFor, portion } from '../data/menu'
 import { DAY_PERIOD, allNotes, datesWithNotes, setNote } from './notes'
 import type { Club, Groups } from './prefs'
-import { DEFAULT_NOTIFICATIONS, loadPrefs, savePrefs } from './prefs'
+import { DEFAULT_ALERTS, DEFAULT_NOTIFICATIONS, loadPrefs, savePrefs } from './prefs'
 import { buildNotifications } from './notifications'
 import { clubsOn, lessonsOnly, profileTone, withClubs } from './profiles'
 
@@ -602,6 +602,8 @@ describe('сповіщення', () => {
       ...DEFAULT_NOTIFICATIONS,
       enabled: true,
     },
+    alerts: DEFAULT_ALERTS,
+    live: true,
   }
 
   it('мовчить, коли вимкнені в налаштуваннях', () => {
@@ -679,6 +681,8 @@ describe('налаштування зі старої версії', () => {
       role: 'student',
       activeId: '10б',
       notifications: DEFAULT_NOTIFICATIONS,
+      alerts: DEFAULT_ALERTS,
+      live: true,
       profiles: [
         {
           id: '10б',
@@ -771,6 +775,8 @@ describe('налаштування зі старої версії', () => {
       role: 'parent',
       activeId: 'п9',
       notifications: DEFAULT_NOTIFICATIONS,
+      alerts: DEFAULT_ALERTS,
+      live: true,
       profiles: [{ ...G1, id: '10б', name: '', classId: '10б', teacherId: null, clubs: [] }],
     })
     expect(loadPrefs()!.activeId).toBe('10б')
@@ -781,6 +787,8 @@ describe('налаштування зі старої версії', () => {
       role: 'parent',
       activeId: '10б',
       notifications: DEFAULT_NOTIFICATIONS,
+      alerts: DEFAULT_ALERTS,
+      live: true,
       profiles: [
         {
           ...G1,

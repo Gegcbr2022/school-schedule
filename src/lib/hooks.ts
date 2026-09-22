@@ -4,6 +4,8 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from 'react'
+import type { AlertState } from './alerts'
+import { NO_ALERT, alertsAvailable, checkAlert } from './alerts'
 import type { KyivTime } from './clock'
 import { kyivNow } from './clock'
 import { isNative } from './native'
@@ -347,4 +349,65 @@ export function useInstallPrompt(): {
   }, [])
 
   return { canInstall: event !== null && !dismissed, install, dismiss }
+}
+
+/**
+ * Стан повітряної тривоги, який сам себе оновлює.
+ *
+ * Питаємо раз на хвилину й лише поки застосунок на екрані: у фоні
+ * сторінку все одно присипляють, а сповіщення у фоні ставить оболонка
+ * (`ios/App/Alerts.swift`) — тут дублювати нічого.
+ *
+ * `endedAt` — коли тривога скінчилась. Сирени на відбій більше немає, і
+ * саме цей момент найцінніший: із нього рахується, на який урок
+ * повертатись.
+ */
+export function useAlert(
+  enabled: boolean,
+  region: string,
+  intervalMs = 60_000,
+): { state: AlertState; endedAt: number | null } {
+  const [state, setState] = useState<AlertState>(NO_ALERT)
+  const [endedAt, setEndedAt] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!enabled || !alertsAvailable()) return
+
+    let alive = true
+    /**
+     * `force` — перша перевірка. Її не можна відкладати до того, як
+     * сторінка стане видимою: застосунок цілком може запуститись у стані
+     * «hidden» (відновлення PWA, запуск у рідній оболонці), і тоді
+     * картка тривоги лишалась би порожньою невідомо доки. А от
+     * повторювати щохвилини в невидимій вкладці — марно палити батарею.
+     */
+    const tick = (force = false) => {
+      if (!force && document.visibilityState !== 'visible') return
+      void checkAlert(region).then((next) => {
+        if (!alive || !next) return
+        setState((prev) => {
+          // Саме перехід «була — немає» і є відбій. Інших ознак у нас
+          // немає: у документі лежить стан, а не події.
+          if (prev.level > 0 && next.level === 0) setEndedAt(Date.now())
+          return next
+        })
+      })
+    }
+
+    const onWake = () => tick()
+    tick(true)
+    const id = window.setInterval(onWake, intervalMs)
+    document.addEventListener('visibilitychange', onWake)
+    window.addEventListener('focus', onWake)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onWake)
+      window.removeEventListener('focus', onWake)
+    }
+  }, [enabled, region, intervalMs])
+
+  // Вимкнули — віддаємо спокій, не чіпаючи збережений стан: увімкнуть
+  // назад, і він буде на місці, а не порожній до першого опитування.
+  return { state: enabled && alertsAvailable() ? state : NO_ALERT, endedAt }
 }

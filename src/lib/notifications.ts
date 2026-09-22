@@ -1,11 +1,19 @@
 import { specialDayOn } from '../data/special'
 import type { CalendarDate } from './clock'
-import { addDays, dateKey, formatTime, isoOf, weekParity } from './clock'
+import {
+  addDays,
+  dateKey,
+  formatDateUk,
+  formatTime,
+  isoOf,
+  parseDateKey,
+  weekParity,
+} from './clock'
 import type { DisplayLesson } from './lessons'
 import { roomLabel } from './lessons'
 import { allNotes, DAY_PERIOD } from './notes'
-import type { Prefs, Profile } from './prefs'
-import { clubsOn, profileDay, profileName, withClubs } from './profiles'
+import type { Club, Prefs, Profile } from './prefs'
+import { clubsOn, leaveAt, profileDay, profileName, withClubs } from './profiles'
 
 type Bridge = { postMessage: (value: unknown) => void }
 
@@ -93,11 +101,10 @@ function lessonBody(profile: Profile, lesson: DisplayLesson): string {
 
 function lessonsFor(profile: Profile, date: CalendarDate): DisplayLesson[] {
   const iso = isoOf(date)
-  if (iso > 5 || specialDayOn(date)?.noLessons) {
-    return withClubs([], clubsOn(profile, iso, weekParity(addDays(date, 1 - iso))))
-  }
   const week = weekParity(addDays(date, 1 - iso))
-  return withClubs(profileDay(profile, iso - 1, week, 'my'), clubsOn(profile, iso, week))
+  const clubs = clubsOn(profile, iso, week, date)
+  if (iso > 5 || specialDayOn(date)?.noLessons) return withClubs([], clubs)
+  return withClubs(profileDay(profile, iso - 1, week, 'my'), clubs)
 }
 
 function addLessonNotifications(
@@ -112,15 +119,19 @@ function addLessonNotifications(
   for (const lesson of lessons) {
     const subject = lessonName(lesson)
     const prefix = `${profile.id}:${dateKey(date)}:${lesson.club ? `club:${lesson.club}` : lesson.period}`
+    const club = lesson.club ? profile.clubs.find((c) => c.id === lesson.club) : undefined
+    // Урок за стінкою й музична школа через місто не можуть мати
+    // однакове «за 10 хв»: у гуртка своє випередження, якщо його вказали.
+    const lead = club?.lead ?? settings.lessonStartLead
 
     if (settings.lessonStart) {
       out.push(
         asItem(
           `start:${prefix}`,
-          settings.lessonStartLead === 0 ? `${subject} починається` : `${subject} за ${settings.lessonStartLead} хв`,
+          lead === 0 ? `${subject} починається` : `${subject} за ${lead} хв`,
           lessonBody(profile, lesson),
           date,
-          lesson.start - settings.lessonStartLead,
+          lesson.start - lead,
         ),
       )
     }
@@ -135,6 +146,74 @@ function addLessonNotifications(
           lessonBody(profile, lesson),
           date,
           lesson.end - settings.lessonEndLead,
+        ),
+      )
+    }
+  }
+}
+
+/**
+ * «Час виходити» — нагадування, заради якого гуртки й тримають поруч
+ * із розкладом.
+ *
+ * Дорогу людина вказала сама (`club.travel`), і застосунок давно вміє
+ * порахувати, о котрій треба вийти. Досі це число лише малювалось на
+ * картці — а нагадування приходило на початок заняття, тобто тоді, коли
+ * дитина вже спізнилась на всю дорогу.
+ */
+function addLeaveNotifications(
+  out: NativeNotificationItem[],
+  profile: Profile,
+  date: CalendarDate,
+  clubs: Club[],
+  prefs: Prefs,
+): void {
+  if (!prefs.notifications.clubLeave) return
+
+  for (const club of clubs) {
+    if (!club.travel || club.leaveAlert === false) continue
+    const where = club.place ? ` · ${club.place}` : ''
+    out.push(
+      asItem(
+        `leave:${profile.id}:${dateKey(date)}:${club.id}`,
+        `Час виходити: ${club.name}`,
+        `${profileName(profile)} · початок о ${formatTime(club.start)}${where}`,
+        date,
+        leaveAt(club),
+      ),
+    )
+  }
+}
+
+/**
+ * Оплата гуртка: за три дні й у сам день, о дев'ятій ранку.
+ *
+ * Дрібниця, яку в застосунку не чекають, — і саме тому її й помічають:
+ * «оплачено до 30 вересня» лежить у голові в одного з батьків і зникає
+ * звідти рівно 27-го.
+ */
+function addPaymentNotifications(
+  out: NativeNotificationItem[],
+  profile: Profile,
+  today: CalendarDate,
+  prefs: Prefs,
+): void {
+  if (!prefs.notifications.clubPayment) return
+
+  for (const club of profile.clubs) {
+    if (!club.paidUntil) continue
+    const due = parseDateKey(club.paidUntil)
+
+    for (const before of [3, 0]) {
+      const when = addDays(due, -before)
+      if (dateKey(when) < dateKey(today)) continue
+      out.push(
+        asItem(
+          `pay:${profile.id}:${club.paidUntil}:${club.id}:${before}`,
+          before === 0 ? `Оплата: ${club.name}` : `Оплата за ${club.name} — за 3 дні`,
+          `${profileName(profile)} · оплачено до ${formatDateUk(due)}`,
+          when,
+          9 * 60,
         ),
       )
     }
@@ -205,9 +284,18 @@ export function buildNotifications(
   for (const profile of prefs.profiles) {
     for (let offset = 0; offset < horizonDays; offset += 1) {
       const date = addDays(today, offset)
+      const iso = isoOf(date)
       addLessonNotifications(out, profile, date, lessonsFor(profile, date), prefs)
+      addLeaveNotifications(
+        out,
+        profile,
+        date,
+        clubsOn(profile, iso, weekParity(addDays(date, 1 - iso)), date),
+        prefs,
+      )
     }
     addHomeworkNotifications(out, profile, today, nowMin, prefs)
+    addPaymentNotifications(out, profile, today, prefs)
   }
 
   return out
