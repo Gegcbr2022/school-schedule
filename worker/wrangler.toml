@@ -1,0 +1,25 @@
+name = "dzvinka-alerts"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Адреса самого Worker'а потрібна лише для ручного `/refresh`. Застосунок
+# сюди не ходить узагалі — він читає файл із R2.
+workers_dev = true
+# Прев'ю-адреси на кожну версію тут ні до чого: це не сайт.
+preview_urls = false
+
+# Раз на хвилину. Частіше не можна: ліміт alerts.in.ua — близько десяти
+# запитів на хвилину на токен, і ділити його ні з ким не хочеться.
+[triggers]
+crons = ["* * * * *"]
+
+# Бакет, у який лягає alerts.json. Публічний доступ вмикається в панелі
+# Cloudflare: R2 → бакет → Settings → Public access. Туди ж CORS, інакше
+# застосунок під `dzvinka://localhost` файл не прочитає.
+[[r2_buckets]]
+binding = "ALERTS"
+bucket_name = "alerts"
+
+# Токен alerts.in.ua кладеться секретом, а не сюди:
+#     npx wrangler secret put ALERTS_TOKEN
+#     npx wrangler secret put REFRESH_KEY
