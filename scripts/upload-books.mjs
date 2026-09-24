@@ -4,9 +4,9 @@
  * Доступи НЕ вшиті в код. Створіть у корені проєкту файл `.r2.env`
  * (він у .gitignore, у git не потрапляє) з трьома рядками:
  *
- *     R2_ACCESS_KEY_ID=cb21141102d46f958348dcc3fe64111d
+ *     R2_ACCESS_KEY_ID=ваш-id-ключа
  *     R2_SECRET_ACCESS_KEY=ваш-секрет
- *     R2_ENDPOINT=https://8a6cf70d39abdc687584d559539ad436.r2.cloudflarestorage.com
+ *     R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
  *
  * Далі просто:
  *     npm i -D @aws-sdk/client-s3

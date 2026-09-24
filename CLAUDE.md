@@ -12,7 +12,7 @@ Worker зі станом тривоги (`worker/`). Докладно: `README.m
 npm ci
 npm run dev     # http://localhost:5173/school-schedule/ — service worker тут вимкнений
 npm run build   # tsc -b → npm run pack → vite build, у dist/
-npm test        # vitest run: src/**/*.test.ts і worker/src/index.test.js
+npm test        # vitest run: src/**/*.test.ts, worker/src/index.test.js, scripts/workflows.test.mjs
 npm run lint    # oxlint за .oxlintrc.json; падає лише на error, warn не валить
 npm run pack    # лише пак даних: src/data/seed → public/data/school.json (файл у .gitignore)
 npx tsc -b      # лише типи
@@ -22,10 +22,15 @@ npx tsc -b      # лише типи
 
 ## CI і деплой
 
-Workflow один — `.github/workflows/deploy.yml`, на push у `main` і вручну:
-`npx tsc -b` → `npm run lint` → `npm test` → `npm run build` → GitHub Pages.
-Червоні типи, lint чи тести зупиняють деплой. На pull request нічого не
-запускається, тож перед пушем проганяйте ті самі кроки локально.
+- `.github/workflows/deploy.yml` — на push у `main` і вручну:
+  `npx tsc -b` → `npm run lint` → `npm test` → `npm run build` → GitHub Pages.
+  Червоні типи, lint чи тести зупиняють деплой.
+- `.github/workflows/ci.yml` — на pull request ті самі кроки й збірка, без
+  публікації і з правами лише на читання.
+
+Кроки в обох файлах мають збігатися: `scripts/workflows.test.mjs` падає, якщо
+з якогось зникла перевірка, вона опинилась після збірки або `ci.yml` почав
+публікувати.
 
 ## Де дані
 
@@ -46,7 +51,7 @@ Workflow один — `.github/workflows/deploy.yml`, на push у `main` і в�
 (`src/lib/packUpdate.ts`) і бере його лише тоді, коли
 `version` більша за його поточну (`isNewer`, порівняння рядків).
 
-**Змінили будь-що в `seed/` — підніміть `SCHOOL.seedVersion`** у
+**Змінили дані в `seed/` — підніміть `SCHOOL.seedVersion`** у
 `seed/config.ts`, формат `рррр-мм-ддТгг:хх`. Без цього сайт оновиться з новою
 збіркою, а iOS-застосунок, у якого ця версія вже є, нових даних із сервера не
 візьме: версія та сама.
@@ -61,10 +66,8 @@ Workflow один — `.github/workflows/deploy.yml`, на push у `main` і в�
    `breakfast` і `lunch` зі страв `{ out, name }`. `out` — рядок: «150»,
    «130/3», «1 шт». Посунути `MENU_FROM`/`MENU_TO` (`рррр-мм-дд`), звірити
    `MENU_TITLE` і `MENU_FOR`. Виправлені помилки оригіналу записати в шапку файлу.
-2. Підняти `SCHOOL.seedVersion` у `src/data/seed/config.ts`. Коментар у
-   `menu.ts` («більше нічого міняти не треба») про це мовчить, але обидва
-   коміти з меню його піднімали, а без нього встановлений iOS-застосунок нове
-   меню не отримає.
+2. Підняти `SCHOOL.seedVersion` у `src/data/seed/config.ts`. Без цього
+   встановлений iOS-застосунок нове меню не отримає.
 3. `npm test`, коміт `Меню на ДД–ДД місяця`, push у `main` — далі деплой сам.
 
 Коли дата поза `MENU_FROM…MENU_TO`, аркуш меню (`src/components/MenuSheet.tsx`)
