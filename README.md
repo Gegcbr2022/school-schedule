@@ -157,7 +157,8 @@ Service worker вмикається лише у зібраній версії, �
 ### GitHub Pages
 
 Кожен push у `main` запускає `.github/workflows/deploy.yml`: перевірка типів →
-лінт → тести → збірка → публікація на GitHub Pages.
+лінт → тести → збірка → публікація на GitHub Pages. Pull request перевіряє
+`.github/workflows/ci.yml` — ті самі кроки, лише без публікації.
 
 У налаштуваннях репозиторію **Settings → Pages → Source** має стояти
 **GitHub Actions**. Базовий шлях заданий у [`vite.config.ts`](vite.config.ts) як

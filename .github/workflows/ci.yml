@@ -1,0 +1,42 @@
+name: Check
+
+# Ті самі перевірки й збірка, що й у deploy.yml, але на pull request: щоб
+# зламане ловилось до мержу, а не тоді, коли деплой уже впав на main.
+# Нічого не публікує. Міняєте кроки тут — поміняйте й у deploy.yml;
+# scripts/workflows.test.mjs стежить, щоб вони були в обох.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Новий push у той самий PR скасовує стару перевірку.
+concurrency:
+  group: check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Перевірка типів, лінт і тести
+        run: |
+          npx tsc -b
+          npm run lint
+          npm test
+
+      # Збірка ловить те, чого не бачать тести: наприклад, загублений
+      # відбиток у sw.js (stampServiceWorker у vite.config.ts). Адреса
+      # тривоги та сама, що в deploy.yml, — щоб збиралось те саме.
+      - run: npm run build
+        env:
+          VITE_ALERTS_URL: https://pub-58a1b7943a104948a240730aaa5eb54a.r2.dev/alerts.json
