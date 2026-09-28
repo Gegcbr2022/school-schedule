@@ -16,7 +16,7 @@ export type NoteTarget = {
 type Props = {
   target: NoteTarget
   initial: string
-  onSave: (text: string) => void
+  onSave: (text: string) => boolean
   onClose: () => void
 }
 
@@ -26,6 +26,7 @@ type Props = {
  */
 export function NoteSheet({ target, initial, onSave, onClose }: Props) {
   const [text, setText] = useState(initial)
+  const [saveFailed, setSaveFailed] = useState(false)
   const headingId = useId()
   const sheetRef = useModal(onClose)
   const backdrop = useBackdropClose(onClose)
@@ -39,9 +40,12 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
     return () => window.clearTimeout(id)
   }, [])
 
-  const save = () => {
+  const save = (value = text) => {
+    if (!onSave(value)) {
+      setSaveFailed(true)
+      return
+    }
     haptic('success')
-    onSave(text)
     onClose()
   }
 
@@ -94,18 +98,22 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
           aria-label="Текст нотатки"
         />
 
+        {saveFailed && (
+          <p className="sheet__intro" role="alert">
+            Не вдалося зберегти нотатку. На пристрої бракує місця або браузер
+            заборонив зберігання. Скопіюйте текст, щоб його не втратити, і спробуйте ще раз.
+          </p>
+        )}
+
         <div className="sheet__actions">
-          <button type="button" className="btn btn--wide" onClick={save}>
+          <button type="button" className="btn btn--wide" onClick={() => save()}>
             Зберегти
           </button>
           {initial && (
             <button
               type="button"
               className="linkbtn"
-              onClick={() => {
-                onSave('')
-                onClose()
-              }}
+              onClick={() => save('')}
             >
               Видалити нотатку
             </button>

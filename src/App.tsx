@@ -99,6 +99,7 @@ export default function App() {
   const { canInstall, install, dismiss } = useInstallPrompt()
 
   const [prefs, setPrefs] = useState<Prefs | null>(loadPrefs)
+  const [prefsSaveFailed, setPrefsSaveFailed] = useState(false)
   const [mode, setMode] = useState<ViewMode>('my')
   /**
    * Вибрана дата. `null` — тримаємось сьогоднішнього дня і самі переїжджаємо
@@ -291,7 +292,7 @@ export default function App() {
 
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
-    savePrefs(next)
+    setPrefsSaveFailed(!savePrefs(next))
   }
 
   const dateStr = dateKey(view.selected)
@@ -432,6 +433,17 @@ export default function App() {
       </header>
 
       <main>
+        {prefsSaveFailed && (
+          <p className="hint" role="alert">
+            <span>
+              Браузер не зберіг налаштування. Вони діятимуть лише до перезавантаження.
+              Звільніть місце на пристрої та{' '}
+              <button type="button" className="linkbtn" onClick={() => savePreferences(view.active)}>
+                спробуйте ще раз
+              </button>.
+            </span>
+          </p>
+        )}
         {alertsOn && alertRegion && (
           <AlertCard
             state={alertState}
@@ -635,6 +647,10 @@ export default function App() {
           )}
           <br />
           Час — київський.
+          <br />
+          <a className="linkbtn" href={`${import.meta.env.BASE_URL}privacy.html`}>
+            Конфіденційність і контакти
+          </a>
         </footer>
       </main>
 
@@ -763,8 +779,9 @@ export default function App() {
           // відкрився порожнім в іншого.
           initial={getNote({ classId: noteScope, date: noteTarget.date, period: notePeriod })}
           onSave={(text) => {
-            setNote({ classId: noteScope, date: noteTarget.date, period: notePeriod }, text)
+            if (!setNote({ classId: noteScope, date: noteTarget.date, period: notePeriod }, text)) return false
             setNotesVersion((v) => v + 1)
+            return true
           }}
           onClose={() => setNoteTarget(null)}
         />

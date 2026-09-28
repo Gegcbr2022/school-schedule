@@ -39,11 +39,12 @@ function packUrl(): string {
   return import.meta.env.VITE_PACK_URL || `${import.meta.env.BASE_URL}data/school.json`
 }
 
-function store(fresh: Pack): void {
+function store(fresh: Pack): boolean {
   try {
     localStorage.setItem(PACK_KEY, JSON.stringify(fresh))
+    return true
   } catch {
-    /* Немає місця або приватний режим — лишаємось на тому паку, що є. */
+    return false
   }
 }
 
@@ -66,8 +67,7 @@ export async function checkForFreshPack(): Promise<boolean> {
     // знову — означає зламатися вдруге, тож чекаємо наступної.
     if (isRejected(parsed.version)) return false
 
-    store(parsed)
-    return true
+    return store(parsed)
   } catch {
     return false
   }

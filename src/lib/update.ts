@@ -19,28 +19,25 @@ function busy(): boolean {
 }
 
 /**
- * Перечитати сторінку, але не з-під рук: поки відкрита шторка — чекаємо,
- * поки застосунок згорнуть. Тим самим користується оновлення розкладу
+ * Перечитати сторінку, але не з-під рук: поки відкрита шторка — чекаємо
+ * її закриття. Згортання телефона не означає, що нотатку вже збережено.
+ * Тим самим користується оновлення розкладу
  * (`packUpdate.ts`), тож правило «не смикати екран» одне на обидва випадки.
  */
+let pendingReload: MutationObserver | null = null
+
 export function reloadWhenIdle(): void {
-  // Застосунок уже не на екрані — перечитувати можна просто зараз, навіть
-  // із відкритою шторкою: з-під рук ми нічого не смикаємо. Ця гілка тут не
-  // для швидкості: нас часто й кличуть саме з обробника згортання, а
-  // одноразовий слухач, доданий під час цієї ж події, на неї вже не
-  // спрацює — і перезавантаження просто загубилося б.
-  if (document.hidden || !busy()) {
+  if (!busy()) {
+    pendingReload?.disconnect()
+    pendingReload = null
     window.location.reload()
     return
   }
-  // Дочекаємось, поки застосунок згорнуть, — відкриється вже нова версія.
-  document.addEventListener(
-    'visibilitychange',
-    () => {
-      if (document.hidden) window.location.reload()
-    },
-    { once: true },
-  )
+  if (pendingReload) return
+  pendingReload = new MutationObserver(() => {
+    if (!busy()) reloadWhenIdle()
+  })
+  pendingReload.observe(document.body, { childList: true, subtree: true })
 }
 
 export function watchForUpdates(swUrl: string): void {

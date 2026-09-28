@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
@@ -28,14 +28,22 @@ function stampServiceWorker(): Plugin {
     closeBundle() {
       const html = readFileSync(join(outDir, 'index.html'), 'utf8')
       const build = createHash('sha256').update(html).digest('hex').slice(0, 12)
+      // Читалка PDF завантажується ліниво. Її модуль і worker теж потрібні
+      // офлайн: користувач міг скачати книжку, ще жодного разу не відкривши її.
+      const assets = readdirSync(join(outDir, 'assets'))
+        .filter((name) => /\.(?:m?js|css)$/.test(name))
+        .map((name) => `./assets/${name}`)
+        .sort()
+      if (assets.length === 0) throw new Error('Не знайшов JS/CSS для першого офлайн-відкриття.')
       const sw = join(outDir, 'sw.js')
 
       const before = readFileSync(sw, 'utf8')
-      const after = before.replace("const BUILD = 'dev'", `const BUILD = '${build}'`)
+      const stamped = before.replace("const BUILD = 'dev'", `const BUILD = '${build}'`)
+      const after = stamped.replace('const BUILD_ASSETS = []', `const BUILD_ASSETS = ${JSON.stringify(assets)}`)
       // Мовчазна невдача тут коштує дорого: файл лишиться байт у байт тим
       // самим, браузер не побачить нової версії — і встановлені застосунки
       // перестануть оновлюватись, ніяк про це не повідомивши.
-      if (after === before) {
+      if (stamped === before || after === stamped) {
         throw new Error(
           `Не знайшов рядок "const BUILD = 'dev'" у ${sw}. ` +
             'Відбиток збірки не проставлено — оновлення застосунку зламане.',

@@ -14,6 +14,7 @@ import {
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 import { DEFAULT_REGION, knownRegion } from '../data/regions'
+import { isDateKey } from './clock'
 
 /**
  * Поділи, за якими з розкладу класу лишається саме свій.
@@ -337,11 +338,12 @@ function readRaw(key: string): string | null {
   }
 }
 
-function writeRaw(key: string, value: string): void {
+function writeRaw(key: string, value: string): boolean {
   try {
     localStorage.setItem(key, value)
+    return true
   } catch {
-    /* нема куди зберігати — працюємо в пам'яті до перезавантаження */
+    return false
   }
 }
 
@@ -377,8 +379,8 @@ function text(value: unknown, limit: number): string {
 
 /** Хвилини від півночі; усе, що поза добою, — не час. */
 function minutesOf(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value < 24 * 60
-    ? Math.round(value)
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 24 * 60
+    ? value
     : null
 }
 
@@ -388,7 +390,7 @@ function oneOfNumber(allowed: readonly number[], value: unknown): number | null 
 
 /** Дата у вигляді «рррр-мм-дд» — або `null`, якщо це щось інше. */
 function dayKey(value: unknown): string | null {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
+  return isDateKey(value) ? value : null
 }
 
 function readNotifications(raw: unknown): NotificationPrefs {
@@ -420,7 +422,7 @@ function readAlerts(raw: unknown): AlertPrefs {
   const it = raw as Record<string, unknown>
 
   return {
-    enabled: typeof it.enabled === 'boolean' ? it.enabled : DEFAULT_ALERTS.enabled,
+    enabled: it.enabled === true && knownRegion(it.region) !== null,
     // Регіон міг зникнути зі списку — тоді краще свій, ніж чужий.
     region: knownRegion(it.region) ?? DEFAULT_ALERTS.region,
     onStart: typeof it.onStart === 'boolean' ? it.onStart : DEFAULT_ALERTS.onStart,
@@ -450,7 +452,7 @@ export function readClub(raw: unknown): Club | null {
   const start = minutesOf(it.start)
   const end = minutesOf(it.end)
   const days = Array.isArray(it.days)
-    ? [...new Set(it.days.filter((d): d is number => typeof d === 'number' && d >= 1 && d <= 7))]
+    ? [...new Set(it.days.filter((d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 1 && d <= 7))]
     : []
   // Без назви, часу чи дня показувати нічого — такий запис і не зберігся б.
   if (!name || start === null || end === null || end <= start || days.length === 0) return null
@@ -488,7 +490,9 @@ function readProfile(raw: unknown): Profile | null {
 
   // Клас потрібен навіть учителю: з нього беруться підручники й розклад,
   // якщо самого вчителя в даних раптом не стане.
-  const classId = knownClass(it.classId)
+  // Клас може зникнути після оновлення паку. Зберігаємо сам профіль,
+  // його гуртки й ключ нотаток; у шапці попросимо обрати новий клас.
+  const classId = text(it.classId, 40)
   const id = text(it.id, 40)
   if (!classId || !id) return null
 
@@ -605,8 +609,8 @@ export function loadPrefs(): Prefs | null {
   }
 }
 
-export function savePrefs(prefs: Prefs): void {
-  writeRaw(PREFS_KEY, JSON.stringify(prefs))
+export function savePrefs(prefs: Prefs): boolean {
+  return writeRaw(PREFS_KEY, JSON.stringify(prefs))
 }
 
 export function clearPrefs(): void {

@@ -762,12 +762,12 @@ describe('налаштування зі старої версії', () => {
     expect(loadPrefs()).toBeNull()
   })
 
-  it('невідомий клас у сховищі не ламає застосунок', () => {
+  it('невідомий клас у сховищі не видаляє сам профіль', () => {
     localStorage.setItem(
       'rozklad:prefs:v3',
       JSON.stringify({ role: 'student', activeId: 'x', profiles: [{ id: 'x', classId: '12я' }] }),
     )
-    expect(loadPrefs()).toBeNull()
+    expect(loadPrefs()?.profiles[0]).toMatchObject({ id: 'x', classId: '12я' })
   })
 
   it('зниклий активний профіль не лишає екран порожнім', () => {
