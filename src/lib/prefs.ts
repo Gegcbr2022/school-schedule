@@ -279,12 +279,16 @@ export function withProfile(prefs: Prefs, profile: Profile): Prefs {
   }
 }
 
-/** Вільний ключ для нового профілю: «п2», «п3»… Старі ключі не чіпаємо. */
+/** Новий ключ не повторює видалені профілі: їхні нотатки ще є у сховищі. */
 export function nextProfileId(prefs: Prefs): string {
   const taken = new Set(prefs.profiles.map((p) => p.id))
-  let n = prefs.profiles.length + 1
-  while (taken.has(`п${n}`)) n += 1
-  return `п${n}`
+  let id: string
+  do {
+    // getRandomValues працює і в старіших браузерах без randomUUID.
+    const bytes = crypto.getRandomValues(new Uint8Array(16))
+    id = `п-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+  } while (taken.has(id))
+  return id
 }
 
 /** Вільний ключ для нового гуртка в межах профілю. */

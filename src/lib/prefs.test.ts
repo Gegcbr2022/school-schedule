@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_PREFS, DEFAULT_PROFILE, clearPrefs, loadPrefs, readClub, savePrefs } from './prefs'
+import { DEFAULT_PREFS, DEFAULT_PROFILE, clearPrefs, loadPrefs, nextProfileId, readClub, savePrefs } from './prefs'
 import { isDateKey } from './clock'
+import { getNote, setNote } from './notes'
 import { profileDay, profileName, profileSub } from './profiles'
 
 let data: Map<string, string>
@@ -24,6 +25,26 @@ describe('перевірка дат', () => {
 })
 
 describe('збережені профілі', () => {
+  it('нова дитина не успадковує нотатки видаленого старого профілю', () => {
+    const note = { classId: 'п2', date: '2026-09-28', period: 1 }
+    setNote(note, 'Домашнє завдання попередньої дитини')
+    // Другий профіль видалили, і в родині знову залишився один.
+    const id = nextProfileId(DEFAULT_PREFS)
+    expect(getNote({ ...note, classId: id })).toBe('')
+    expect(getNote(note)).toBe('Домашнє завдання попередньої дитини')
+  })
+  it('не повторює ключ після видалення нового профілю й зберігає його без обрізання', () => {
+    const firstId = nextProfileId(DEFAULT_PREFS)
+    const note = { classId: firstId, date: '2026-09-28', period: 1 }
+    setNote(note, 'Завдання видаленого профілю')
+    const replacement = { ...DEFAULT_PROFILE, id: nextProfileId(DEFAULT_PREFS), name: 'Інша дитина' }
+    savePrefs({ ...DEFAULT_PREFS, profiles: [DEFAULT_PROFILE, replacement], activeId: replacement.id })
+    const restored = loadPrefs()!
+    expect(restored.activeId).toBe(replacement.id)
+    expect(restored.profiles[1].id).toBe(replacement.id)
+    expect(getNote({ ...note, classId: restored.activeId })).toBe('')
+    expect(getNote(note)).toBe('Завдання видаленого профілю')
+  })
   it('зберігає всі профілі, групи, гуртки й активний профіль', () => {
     const prefs = { ...DEFAULT_PREFS, role: 'parent' as const, profiles: [DEFAULT_PROFILE, { ...DEFAULT_PROFILE, id: 'п2', name: 'Марія' }], activeId: 'п2' }
     savePrefs(prefs)
