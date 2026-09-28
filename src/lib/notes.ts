@@ -7,27 +7,33 @@
  * домашнє завдання здають у певний день, а не «щовівторка».
  */
 
+import { isDateKey } from './clock'
+
 const KEY = 'rozklad:notes:v1'
 
 /** `клас|рррр-мм-дд|період` → текст нотатки. */
 type Store = Record<string, string>
 
-function read(): Store {
+function read(): Store | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return {}
     const parsed: unknown = JSON.parse(raw)
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Store) : {}
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([key, value]) => validKey(key) && typeof value === 'string'),
+    )
   } catch {
-    return {}
+    return null
   }
 }
 
-function write(store: Store): void {
+function write(store: Store): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(store))
+    return true
   } catch {
-    /* немає куди зберегти — переживемо до перезавантаження */
+    return false
   }
 }
 
@@ -49,17 +55,26 @@ function keyOf({ classId, date, period }: NoteKey): string {
   return `${classId}|${date}|${period}`
 }
 
+function validKey(key: string): boolean {
+  const [scope, date, period, extra] = key.split('|')
+  return !!scope && isDateKey(date) && /^(0|[1-9]\d*)$/.test(period ?? '') &&
+    Number.isSafeInteger(Number(period)) && extra === undefined
+}
+
 export function getNote(key: NoteKey): string {
-  return read()[keyOf(key)] ?? ''
+  return read()?.[keyOf(key)] ?? ''
 }
 
 /** Порожній текст стирає нотатку, щоб сховище не сміттям не обростало. */
-export function setNote(key: NoteKey, text: string): void {
+export function setNote(key: NoteKey, text: string): boolean {
   const store = read()
+  // Якщо сховище недоступне чи зіпсоване, не замінюємо всі попередні
+  // записи порожнім об'єктом. Редактор лишиться відкритим із новим текстом.
+  if (store === null || !validKey(keyOf(key))) return false
   const trimmed = text.trim()
   if (trimmed) store[keyOf(key)] = trimmed
   else delete store[keyOf(key)]
-  write(store)
+  return write(store)
 }
 
 /** Один запис у списку завдань. */
@@ -78,7 +93,7 @@ export function allNotes(classId: string): SavedNote[] {
   const prefix = `${classId}|`
   const out: SavedNote[] = []
 
-  for (const [key, text] of Object.entries(read())) {
+  for (const [key, text] of Object.entries(read() ?? {})) {
     if (!key.startsWith(prefix)) continue
     const [, date, period] = key.split('|')
     const n = Number(period)

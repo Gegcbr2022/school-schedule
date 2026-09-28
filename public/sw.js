@@ -13,9 +13,11 @@
  * і встановлений застосунок оновлювався б хіба що після перевстановлення.
  */
 
-const VERSION = 'v4'
+const VERSION = 'v5'
 /** Замінюється на відбиток збірки; у dev так і лишається 'dev'. */
 const BUILD = 'dev'
+/** JS/CSS та PDF-worker зі збірки, підставляє Vite. */
+const BUILD_ASSETS = []
 
 /**
  * Префікс кешів, які належать саме оболонці. Усе, що його не має, —
@@ -33,9 +35,8 @@ function ownedByShell(name) {
 /** Адреса оболонки застосунку: та сама папка, де лежить цей файл. */
 const SHELL = new URL('./', self.location).href
 
-/** Те, без чого перше офлайн-відкриття не спрацює. */
+/** Додаткові файли оболонки: їхня невдача не блокує сам розклад. */
 const PRECACHE = [
-  SHELL,
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -47,6 +48,12 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE)
+      // Перша сторінка завантажилась до появи worker: її JS і CSS ще
+      // не проходили через fetch нижче. Без них перше офлайн-відкриття
+      // дає порожній екран. Неповна оболонка не замінює робочий worker.
+      await cache.addAll(
+        [SHELL, ...BUILD_ASSETS].map((path) => new Request(new URL(path, SHELL), { cache: 'reload' })),
+      )
       // Кожен файл окремо: одна невдача не повинна зривати всю установку.
       await Promise.all(
         PRECACHE.map((path) => cache.add(new Request(path, { cache: 'reload' })).catch(() => {})),
@@ -68,14 +75,19 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-async function networkFirst(request) {
+async function networkFirst(request, key) {
   const cache = await caches.open(CACHE)
   try {
     const fresh = await fetch(request)
-    if (fresh.ok) cache.put(SHELL, fresh.clone())
+    if (fresh.ok) {
+      await cache.put(key, fresh.clone()).catch(() => {})
+    } else {
+      const cached = await cache.match(key)
+      if (cached) return cached
+    }
     return fresh
   } catch {
-    const cached = await cache.match(SHELL)
+    const cached = await cache.match(key)
     if (cached) return cached
     return new Response('Немає з’єднання, а збереженої копії ще немає.', {
       status: 503,
@@ -86,13 +98,16 @@ async function networkFirst(request) {
 
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE)
-  const cached = await cache.match(request)
+  // <script crossorigin> надсилає Origin, а install-fetch може його
+  // не мати. Vary: Origin тоді приховував уже збережені JS/CSS офлайн.
+  // Тут лише власні статичні файли, їхній вміст від Origin не залежить.
+  const cached = await cache.match(request, { ignoreVary: true })
   if (cached) return cached
 
   const fresh = await fetch(request)
   // Кладемо тільки повні власні відповіді — без часткових і чужих.
   if (fresh.ok && fresh.status === 200 && fresh.type === 'basic') {
-    cache.put(request, fresh.clone())
+    await cache.put(request, fresh.clone()).catch(() => {})
   }
   return fresh
 }
@@ -114,9 +129,12 @@ self.addEventListener('fetch', (event) => {
   // застосунок працює на паку, який уже лежить у localStorage.
   if (url.pathname.endsWith('/data/school.json')) return
 
-  // Будь-яка навігація всередині застосунку веде до однієї й тієї ж оболонки.
+  // Політика приватності та інші документи мають власну офлайн-копію.
+  // Їхня HTML-сторінка не повинна підмінити головну оболонку розкладу.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request))
+    const shellPath = new URL(SHELL).pathname
+    const isShell = url.pathname === shellPath || url.pathname === `${shellPath}index.html`
+    event.respondWith(networkFirst(request, isShell ? SHELL : request))
     return
   }
 

@@ -35,7 +35,7 @@ export function profileClass(profile: Profile): ClassTimetable {
 /** Як профіль підписаний скрізь: у шапці, у перемикачі, у списку. */
 export function profileName(profile: Profile): string {
   if (profile.name) return profile.name
-  return profileTeacher(profile)?.last ?? profileClass(profile).name
+  return profileTeacher(profile)?.last ?? classById(profile.classId)?.name ?? 'Оберіть клас'
 }
 
 /**
@@ -45,6 +45,7 @@ export function profileName(profile: Profile): string {
 export function profileSub(profile: Profile): string {
   const teacher = profileTeacher(profile)
   if (teacher) return profile.name ? teacher.last : politeName(teacher)
+  if (!classById(profile.classId)) return 'Оновіть клас у налаштуваннях'
   return profile.name ? profileClass(profile).name : 'Розклад уроків'
 }
 
@@ -119,9 +120,10 @@ export function profileDay(
   mode: ViewMode,
 ): DisplayLesson[] {
   const teacher = profileTeacher(profile)
+  const cls = classById(profile.classId)
   return teacher
     ? buildTeacherDay(teacher, dayIndex, week)
-    : buildDay(profileClass(profile), dayIndex, profile, mode, week)
+    : cls ? buildDay(cls, dayIndex, profile, mode, week) : []
 }
 
 /* ── Гуртки ──────────────────────────────────────────────────────────── */

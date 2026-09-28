@@ -153,6 +153,15 @@ export function dateKey(time: Pick<KyivTime, 'year' | 'month' | 'day'>): string 
   return `${time.year}-${m}-${d}`
 }
 
+/** Перевіряє саму календарну дату, а не лише вигляд рядка. */
+export function isDateKey(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  if (year < 1000 || month < 1 || month > 12 || day < 1 || day > 31) return false
+  const actual = new Date(Date.UTC(year, month - 1, day))
+  return actual.getUTCFullYear() === year && actual.getUTCMonth() + 1 === month && actual.getUTCDate() === day
+}
+
 /** «2026-08-31» → календарна дата. Зворотне до `dateKey`. */
 export function parseDateKey(key: string): CalendarDate {
   const [year, month, day] = key.split('-').map(Number)
