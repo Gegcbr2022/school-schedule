@@ -297,6 +297,18 @@ describe('групи 10-Б', () => {
     expect(at10b(G2, MON, 4)?.items[0].subject).toBe('Країнознавство')
   })
 
+  // Зі школи 30.09.2026: українська 2-ї групи переїхала з середи 1-м
+  // уроком на четвер 7-м. Інформатика 1-ї групи в середу лишилась.
+  it('українська 2-ї групи — у четвер 7-м, а не в середу 1-м', () => {
+    expect(at10b(G2, WED, 1)).toBeUndefined()
+    expect(at10b(G1, WED, 1)?.items[0].subject).toBe('Інформатика')
+    expect(at10b(G2, 3, 7)?.items[0]).toMatchObject({
+      subject: 'Українська мова',
+      teacher: 'Оксана Василівна Д.',
+    })
+    expect(at10b(G1, 3, 7)).toBeUndefined()
+  })
+
   it('друга іноземна за вибором', () => {
     expect(at10b(G1, WED, 3)?.items[0].subject).toBe('Німецька мова')
     expect(at10b(G2, WED, 3)?.items[0].subject).toBe('Французька мова')
