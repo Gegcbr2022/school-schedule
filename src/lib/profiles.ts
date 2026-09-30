@@ -13,6 +13,7 @@ import { TIMETABLE } from '../data/timetable'
 import type { CalendarDate } from './clock'
 import { dateKey, formatTime } from './clock'
 import type { DisplayLesson, ViewMode } from './lessons'
+import { applyEdits } from './edits'
 import { CLUB_PERIOD, buildDay, classById } from './lessons'
 import type { Club, Profile, Role } from './prefs'
 import { DEFAULT_CLASS_ID } from './prefs'
@@ -112,6 +113,10 @@ export const ROLE_ALL_TITLE: Record<Role, string> = {
 /**
  * День профілю в тому самому вигляді, що й день учня: учителю збираємо
  * уроки по всіх класах, класу — його власні за вибраними групами.
+ *
+ * Власні правки уроків — частина «мого» розкладу, тож потрапляють і в
+ * усе, що його показує: віджети, нагадування, «День родини». «Повний»
+ * лишається шкільним.
  */
 export function profileDay(
   profile: Profile,
@@ -120,10 +125,11 @@ export function profileDay(
   mode: ViewMode,
 ): DisplayLesson[] {
   const teacher = profileTeacher(profile)
+  if (teacher) return buildTeacherDay(teacher, dayIndex, week)
   const cls = classById(profile.classId)
-  return teacher
-    ? buildTeacherDay(teacher, dayIndex, week)
-    : cls ? buildDay(cls, dayIndex, profile, mode, week) : []
+  if (!cls) return []
+  const day = buildDay(cls, dayIndex, profile, mode, week)
+  return mode === 'my' ? applyEdits(day, profile.edits, cls.id, dayIndex, week) : day
 }
 
 /* ── Гуртки ──────────────────────────────────────────────────────────── */
