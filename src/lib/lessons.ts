@@ -52,6 +52,8 @@ export type DisplayLesson = {
   club?: string
   /** Відтінок картки гуртка — щоб три секції в дні не зливались. */
   tone?: number
+  /** Урок поставила сама людина (`lib/edits.ts`), а не школа. */
+  edited?: boolean
 }
 
 /**
