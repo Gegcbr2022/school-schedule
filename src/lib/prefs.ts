@@ -15,6 +15,8 @@ import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 import { DEFAULT_REGION, knownRegion } from '../data/regions'
 import { isDateKey } from './clock'
+import type { LessonEdit } from './edits'
+import { readEdits } from './edits'
 
 /**
  * Поділи, за якими з розкладу класу лишається саме свій.
@@ -128,6 +130,8 @@ export type Profile = Groups & {
   /** Стоїть — це розклад учителя, а не класу. Ідентифікатор із `data/teachers.ts`. */
   teacherId: number | null
   clubs: Club[]
+  /** Уроки, які людина виправила сама (`lib/edits.ts`). */
+  edits?: LessonEdit[]
 }
 
 /**
@@ -509,6 +513,7 @@ function readProfile(raw: unknown): Profile | null {
     clubs: Array.isArray(it.clubs)
       ? it.clubs.map(readClub).filter((c): c is Club => c !== null)
       : [],
+    edits: readEdits(it.edits),
   }
 }
 

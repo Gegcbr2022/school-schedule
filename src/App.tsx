@@ -12,11 +12,13 @@ import {
   InfoIcon,
   MoonIcon,
   NoteIcon,
+  PlusIcon,
   SettingsIcon,
   ShareIcon,
   SunIcon,
   TeacherIcon,
 } from './components/Icons'
+import { LessonEditSheet } from './components/LessonEditSheet'
 import { LessonList } from './components/LessonList'
 import { MenuSheet } from './components/MenuSheet'
 import type { NoteTarget } from './components/NoteSheet'
@@ -40,11 +42,14 @@ import {
   addDays,
   dateKey,
   formatDateUk,
+  formatTime,
   isoOf,
   plural,
   weekParity,
 } from './lib/clock'
 import { ALERT_TITLE, syncAlertSettings } from './lib/alerts'
+import type { LessonEdit } from './lib/edits'
+import { removedOn, revertEdit } from './lib/edits'
 import { haptic } from './lib/haptics'
 import { isStandalone, useAlert, useInstallPrompt, useNow, useTheme } from './lib/hooks'
 import { syncLive } from './lib/live'
@@ -122,6 +127,8 @@ export default function App() {
   const [incoming, setIncoming] = useState<SharePack | null>(null)
   const [allOpen, setAllOpen] = useState(false)
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null)
+  /** Правка уроку: з уроком — виправити його, без — додати новий. */
+  const [editTarget, setEditTarget] = useState<{ lesson?: DisplayLesson } | null>(null)
   /** Смикаємо, щоб перечитати нотатки з localStorage після збереження. */
   const [notesVersion, setNotesVersion] = useState(0)
   const [stuck, setStuck] = useState(false)
@@ -284,6 +291,16 @@ export default function App() {
     mode === 'my' && !noSchool && !view.teacher
       ? offWeekNote(view.cls, view.selIso - 1, view.profile, view.week)
       : null
+  /**
+   * Виправляти уроки можна у «Моєму розкладі» класу: повний — шкільний,
+   * а вчительський день зібраний з усіх класів, і правка одного з них
+   * зачепила б чужий розклад.
+   */
+  const editable =
+    mode === 'my' && !noSchool && !view.teacher && view.cls.id === view.profile.classId
+  const removed = editable
+    ? removedOn(view.cls, view.profile, view.profile.edits, view.selIso - 1, view.week)
+    : []
   const showTodayChip = !view.isToday
   /** Бічна картка «що зараз» стосується саме сьогодні — лише коли його й відкрито. */
   const showStatus = view.isToday
@@ -293,6 +310,14 @@ export default function App() {
   const savePreferences = (next: Prefs) => {
     setPrefs(next)
     setPrefsSaveFailed(!savePrefs(next))
+  }
+
+  const saveEdits = (edits: LessonEdit[]) => {
+    // Виправлений розклад — це вже вкладена праця; просимо берегти сховище.
+    if (edits.length > 0) keepStorage()
+    savePreferences(
+      withProfile(view.active, { ...view.profile, edits: edits.length > 0 ? edits : undefined }),
+    )
   }
 
   const dateStr = dateKey(view.selected)
@@ -623,6 +648,43 @@ export default function App() {
                     <span>{skipped}</span>
                   </p>
                 )}
+
+                {removed.map((lesson) => (
+                  <p className="hint" key={lesson.period}>
+                    <InfoIcon />
+                    <span>
+                      Ви прибрали: {lesson.items.map((i) => i.subject).join(' / ')} о{' '}
+                      {formatTime(lesson.start)}.{' '}
+                      <button
+                        type="button"
+                        className="linkbtn"
+                        onClick={() =>
+                          saveEdits(
+                            revertEdit(
+                              view.profile.edits,
+                              view.cls.id,
+                              { d: view.selIso - 1, p: lesson.period },
+                              view.week,
+                            ),
+                          )
+                        }
+                      >
+                        Повернути
+                      </button>
+                    </span>
+                  </p>
+                ))}
+
+                {editable && (
+                  <button
+                    type="button"
+                    className="daynote daynote--add"
+                    onClick={() => setEditTarget({})}
+                  >
+                    <PlusIcon />
+                    <span className="daynote__text">Додати урок, якого тут немає</span>
+                  </button>
+                )}
               </>
             )}
 
@@ -784,6 +846,26 @@ export default function App() {
             return true
           }}
           onClose={() => setNoteTarget(null)}
+          onEditLesson={
+            editable && noteTarget.lesson && !noteTarget.lesson.club
+              ? () => {
+                  setEditTarget({ lesson: noteTarget.lesson })
+                  setNoteTarget(null)
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {editTarget && (
+        <LessonEditSheet
+          profile={view.profile}
+          cls={view.cls}
+          week={view.week}
+          day={view.selIso - 1}
+          lesson={editTarget.lesson}
+          onSave={saveEdits}
+          onClose={() => setEditTarget(null)}
         />
       )}
 

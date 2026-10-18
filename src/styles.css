@@ -2473,6 +2473,11 @@ summary {
   height: 16px;
 }
 
+/* «Додати урок» стоїть під уроками, а не над ними, як нотатка на день. */
+.daynote--add {
+  margin: 14px 0 0;
+}
+
 .daynote--filled {
   background: var(--warm-soft);
   border: 1px solid transparent;
