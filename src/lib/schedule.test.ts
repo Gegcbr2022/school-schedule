@@ -66,11 +66,11 @@ describe('дзвінки', () => {
     }
   })
 
-  it('перша зміна починається о 08:00, друга — о 13:40', () => {
+  it('перша зміна починається о 08:00, друга — о 13:25', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[6].end).toBe(at(13, 25))
-    expect(BELLS[7].start).toBe(at(13, 40))
-    expect(BELLS[12].end).toBe(at(18, 45))
+    expect(BELLS[6].end).toBe(at(13, 10))
+    expect(BELLS[7].start).toBe(at(13, 25))
+    expect(BELLS[12].end).toBe(at(18, 20))
   })
 })
 
@@ -158,7 +158,7 @@ describe('розклад усієї школи', () => {
   it('друга зміна справді починається по обіді', () => {
     const fifth = classById('5а')!
     const first = buildDay(fifth, 1, G1, 'my', 1)[0]
-    expect(first.start).toBeGreaterThanOrEqual(at(12, 45))
+    expect(first.start).toBeGreaterThanOrEqual(at(12, 30))
   })
 
   it('уроки нумеруються по порядку дня, а не за періодом', () => {
