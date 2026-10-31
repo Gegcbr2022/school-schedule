@@ -56,8 +56,8 @@ const at10b = (groups: Groups, index: number, period: number, week: 1 | 2 = 1) =
   day(groups, index, week).find((l) => l.period === period)
 
 describe('дзвінки', () => {
-  it('усі дванадцять уроків по 40 хвилин', () => {
-    for (const p of PERIODS) expect(BELLS[p].end - BELLS[p].start).toBe(40)
+  it('усі дванадцять уроків по 30 хвилин', () => {
+    for (const p of PERIODS) expect(BELLS[p].end - BELLS[p].start).toBe(30)
   })
 
   it('ідуть по порядку і не накладаються', () => {
@@ -66,11 +66,11 @@ describe('дзвінки', () => {
     }
   })
 
-  it('перша зміна починається о 08:00, друга — о 13:25', () => {
+  it('перша зміна починається о 08:00, друга — о 12:15', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[6].end).toBe(at(13, 10))
-    expect(BELLS[7].start).toBe(at(13, 25))
-    expect(BELLS[12].end).toBe(at(18, 20))
+    expect(BELLS[6].end).toBe(at(12, 0))
+    expect(BELLS[7].start).toBe(at(12, 15))
+    expect(BELLS[12].end).toBe(at(16, 0))
   })
 })
 
@@ -155,10 +155,10 @@ describe('розклад усієї школи', () => {
     }
   })
 
-  it('друга зміна справді починається по обіді', () => {
+  it('друга зміна починається пізніше за першу', () => {
     const fifth = classById('5а')!
     const first = buildDay(fifth, 1, G1, 'my', 1)[0]
-    expect(first.start).toBeGreaterThanOrEqual(at(12, 30))
+    expect(first.start).toBeGreaterThanOrEqual(BELLS[5].start)
   })
 
   it('уроки нумеруються по порядку дня, а не за періодом', () => {
@@ -448,20 +448,20 @@ describe('що зараз', () => {
     const s = computeStatus(lessons, at(8, 22))
     expect(s.kind).toBe('lesson')
     if (s.kind === 'lesson') {
-      expect(s.leftMin).toBe(18)
-      expect(s.progress).toBeCloseTo(22 / 40, 5)
+      expect(s.leftMin).toBe(8)
+      expect(s.progress).toBeCloseTo(22 / 30, 5)
       expect(s.next?.period).toBe(2)
     }
   })
 
   it('рівно на дзвінку урок уже скінчився', () => {
-    const s = computeStatus(lessons, at(8, 40))
+    const s = computeStatus(lessons, at(8, 30))
     expect(s.kind).toBe('break')
-    if (s.kind === 'break') expect(s.inMin).toBe(15)
+    if (s.kind === 'break') expect(s.inMin).toBe(10)
   })
 
   it('рівно на початку урок уже почався', () => {
-    const s = computeStatus(lessons, at(8, 55))
+    const s = computeStatus(lessons, at(8, 40))
     expect(s.kind).toBe('lesson')
     if (s.kind === 'lesson') expect(s.progress).toBe(0)
   })
@@ -482,7 +482,7 @@ describe('що зараз', () => {
   })
 
   it('секунди не збивають відлік — округлюємо вгору', () => {
-    const s = computeStatus(lessons, at(8, 39) + 0.5)
+    const s = computeStatus(lessons, at(8, 29) + 0.5)
     if (s.kind === 'lesson') expect(s.leftMin).toBe(1)
   })
 })
@@ -527,7 +527,7 @@ describe('вікно проти перерви', () => {
 
   it('сусідні уроки — звичайна перерва', () => {
     const day = [lesson(1, 1), lesson(2, 2)]
-    const status = computeStatus(day, at(8, 45))
+    const status = computeStatus(day, at(8, 35))
     expect(status.kind).toBe('break')
     if (status.kind === 'break') expect(status.free).toBe(0)
   })
