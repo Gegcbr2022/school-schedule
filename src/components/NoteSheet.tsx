@@ -18,13 +18,15 @@ type Props = {
   initial: string
   onSave: (text: string) => boolean
   onClose: () => void
+  /** Відкрити правку самого уроку. Немає — правити тут нічого (повний розклад, учитель). */
+  onEditLesson?: () => void
 }
 
 /**
  * Редактор нотатки: домашнє завдання до уроку — або запис на весь день,
  * як-от чергування. Різниця лише в шапці й підказці; сховище спільне.
  */
-export function NoteSheet({ target, initial, onSave, onClose }: Props) {
+export function NoteSheet({ target, initial, onSave, onClose, onEditLesson }: Props) {
   const [text, setText] = useState(initial)
   const [saveFailed, setSaveFailed] = useState(false)
   const headingId = useId()
@@ -116,6 +118,11 @@ export function NoteSheet({ target, initial, onSave, onClose }: Props) {
               onClick={() => save('')}
             >
               Видалити нотатку
+            </button>
+          )}
+          {lesson && onEditLesson && (
+            <button type="button" className="linkbtn" onClick={onEditLesson}>
+              Урок у розкладі не такий? Виправити
             </button>
           )}
         </div>
