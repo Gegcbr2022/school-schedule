@@ -30,6 +30,23 @@ export function SpecialDayAgenda({ day }: { day: SpecialDay }) {
   )
 }
 
+/** Мітка над уроками, коли вони йдуть інакше: «Дистанційне навчання · 5–11 класи». */
+export function SpecialDayLabel({ day }: { day: SpecialDay }) {
+  return (
+    <p className="daylabel">
+      {day.emoji && (
+        <span className="daylabel__emoji" aria-hidden="true">
+          {day.emoji}
+        </span>
+      )}
+      <span className="daylabel__text">
+        <b>{day.title}</b>
+        {day.note && <span className="daylabel__note">{day.note}</span>}
+      </span>
+    </p>
+  )
+}
+
 type Props = {
   day: SpecialDay
   /** Поточний київський час у хвилинах — лише коли це сьогодні. */

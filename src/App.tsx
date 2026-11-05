@@ -24,14 +24,14 @@ import { NoteSheet } from './components/NoteSheet'
 import { ProfileBar } from './components/ProfileBar'
 import { SettingsSheet } from './components/SettingsSheet'
 import { TasksSheet } from './components/TasksSheet'
-import { SpecialCard, SpecialDayAgenda } from './components/SpecialCard'
+import { SpecialCard, SpecialDayAgenda, SpecialDayLabel } from './components/SpecialCard'
 import type { NextUp } from './components/StatusCard'
 import { StatusCard } from './components/StatusCard'
 import { TeachersSheet } from './components/TeachersSheet'
 import { WeekSheet } from './components/WeekSheet'
 import { placeByKey } from './data/regions'
 import { SCHOOL_NAME } from './data/schedule'
-import { specialDayOn } from './data/special'
+import { isLabelOnly, specialDayOn } from './data/special'
 import type { CalendarDate } from './lib/clock'
 import {
   DAY_NAME,
@@ -177,12 +177,14 @@ export default function App() {
     const week = weekParity(addDays(selected, 1 - selIso))
     const isToday = dateKey(selected) === dateKey(today)
 
-    // Особливі дні (свята, лінійки) прив'язані до календарної дати.
-    const viewedSpecial = specialDayOn(selected)
-    const todaySpecial = specialDayOn(today)
-
     // Учитель бачить свій день по всіх класах; учень — свій клас.
     const teacher = profileTeacher(profile)
+
+    // Особливі дні (свята, лінійки) прив'язані до календарної дати.
+    const grade = teacher ? undefined : parseInt(cls.id, 10)
+    const viewedSpecial = specialDayOn(selected, grade)
+    const todaySpecial = specialDayOn(today, grade)
+
     /** Уроки цього профілю плюс його гуртки — одним списком за часом. */
     const dayFor = (date: CalendarDate, dayIso: number, forWeek: typeof week, viewMode: ViewMode) =>
       withClubs(
@@ -510,7 +512,7 @@ export default function App() {
         <div className={showStatus ? 'layout' : 'layout layout--solo'}>
           <div className="layout__aside">
             {showStatus &&
-              (view.todaySpecial ? (
+              (view.todaySpecial && !isLabelOnly(view.todaySpecial) ? (
                 <SpecialCard day={view.todaySpecial} nowMin={now.minutes} />
               ) : (
                 <StatusCard
@@ -542,6 +544,10 @@ export default function App() {
                   <CloseIcon />
                 </button>
               </div>
+            )}
+
+            {view.viewedSpecial && isLabelOnly(view.viewedSpecial) && (
+              <SpecialDayLabel day={view.viewedSpecial} />
             )}
 
             {/* Запис на цілий день — те, що не належить жодному уроку. */}

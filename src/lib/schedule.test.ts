@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Period } from '../data/schedule'
 import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
 import { BOOKS, booksForClass } from '../data/books'
-import { specialDayOn } from '../data/special'
+import { isLabelOnly, specialDayOn } from '../data/special'
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 import {
@@ -56,8 +56,8 @@ const at10b = (groups: Groups, index: number, period: number, week: 1 | 2 = 1) =
   day(groups, index, week).find((l) => l.period === period)
 
 describe('дзвінки', () => {
-  it('усі дванадцять уроків по 30 хвилин', () => {
-    for (const p of PERIODS) expect(BELLS[p].end - BELLS[p].start).toBe(30)
+  it('усі дванадцять уроків по 40 хвилин', () => {
+    for (const p of PERIODS) expect(BELLS[p].end - BELLS[p].start).toBe(40)
   })
 
   it('ідуть по порядку і не накладаються', () => {
@@ -66,11 +66,11 @@ describe('дзвінки', () => {
     }
   })
 
-  it('перша зміна починається о 08:00, друга — о 12:15', () => {
+  it('перша зміна починається о 08:00, друга — о 13:25', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[6].end).toBe(at(12, 0))
-    expect(BELLS[7].start).toBe(at(12, 15))
-    expect(BELLS[12].end).toBe(at(16, 0))
+    expect(BELLS[6].end).toBe(at(13, 10))
+    expect(BELLS[7].start).toBe(at(13, 25))
+    expect(BELLS[12].end).toBe(at(18, 20))
   })
 })
 
@@ -155,10 +155,10 @@ describe('розклад усієї школи', () => {
     }
   })
 
-  it('друга зміна починається пізніше за першу', () => {
+  it('друга зміна справді починається по обіді', () => {
     const fifth = classById('5а')!
     const first = buildDay(fifth, 1, G1, 'my', 1)[0]
-    expect(first.start).toBeGreaterThanOrEqual(BELLS[5].start)
+    expect(first.start).toBeGreaterThanOrEqual(at(12, 30))
   })
 
   it('уроки нумеруються по порядку дня, а не за періодом', () => {
@@ -448,20 +448,20 @@ describe('що зараз', () => {
     const s = computeStatus(lessons, at(8, 22))
     expect(s.kind).toBe('lesson')
     if (s.kind === 'lesson') {
-      expect(s.leftMin).toBe(8)
-      expect(s.progress).toBeCloseTo(22 / 30, 5)
+      expect(s.leftMin).toBe(18)
+      expect(s.progress).toBeCloseTo(22 / 40, 5)
       expect(s.next?.period).toBe(2)
     }
   })
 
   it('рівно на дзвінку урок уже скінчився', () => {
-    const s = computeStatus(lessons, at(8, 30))
+    const s = computeStatus(lessons, at(8, 40))
     expect(s.kind).toBe('break')
-    if (s.kind === 'break') expect(s.inMin).toBe(10)
+    if (s.kind === 'break') expect(s.inMin).toBe(15)
   })
 
   it('рівно на початку урок уже почався', () => {
-    const s = computeStatus(lessons, at(8, 40))
+    const s = computeStatus(lessons, at(8, 55))
     expect(s.kind).toBe('lesson')
     if (s.kind === 'lesson') expect(s.progress).toBe(0)
   })
@@ -482,7 +482,7 @@ describe('що зараз', () => {
   })
 
   it('секунди не збивають відлік — округлюємо вгору', () => {
-    const s = computeStatus(lessons, at(8, 29) + 0.5)
+    const s = computeStatus(lessons, at(8, 39) + 0.5)
     if (s.kind === 'lesson') expect(s.leftMin).toBe(1)
   })
 })
@@ -527,7 +527,7 @@ describe('вікно проти перерви', () => {
 
   it('сусідні уроки — звичайна перерва', () => {
     const day = [lesson(1, 1), lesson(2, 2)]
-    const status = computeStatus(day, at(8, 35))
+    const status = computeStatus(day, at(8, 45))
     expect(status.kind).toBe('break')
     if (status.kind === 'break') expect(status.free).toBe(0)
   })
@@ -1017,6 +1017,34 @@ describe('особливі дні', () => {
 
   it('звичайний день не особливий', () => {
     expect(specialDayOn({ year: 2026, month: 9, day: 2 })).toBeNull()
+  })
+
+  it('26–30 жовтня 2026 — канікули: усі п’ять буднів без уроків', () => {
+    for (let day = 26; day <= 30; day++) {
+      const date = { year: 2026, month: 10, day }
+      expect(isoOf(date)).toBe(day - 25)
+      expect(specialDayOn(date)?.noLessons).toBe(true)
+    }
+  })
+
+  it('дистанційка 5–6 листопада — мітка лише для 5–11 класів, уроки лишаються', () => {
+    for (const day of [5, 6]) {
+      const date = { year: 2026, month: 11, day }
+      for (const cls of TIMETABLE) {
+        const grade = parseInt(cls.id, 10)
+        const special = specialDayOn(date, grade)
+        if (grade < 5) expect(special).toBeNull()
+        else expect(special?.title).toBe('Дистанційне навчання')
+      }
+      // Учитель — без паралелі: бачить мітку, бо в нього уроки в усіх класах.
+      const teacher = specialDayOn(date)
+      expect(teacher && isLabelOnly(teacher)).toBe(true)
+    }
+  })
+
+  it('день із подіями чи без уроків — не просто мітка', () => {
+    expect(isLabelOnly(specialDayOn({ year: 2026, month: 9, day: 1 })!)).toBe(false)
+    expect(isLabelOnly({ date: '2026-12-01', title: 'Лінійка', events: [{ title: 'Лінійка' }] })).toBe(false)
   })
 
   it('parseTime розбирає час і відкидає кривий', () => {
