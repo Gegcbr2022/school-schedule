@@ -22,6 +22,11 @@ export type Bell = { start: number; end: number }
 
 export const BELLS = pack.bells
 
+/** Дзвінки класу за його `id`: у 1–4 класів бувають свої. */
+export function bellsOf(classId: string): Record<Period, Bell> {
+  return parseInt(classId, 10) <= 4 ? (pack.juniorBells ?? BELLS) : BELLS
+}
+
 /* ── Предмети ────────────────────────────────────────────────────────── */
 
 export const SUBJECTS = pack.subjects

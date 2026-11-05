@@ -36,7 +36,8 @@ npx tsc -b      # лише типи
 
 Усе, що стосується конкретної школи, лежить у `src/data/seed/`:
 
-- `config.ts` — `BELLS` (дзвінки, періоди 1–12), `SUBJECTS`, `SCHOOL` (разом із `seedVersion`);
+- `config.ts` — `BELLS` (дзвінки 5–11 класів, періоди 1–12), `JUNIOR_BELLS` (свої дзвінки 1–4
+  класів на час без опалення; дзвінки класу дає `bellsOf`), `SUBJECTS`, `SCHOOL` (разом із `seedVersion`);
 - `timetable.ts` — уроки 5–11 класів, згенеровані `scripts/import-timetable.mjs`
   з PDF aSc; скрипт накладає `kabinety.mjs`, `vchyteli.mjs`, `stend.mjs`.
   Ручні правки при повторному імпорті треба перенести в `OVERRIDES` скрипта;

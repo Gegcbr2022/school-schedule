@@ -117,7 +117,7 @@ describe('як підписуємо вчителя', () => {
 })
 
 describe('розклад учителя', () => {
-  it('вікна — це рівно порожні періоди між першим і останнім уроком', () => {
+  it('вікна — це рівно порожні періоди між уроками тих самих дзвінків', () => {
     for (const week of WEEKS) {
       for (const teacher of scheduleTeachers()) {
         for (const day of buildTeacherWeek(teacher, week)) {
@@ -127,10 +127,17 @@ describe('розклад учителя', () => {
           expect(lessons.length).toBe(day.count)
           if (day.rows.length === 0) continue
 
-          // Ряди йдуть суцільно за номером періоду, без дір і без повторів.
-          const periods = day.rows.map((r) => r.period)
-          for (let i = 1; i < periods.length; i += 1) {
-            expect(periods[i]).toBe(periods[i - 1] + 1)
+          // Ряди завжди йдуть за часом.
+          const starts = day.rows.map((r) => r.start)
+          expect(starts).toEqual([...starts].sort((a, b) => a - b))
+
+          // Дзвінки одні на весь день — ряди суцільні за номером періоду,
+          // без дір і без повторів. Різні — номери вже не йдуть підряд.
+          if (new Set(lessons.map((r) => r.end - r.start)).size === 1) {
+            const periods = day.rows.map((r) => r.period)
+            for (let i = 1; i < periods.length; i += 1) {
+              expect(periods[i]).toBe(periods[i - 1] + 1)
+            }
           }
           // Край дня — завжди урок: вікно ні першим, ні останнім не буває.
           expect(day.rows[0].kind).toBe('lesson')
@@ -151,6 +158,29 @@ describe('розклад учителя', () => {
         })
       }
     }
+  })
+
+  it('день учителя йде за часом, навіть коли він веде і 4-і, і старші класи', () => {
+    for (const week of WEEKS) {
+      for (const teacher of scheduleTeachers()) {
+        for (let day = 0; day < 5; day += 1) {
+          const starts = buildTeacherDay(teacher, day, week).map((l) => l.start)
+          expect(starts).toEqual([...starts].sort((a, b) => a - b))
+        }
+      }
+    }
+  })
+
+  it('кожен клас учителя — за своїми дзвінками, а збіг в один період — за старшими', () => {
+    const items = (last: string, day: number, start: number) =>
+      buildTeacherDay(byLast(last), day, 1).find((l) => l.start === start)?.items.map((i) => i.cls)
+
+    // Понеділок: 4-Б на 7-му уроці за дзвінками 1–4 класів, о 12:15,
+    // а 10-А на 6-му — за дзвінками 5–11, о 12:40.
+    expect(items('Андрішак', 0, 12 * 60 + 15)).toEqual(['4-Б'])
+    expect(items('Андрішак', 0, 12 * 60 + 40)).toEqual(['10-А'])
+    // Четвер, 7-й урок: 4-В і 8-В в один період, рядок на час старших, 13:35.
+    expect(items('Побідинська', 3, 13 * 60 + 35)).toEqual(expect.arrayContaining(['4-В', '8-В']))
   })
 
   it('уроки однофамільців під спільним кодом не перемішуються', () => {

@@ -89,6 +89,12 @@ describe('isPack', () => {
     expect(isPack(broken)).toBe(false)
   })
 
+  it('дзвінки 1–4 класів необов’язкові, але якщо є — то на кожен період', () => {
+    expect(isPack({ ...good, juniorBells: undefined })).toBe(true)
+    expect(isPack({ ...good, juniorBells: { 1: { start: 480, end: 510 } } })).toBe(false)
+    expect(isPack({ ...good, juniorBells: 'нема' })).toBe(false)
+  })
+
   it('вимагає повне меню — інакше аркуш меню падає на порожній даті', () => {
     expect(isPack({ ...good, menuMeta: {} })).toBe(false)
     expect(isPack({ ...good, menuMeta: { ...good.menuMeta, from: undefined } })).toBe(false)
