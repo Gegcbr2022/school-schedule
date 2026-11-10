@@ -67,39 +67,15 @@ describe('дзвінки', () => {
     }
   })
 
-  it('перша зміна починається о 08:00, друга — о 13:35', () => {
+  it('перша зміна починається о 08:00, друга — о 13:25', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[6].end).toBe(at(13, 20))
-    expect(BELLS[7].start).toBe(at(13, 35))
-    expect(BELLS[12].end).toBe(at(18, 30))
+    expect(BELLS[6].end).toBe(at(13, 10))
+    expect(BELLS[7].start).toBe(at(13, 25))
+    expect(BELLS[12].end).toBe(at(18, 20))
   })
 
-  it('у 1–4 класів свої: по 30 хвилин, зміни 8:00–12:00 і 12:15–16:00', () => {
-    const junior = bellsOf('3а')
-    for (const p of PERIODS) expect(junior[p].end - junior[p].start).toBe(30)
-    for (let i = 1; i < PERIODS.length; i += 1) {
-      expect(junior[PERIODS[i]].start).toBeGreaterThan(junior[PERIODS[i - 1]].end)
-    }
-    expect(junior[1].start).toBe(at(8, 0))
-    expect(junior[6].end).toBe(at(12, 0))
-    expect(junior[7].start).toBe(at(12, 15))
-    expect(junior[12].end).toBe(at(16, 0))
-  })
-
-  it('межа між дзвінками — саме між 4-ми і 5-ми класами, а «10» і «11» не плутаються з «1»', () => {
-    expect(bellsOf('1а')).toBe(bellsOf('4в'))
-    expect(bellsOf('1а')).not.toBe(BELLS)
-    for (const id of ['5а', '10б', '11а']) expect(bellsOf(id)).toBe(BELLS)
-  })
-
-  it('день іде за дзвінками свого класу', () => {
-    const minutes = (id: string) => {
-      const [lesson] = buildDay(classById(id)!, 0, G1, 'my', 1)
-      return lesson.end - lesson.start
-    }
-    expect(minutes('3а')).toBe(30)
-    expect(minutes('4а')).toBe(30)
-    expect(minutes('10б')).toBe(40)
+  it('у 1–4 класів ті самі дзвінки, що й у старших', () => {
+    for (const id of ['1а', '4в', '5а', '10б', '11а']) expect(bellsOf(id)).toBe(BELLS)
   })
 
   it('у 1–4 класів немає вікон — на цьому тримається сітка тижня', () => {
@@ -565,7 +541,8 @@ describe('вікно проти перерви', () => {
 
   it('між уроками з різних дзвінків вікна немає: номери періодів там не порівнюються', () => {
     const senior = lesson(5, 1)
-    const junior: DisplayLesson = { ...lesson(7, 2), ...bellsOf('4а')[7] }
+    // 30-хвилинний, як у 1–4 класів без опалення (наказ № 292-о).
+    const junior: DisplayLesson = { ...lesson(7, 2), end: BELLS[7].start + 30 }
     expect(freeBetween(senior, junior)).toBe(0)
   })
 

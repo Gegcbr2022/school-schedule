@@ -26,12 +26,7 @@ import type { BookGroup } from './books'
 import type { DayMenu } from './menu'
 import type { SpecialDay } from './special'
 
-import {
-  BELLS as SEED_BELLS,
-  JUNIOR_BELLS as SEED_JUNIOR_BELLS,
-  SCHOOL,
-  SUBJECTS as SEED_SUBJECTS,
-} from './seed/config'
+import { BELLS as SEED_BELLS, SCHOOL, SUBJECTS as SEED_SUBJECTS } from './seed/config'
 import { TIMETABLE as SEED_TIMETABLE } from './seed/timetable'
 import { TEACHERS as SEED_TEACHERS } from './seed/teachers'
 import { BOOKS as SEED_BOOKS } from './seed/books'
@@ -150,7 +145,6 @@ export const SEED_PACK: Pack = {
     yearStart: SCHOOL.yearStart,
   },
   bells: SEED_BELLS,
-  juniorBells: SEED_JUNIOR_BELLS,
   subjects: SEED_SUBJECTS,
   timetable: SEED_TIMETABLE,
   teachers: SEED_TEACHERS,
