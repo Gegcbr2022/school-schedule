@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Period } from '../data/schedule'
-import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, subjectName } from '../data/schedule'
+import { BELLS, GROUP_DIM, PERIODS, SUBJECTS, bellsOf, subjectName } from '../data/schedule'
 import { BOOKS, booksForClass } from '../data/books'
-import { specialDayOn } from '../data/special'
+import { isLabelOnly, specialDayOn } from '../data/special'
 import { TEACHERS } from '../data/teachers'
 import { TIMETABLE } from '../data/timetable'
 import {
@@ -26,6 +26,7 @@ import {
   daysUntil,
   dimensionsOf,
   finishedCount,
+  freeBetween,
   nextSchoolIso,
   offWeekNote,
   roomLabel,
@@ -66,11 +67,24 @@ describe('дзвінки', () => {
     }
   })
 
-  it('перша зміна починається о 08:00, друга — о 13:40', () => {
+  it('перша зміна починається о 08:00, друга — о 13:25', () => {
     expect(BELLS[1].start).toBe(at(8, 0))
-    expect(BELLS[6].end).toBe(at(13, 25))
-    expect(BELLS[7].start).toBe(at(13, 40))
-    expect(BELLS[12].end).toBe(at(18, 45))
+    expect(BELLS[6].end).toBe(at(13, 10))
+    expect(BELLS[7].start).toBe(at(13, 25))
+    expect(BELLS[12].end).toBe(at(18, 20))
+  })
+
+  it('у 1–4 класів ті самі дзвінки, що й у старших', () => {
+    for (const id of ['1а', '4в', '5а', '10б', '11а']) expect(bellsOf(id)).toBe(BELLS)
+  })
+
+  it('у 1–4 класів немає вікон — на цьому тримається сітка тижня', () => {
+    for (const cls of TIMETABLE.filter((c) => parseInt(c.id, 10) <= 4)) {
+      for (const day of cls.days) {
+        const periods = day.map((l) => l.p as number).sort((a, b) => a - b)
+        periods.forEach((p, i) => i > 0 && expect(p).toBe(periods[i - 1] + 1))
+      }
+    }
   })
 })
 
@@ -158,7 +172,7 @@ describe('розклад усієї школи', () => {
   it('друга зміна справді починається по обіді', () => {
     const fifth = classById('5а')!
     const first = buildDay(fifth, 1, G1, 'my', 1)[0]
-    expect(first.start).toBeGreaterThanOrEqual(at(12, 45))
+    expect(first.start).toBeGreaterThanOrEqual(at(12, 30))
   })
 
   it('уроки нумеруються по порядку дня, а не за періодом', () => {
@@ -523,6 +537,13 @@ describe('вікно проти перерви', () => {
     const status = computeStatus(day, at(9, 0))
     expect(status.kind).toBe('break')
     if (status.kind === 'break') expect(status.free).toBe(2)
+  })
+
+  it('між уроками з різних дзвінків вікна немає: номери періодів там не порівнюються', () => {
+    const senior = lesson(5, 1)
+    // 30-хвилинний, як у 1–4 класів без опалення (наказ № 292-о).
+    const junior: DisplayLesson = { ...lesson(7, 2), end: BELLS[7].start + 30 }
+    expect(freeBetween(senior, junior)).toBe(0)
   })
 
   it('сусідні уроки — звичайна перерва', () => {
@@ -1017,6 +1038,34 @@ describe('особливі дні', () => {
 
   it('звичайний день не особливий', () => {
     expect(specialDayOn({ year: 2026, month: 9, day: 2 })).toBeNull()
+  })
+
+  it('26–30 жовтня 2026 — канікули: усі п’ять буднів без уроків', () => {
+    for (let day = 26; day <= 30; day++) {
+      const date = { year: 2026, month: 10, day }
+      expect(isoOf(date)).toBe(day - 25)
+      expect(specialDayOn(date)?.noLessons).toBe(true)
+    }
+  })
+
+  it('дистанційка 5–6 листопада — мітка лише для 5–11 класів, уроки лишаються', () => {
+    for (const day of [5, 6]) {
+      const date = { year: 2026, month: 11, day }
+      for (const cls of TIMETABLE) {
+        const grade = parseInt(cls.id, 10)
+        const special = specialDayOn(date, grade)
+        if (grade < 5) expect(special).toBeNull()
+        else expect(special?.title).toBe('Дистанційне навчання')
+      }
+      // Учитель — без паралелі: бачить мітку, бо в нього уроки в усіх класах.
+      const teacher = specialDayOn(date)
+      expect(teacher && isLabelOnly(teacher)).toBe(true)
+    }
+  })
+
+  it('день із подіями чи без уроків — не просто мітка', () => {
+    expect(isLabelOnly(specialDayOn({ year: 2026, month: 9, day: 1 })!)).toBe(false)
+    expect(isLabelOnly({ date: '2026-12-01', title: 'Лінійка', events: [{ title: 'Лінійка' }] })).toBe(false)
   })
 
   it('parseTime розбирає час і відкидає кривий', () => {

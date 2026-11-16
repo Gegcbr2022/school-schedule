@@ -12,10 +12,11 @@
  * Складання тижня з п'яти днів спільне для обох — `weekFrom`.
  */
 
-import type { Period, WeekParity } from '../data/schedule'
-import { BELLS, GROUP_DIM, GROUP_LABEL, subjectName } from '../data/schedule'
+import type { Bell, Period, WeekParity } from '../data/schedule'
+import { BELLS, GROUP_DIM, GROUP_LABEL, bellsOf, subjectName } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
 import type { DisplayItem, DisplayLesson } from './lessons'
+import { freeBetween } from './lessons'
 import type { Teacher } from './teachers'
 import { teaches } from './teachers'
 
@@ -55,27 +56,25 @@ export function weekFrom(days: DisplayLesson[][]): WeekDay[] {
     // за годиною початку.
     const lessons = all.filter((l) => !l.club)
     const clubs = all.filter((l) => l.club)
-    const byPeriod = new Map<number, DisplayLesson>()
-    for (const lesson of lessons) byPeriod.set(lesson.period, lesson)
 
     const rows: WeekRow[] = []
     let windows = 0
-    const first = lessons[0]?.period
-    const last = lessons[lessons.length - 1]?.period
 
-    if (first !== undefined && last !== undefined) {
-      for (let p = first; p <= last; p += 1) {
-        const bell = BELLS[p as Period]
-        if (!bell) continue
-        const lesson = byPeriod.get(p)
-        if (lesson) {
-          rows.push({ kind: 'lesson', period: p as Period, ...bell, items: lesson.items })
-        } else {
-          rows.push({ kind: 'window', period: p as Period, ...bell })
-          windows += 1
-        }
+    lessons.forEach((lesson, i) => {
+      const { period, start, end, items } = lesson
+      rows.push({ kind: 'lesson', period, start, end, items })
+
+      // Вікно бере дзвінки останнього класу рядка: старші стоять у `TIMETABLE`
+      // після молодших і мають пріоритет. В учня клас у рядку не підписаний,
+      // тоді дзвінки спільні: у 1–4 класів вікон не буває.
+      const bells = bellsOf(items[items.length - 1]?.cls ?? '')
+      const next = lessons[i + 1]
+      const free = next ? freeBetween(lesson, next) : 0
+      for (let p = period + 1; p <= period + free; p += 1) {
+        rows.push({ kind: 'window', period: p, ...bells[p as Period] })
+        windows += 1
       }
-    }
+    })
 
     for (const club of clubs) {
       const row: WeekRow = {
@@ -106,6 +105,9 @@ function onWeek(
   return true
 }
 
+/** Що вчитель веде в один період і коли саме. */
+type TeacherSlot = { bell: Bell; items: DisplayItem[] }
+
 /**
  * Уроки вчителя за один день: період → що саме він у цей період веде.
  * По всіх класах одразу, тому в одному періоді буває кілька записів
@@ -115,11 +117,14 @@ function lessonsOf(
   teacher: Teacher,
   dayIndex: number,
   week: WeekParity,
-): Map<Period, DisplayItem[]> {
-  const byPeriod = new Map<Period, DisplayItem[]>()
+): Map<Period, TeacherSlot> {
+  const byPeriod = new Map<Period, TeacherSlot>()
 
   for (const cls of TIMETABLE) {
+    const bells = bellsOf(cls.id)
     for (const lesson of cls.days[dayIndex] ?? []) {
+      const bell = bells[lesson.p]
+      if (!bell) continue
       for (const cell of lesson.c) {
         if (!cell.t || !teaches(teacher, cell.t, cell.s, cls.id)) continue
         if (!onWeek(cell.w, cell.g, week)) continue
@@ -130,19 +135,20 @@ function lessonsOf(
           room: cell.r,
           who: cell.g ? GROUP_LABEL[cell.g] : undefined,
         }
-        const list = byPeriod.get(lesson.p)
-        if (list) list.push(entry)
-        else byPeriod.set(lesson.p, [entry])
+        const slot = byPeriod.get(lesson.p)
+        if (slot) {
+          slot.items.push(entry)
+          // shortcut: один рядок на період, тож класи з різними дзвінками ділять
+          // час старших, бо вони в пріоритеті. Рознести, якщо такий режим надовго.
+          if (bell !== slot.bell) slot.bell = BELLS[lesson.p]
+        } else {
+          byPeriod.set(lesson.p, { bell, items: [entry] })
+        }
       }
     }
   }
 
   return byPeriod
-}
-
-/** Періоди дня за зростанням. */
-function periodsOf(byPeriod: Map<Period, DisplayItem[]>): Period[] {
-  return [...byPeriod.keys()].sort((a, b) => a - b)
 }
 
 /** Тиждень учителя: п'ять днів із вікнами між уроками. */
@@ -154,20 +160,18 @@ export function buildTeacherWeek(teacher: Teacher, week: WeekParity): WeekDay[] 
  * Один день учителя у тому ж вигляді, що й день учня, — щоб головний
  * екран (що зараз, скільки до дзвінка, нотатки) працював без змін.
  * Вікна тут не окремі рядки: їх видно з розривів у номерах періодів.
+ *
+ * Порядок — за часом, а не за періодом: `computeStatus` чекає день по порядку,
+ * а в учителя 4-х і старших класів пізніший період буває раніший.
  */
 export function buildTeacherDay(
   teacher: Teacher,
   dayIndex: number,
   week: WeekParity,
 ): DisplayLesson[] {
-  const byPeriod = lessonsOf(teacher, dayIndex, week)
-
-  return periodsOf(byPeriod).map((period, index) => ({
-    n: index + 1,
-    period,
-    ...BELLS[period],
-    items: byPeriod.get(period) ?? [],
-  }))
+  return [...lessonsOf(teacher, dayIndex, week)]
+    .sort(([pa, a], [pb, b]) => a.bell.start - b.bell.start || pa - pb)
+    .map(([period, { bell, items }], index) => ({ n: index + 1, period, ...bell, items }))
 }
 
 /* ── Що і де веде вчитель ────────────────────────────────────────────── */

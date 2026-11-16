@@ -11,9 +11,9 @@ import type {
   WeekParity,
 } from '../data/schedule'
 import {
-  BELLS,
   GROUP_DIM,
   GROUP_LABEL,
+  bellsOf,
   subjectName,
 } from '../data/schedule'
 import { TIMETABLE } from '../data/timetable'
@@ -182,10 +182,11 @@ export function buildDay(
   week: WeekParity,
 ): DisplayLesson[] {
   const day: Lesson[] = cls.days[dayIndex] ?? []
+  const bells = bellsOf(cls.id)
   const out: DisplayLesson[] = []
 
   for (const lesson of day) {
-    const bell = BELLS[lesson.p]
+    const bell = bells[lesson.p]
     if (!bell) continue
 
     const cells =
@@ -261,6 +262,8 @@ export type DayStatus =
  */
 export function freeBetween(a: DisplayLesson, b: DisplayLesson): number {
   if (a.club || b.club) return 0
+  // Різна довжина — різні дзвінки, і номери періодів уже не порівнюються.
+  if (a.end - a.start !== b.end - b.start) return 0
   return b.period - a.period - 1
 }
 

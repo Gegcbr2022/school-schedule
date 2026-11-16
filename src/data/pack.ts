@@ -80,6 +80,11 @@ export type Pack = {
   version: string
   school: SchoolInfo
   bells: Record<Period, Bell>
+  /**
+   * Свої дзвінки 1–4 класів, коли вони розходяться зі спільними. Необов'язкове
+   * поле: застосунки, зібрані раніше, його не знають і всім показують `bells`.
+   */
+  juniorBells?: Record<Period, Bell>
   subjects: Record<string, string>
   timetable: ClassTimetable[]
   teachers: Teacher[]
@@ -158,6 +163,22 @@ function isText(value: unknown): boolean {
 }
 
 /**
+ * Дзвінки мусять бути на кожен період: `BELLS[p]` читають і `lib/lessons.ts`,
+ * і `lib/rooms.ts`, і жоден з них не переживе `undefined`.
+ *
+ * Перелік потрібних періодів беремо з насінного паку, а не з `PERIODS`
+ * у `schedule.ts`: той модуль сам читає звідси, і імпорт значення з
+ * нього замкнув би коло — застосунок падав би ще на старті.
+ */
+function isBells(value: unknown): boolean {
+  if (!isObject(value)) return false
+  return Object.keys(SEED_BELLS).every((period) => {
+    const bell = value[period]
+    return isObject(bell) && typeof bell.start === 'number' && typeof bell.end === 'number'
+  })
+}
+
+/**
  * Чи схоже це на пак, яким можна користуватись.
  *
  * Перевіряємо форму, а не зміст: чи правильний розклад — тут не
@@ -183,18 +204,8 @@ export function isPack(value: unknown): value is Pack {
     return false
   }
 
-  // Дзвінки мусять бути на кожен період: `BELLS[p]` читають і `lib/lessons.ts`,
-  // і `lib/rooms.ts`, і жоден з них не переживе `undefined`.
-  //
-  // Перелік потрібних періодів беремо з насінного паку, а не з `PERIODS`
-  // у `schedule.ts`: той модуль сам читає звідси, і імпорт значення з
-  // нього замкнув би коло — застосунок падав би ще на старті.
-  if (!isObject(p.bells)) return false
-  for (const period of Object.keys(SEED_BELLS)) {
-    const bell = (p.bells as Record<string, unknown>)[period]
-    if (!isObject(bell)) return false
-    if (typeof bell.start !== 'number' || typeof bell.end !== 'number') return false
-  }
+  if (!isBells(p.bells)) return false
+  if (p.juniorBells !== undefined && !isBells(p.juniorBells)) return false
 
   if (!isObject(p.subjects) || !Object.values(p.subjects).every(isText)) return false
 
